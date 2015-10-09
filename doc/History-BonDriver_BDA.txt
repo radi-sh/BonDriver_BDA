@@ -1,0 +1,50 @@
+【2014-03-14】
+・BonDriver_BDA改として公開
+
+【2014-03-19】
+・BpnDriver解放時に一般保護違反を起こす不具合を修正
+
+【2014-03-23】
+・TS取得用のフィルタグラフとしてInfinite Pin Teeの使用をやめ、軽量なものに書き直した
+・フィルタグラフの解放をキャプチャ→チューナの順序からチューナ→キャプチャに変更（メモリリークを起こすことがあるため）
+・チューナのオープンに失敗した後オープン出来なくなる問題を修正
+・その他、細かい修正
+
+【2015-08-07】
+・iniファイルでキャプチャデバイスの指定ができるようにした（CaptureGuid・CaptureFriendlyName）
+・iniファイルでのChannelLock関係の項目を追加（ChannelLockWaitDelay・ChannelLockWaitRetry・ChannelLockTwice・ChannelLockTwiceDelay）
+・サンプルiniファイルでデフォルト値を明示指定するように変更
+・サンプルiniファイルのCH設定を最新のものに更新
+・多くの環境で初期化に失敗する不具合を修正
+・2つ目以降のチューナが開けない不具合を修正
+・チューナー・キャプチャの組合せを検索するロジックを変更
+・その他、細かい修正
+・開発環境をVisual Studio Community 2013に変更
+
+【2015-09-21】
+・iniファイルにModulationセクションを新設し、変調方式パラメータの設定ができるようにした
+　上記変更に伴い、put_Modulation()のデフォルト値にBDA_MOD_NBC_8PSK/BDA_MOD_NBC_QPSKを使用するようにしました
+　問題が発生する場合はiniファイル中の下記2項目を変更してみてください
+　ModulationType0Modulation=20
+　ModulationType1Modulation=27
+・CH設定に左旋円偏波・右旋円偏波の指定ができるようにした
+・CoInitialize/CoUnInitializeを含むすべてのCOM処理を独立した別スレッドで行うようにした
+・開発環境をVisual Studio Community 2015に変更
+　通常版の実行には「Visual Studio 2015 の Visual C++ 再頒布可能パッケージ」のインストールが必要です
+
+【2015-10-07】（BonDriver_BDA_with_PX-Q3W3S3にバイナリ同梱）
+・チャンネル空間が複数設定できるようになりました
+　CH000～のチャンネル定義はTuningSpace00～のセクション毎での定義になりました
+　TuningSpaceNameもTuningSpace00～のセクション毎に設定してください
+・DebugLogをファイルに記録するオプションを追加
+・地デジ/衛星チューナー用の設定を追加
+・同一のプロセスから複数Createされても大丈夫かもしれない感じにしてみた
+・↑の関係が原因だったと思われる、チューナデバイス検索時に使用中だったらReleaseしないルールを廃止
+・チューナ固有関数を拡張し、チューナ初期化・デコード・選局時の追加処理等を行えるようにした
+・LoadTuningSpaceの処理を廃止し、CreateTuningSpaceで作成したTuningSpaceをシステムに登録しないように変更
+・その他、細かい修正
+
+【2015-10-09】
+・ソースのコメントを整理
+・修正履歴・サンプルiniファイルを更新
+・一部コードの最適化
