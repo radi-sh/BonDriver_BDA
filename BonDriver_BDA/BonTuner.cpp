@@ -1083,27 +1083,27 @@ void CBonTuner::ReadIniFile(void)
 		// SPHD
 		// 衛星設定1（JCSAT-3A）
 		m_sSatelliteName[1] = L"128.0E";						// チャンネル名生成用衛星名称
-		m_aSatellite[1].Polarisation[0].Oscillator = 11200000;	// 垂直偏波時LNB周波数
-		m_aSatellite[1].Polarisation[0].Tone = 0;				// 垂直偏波時トーン信号
-		m_aSatellite[1].Polarisation[1].Oscillator = 11200000;	// 水平偏波時LNB周波数
-		m_aSatellite[1].Polarisation[1].Tone = 0;				// 水平偏波時トーン信号
+		m_aSatellite[1].Polarisation[1].Oscillator = 11200000;	// 垂直偏波時LNB周波数
+		m_aSatellite[1].Polarisation[1].Tone = 0;				// 垂直偏波時トーン信号
+		m_aSatellite[1].Polarisation[2].Oscillator = 11200000;	// 水平偏波時LNB周波数
+		m_aSatellite[1].Polarisation[2].Tone = 0;				// 水平偏波時トーン信号
 
 		// 衛星設定2（JCSAT-4B）
 		m_sSatelliteName[2] = L"124.0E";						// チャンネル名生成用衛星名称
-		m_aSatellite[2].Polarisation[0].Oscillator = 11200000;	// 垂直偏波時LNB周波数
-		m_aSatellite[2].Polarisation[0].Tone = 1;				// 垂直偏波時トーン信号
-		m_aSatellite[2].Polarisation[1].Oscillator = 11200000;	// 水平偏波時LNB周波数
-		m_aSatellite[2].Polarisation[1].Tone = 1;				// 水平偏波時トーン信号
+		m_aSatellite[2].Polarisation[1].Oscillator = 11200000;	// 垂直偏波時LNB周波数
+		m_aSatellite[2].Polarisation[1].Tone = 1;				// 垂直偏波時トーン信号
+		m_aSatellite[2].Polarisation[2].Oscillator = 11200000;	// 水平偏波時LNB周波数
+		m_aSatellite[2].Polarisation[2].Tone = 1;				// 水平偏波時トーン信号
 		break;
 
 	case 2:
 		// BS/CS110
 		// 衛星設定1
 		m_sSatelliteName[1] = L"BS/CS110";						// チャンネル名生成用衛星名称
-		m_aSatellite[1].Polarisation[0].Oscillator = 10678000;	// 垂直偏波時LNB周波数
-		m_aSatellite[1].Polarisation[0].Tone = 0;				// 垂直偏波時トーン信号
-		m_aSatellite[1].Polarisation[1].Oscillator = 10678000;	// 水平偏波時LNB周波数
-		m_aSatellite[1].Polarisation[1].Tone = 0;				// 水平偏波時トーン信号
+		m_aSatellite[1].Polarisation[3].Oscillator = 10678000;	// 垂直偏波時LNB周波数
+		m_aSatellite[1].Polarisation[3].Tone = 0;				// 垂直偏波時トーン信号
+		m_aSatellite[1].Polarisation[4].Oscillator = 10678000;	// 水平偏波時LNB周波数
+		m_aSatellite[1].Polarisation[4].Tone = 0;				// 水平偏波時トーン信号
 		break;
 
 	case 3:
