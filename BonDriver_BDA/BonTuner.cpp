@@ -1501,7 +1501,7 @@ void CBonTuner::ReadIniFile(void)
 			// SPHDの場合のみ過去のバージョン互換動作
 			// 3つのTPをデフォルトでセットしておく
 			ChData *chData;
-			//   128.0E 12.658GHz V DVB-S
+			//   128.0E 12.658GHz V DVB-S *** 2015-10-10現在、NITには存在するけど停波中
 			chData = new ChData();
 			chData->Satellite = 1;
 			chData->Polarisation = 2;
