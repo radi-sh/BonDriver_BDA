@@ -1486,23 +1486,25 @@ void CBonTuner::ReadIniFile(void)
 		}
 	}
 
-	if (!m_TuningData.Spaces.size()) {
-		// チューニング空間が1つも定義されてない
-		itSpace = m_TuningData.Spaces.find(0);
-		if (itSpace == m_TuningData.Spaces.end()) {
-			// ここには来ないはずだけど一応
-			// 空のTuningSpaceDataをチューニング空間番号0に挿入
-			TuningSpaceData *tuningSpaceData = new TuningSpaceData;
-			itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<int, TuningSpaceData*>(0, tuningSpaceData));
-		}
+	// チューニング空間番号0を探す
+	itSpace = m_TuningData.Spaces.find(0);
+	if (itSpace == m_TuningData.Spaces.end()) {
+		// ここには来ないはずだけど一応
+		// 空のTuningSpaceDataをチューニング空間番号0に挿入
+		TuningSpaceData *tuningSpaceData = new TuningSpaceData;
+		itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<int, TuningSpaceData*>(0, tuningSpaceData));
+	}
 
-		if (!itSpace->second->Channels.size()) {
+	if (!itSpace->second->Channels.size()) {
+		// CH定義が一つもされていない
+		if (m_nDefaultNetwork == 1) {
+			// SPHDの場合のみ過去のバージョン互換動作
 			// 3つのTPをデフォルトでセットしておく
 			ChData *chData;
 			//   128.0E 12.658GHz V DVB-S
 			chData = new ChData();
-			chData->Satellite = 0;
-			chData->Polarisation = 1;
+			chData->Satellite = 1;
+			chData->Polarisation = 2;
 			chData->ModulationType = 0;
 			chData->Frequency = 12658000;
 			MakeChannelName(buf, 256, chData);
@@ -1515,8 +1517,8 @@ void CBonTuner::ReadIniFile(void)
 			itSpace->second->Channels.insert(pair<int, ChData*>(0, chData));
 			//   124.0E 12.613GHz H DVB-S2
 			chData = new ChData();
-			chData->Satellite = 1;
-			chData->Polarisation = 0;
+			chData->Satellite = 2;
+			chData->Polarisation = 1;
 			chData->ModulationType = 1;
 			chData->Frequency = 12613000;
 			MakeChannelName(buf, 256, chData);
@@ -1529,8 +1531,8 @@ void CBonTuner::ReadIniFile(void)
 			itSpace->second->Channels.insert(pair<int, ChData*>(1, chData));
 			//   128.0E 12.733GHz H DVB-S2
 			chData = new ChData();
-			chData->Satellite = 0;
-			chData->Polarisation = 0;
+			chData->Satellite = 1;
+			chData->Polarisation = 1;
 			chData->ModulationType = 1;
 			chData->Frequency = 12733000;
 			MakeChannelName(buf, 256, chData);
@@ -1542,9 +1544,9 @@ void CBonTuner::ReadIniFile(void)
 #endif
 			itSpace->second->Channels.insert(pair<int, ChData*>(2, chData));
 			itSpace->second->dwNumChannel = 3;
-			return;
 		}
 	}
+
 	// チューニング空間の数
 	itSpace = m_TuningData.Spaces.end();
 	if (itSpace == m_TuningData.Spaces.begin()) {
