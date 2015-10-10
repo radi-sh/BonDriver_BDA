@@ -2054,7 +2054,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 
 	if (m_nDVBSystemType == eTunerTypeDVBT) {
 		iidTuningSpace = __uuidof(DVBTuningSpace);
-		iidITuningSpace = __uuidof(IDVBTuningSpace);
+		iidITuningSpace = __uuidof(IDVBTuningSpace2);
 		iidLocator = __uuidof(DVBTLocator);
 		iidILocator = __uuidof(IDVBTLocator);
 		iidNetworkType = CLSID_DVBTNetworkProvider;
