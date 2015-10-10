@@ -1477,8 +1477,13 @@ void CBonTuner::ReadIniFile(void)
 
 		// CH番号の最大値 + 1
 		itCh = itSpace->second->Channels.end();
-		itCh--;
-		itSpace->second->dwNumChannel = itCh->first + 1;
+		if (itCh == itSpace->second->Channels.begin()) {
+			itSpace->second->dwNumChannel = 0;
+		}
+		else {
+			itCh--;
+			itSpace->second->dwNumChannel = itCh->first + 1;
+		}
 	}
 
 	if (!m_TuningData.Spaces.size()) {
@@ -1542,8 +1547,14 @@ void CBonTuner::ReadIniFile(void)
 	}
 	// チューニング空間の数
 	itSpace = m_TuningData.Spaces.end();
-	itSpace--;
-	m_TuningData.dwNumSpace = itSpace->first + 1;
+	if (itSpace == m_TuningData.Spaces.begin()) {
+		// こっちも一応
+		m_TuningData.dwNumSpace = 0;
+	}
+	else {
+		itSpace--;
+		m_TuningData.dwNumSpace = itSpace->first + 1;
+	}
 }
 
 void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
