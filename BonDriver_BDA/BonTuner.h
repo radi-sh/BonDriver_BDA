@@ -269,6 +269,7 @@ protected:
 		wstring sTunerFriendlyName[MAX_GUID];	// TunerのFriendlyName指定
 		wstring sCaptureGUID[MAX_GUID];			// CaptureのGUID指定
 		wstring sCaptureFriendlyName[MAX_GUID];	// CaptureのFriendlyName指定
+		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 #ifdef UNICODE
 		wstring sTunerName;						// GetTunerNameで返す名前
 #else
@@ -276,6 +277,7 @@ protected:
 #endif
 		wstring sDLLBaseName;					// 固有DLL
 		TunerParam(void)
+			: bCheckDeviceInstancePath(TRUE)
 		{
 		};
 	};

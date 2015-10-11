@@ -978,6 +978,9 @@ void CBonTuner::ReadIniFile(void)
 	::GetPrivateProfileStringW(L"TUNER", L"CaptureFriendlyName", m_aTunerParam.sCaptureFriendlyName[0].c_str(), buf, 256, m_szIniFilePath);
 	m_aTunerParam.sCaptureFriendlyName[0] = buf;
 
+	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
+	m_aTunerParam.bCheckDeviceInstancePath = (BOOL)::GetPrivateProfileIntW(L"TUNER", L"CheckDeviceInstancePath", 1, m_szIniFilePath);
+
 	// Tuner名: GetTunerNameで返すチューナ名 ... 指定されなければデフォルト名が
 	//   使われる。この場合、複数チューナを名前で区別する事はできない
 	::GetPrivateProfileStringW(L"TUNER", L"Name", L"DVB-S2", buf, 256, m_szIniFilePath);
@@ -2451,6 +2454,24 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
 			if (!found)
 				continue;
 			OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s\n  GUID:%s\n", friendlyName.c_str(), displayName.c_str());
+
+			if (m_aTunerParam.bCheckDeviceInstancePath) {
+				// チューナデバイスとキャプチャデバイスのデバイスインスタンスパスが一致しているか確認
+				wstring::size_type n, last;
+				n = last = 0;
+				while ((n = m_sTunerDisplayName.find(L'#', n)) != wstring::npos) {
+					last = n;
+					n++;
+				}
+				if (last != 0) {
+					wstring path = m_sTunerDisplayName.substr(0, last);
+					if (displayName.find(path) == wstring::npos) {
+						// デバイスパスが異なっているので次のキャプチャーデバイスへ
+						OutputDebug(L"[T->C] Capture device instance path not match.\n");
+						continue;
+					}
+				}
+			}
 
 			if (FAILED(hr = CheckCapture(displayName, friendlyName))) {
 				OutputDebug(L"[T->C] Discarded by BDASpecials.\n");
