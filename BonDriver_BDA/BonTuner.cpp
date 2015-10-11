@@ -2473,7 +2473,9 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
 				}
 			}
 
+			// チューナ固有Dllでの確認処理があれば呼び出す
 			if (FAILED(hr = CheckCapture(displayName, friendlyName))) {
+				// 固有Dllがダメと言っているので次のチューナデバイスへ
 				OutputDebug(L"[T->C] Discarded by BDASpecials.\n");
 				continue;
 			}
