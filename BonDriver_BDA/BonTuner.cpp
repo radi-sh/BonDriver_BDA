@@ -2466,7 +2466,6 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
 					}
 					// TIFと接続
 					if (FAILED(LoadAndConnectTif())) {
-					// TsDemuxerと接続
 						// 失敗したら次のキャプチャデバイスへ
 						DisconnectAll(m_pTif);
 						DisconnectAll(m_pDemux);
