@@ -2316,6 +2316,7 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 					// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
 					if (FAILED(hr = CheckAndInitTunerDependDll(displayName, friendlyName))) {
 						// 何らかの理由で使用できないみたいなので次のチューナへ
+						OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
 						ReleaseTunerDependCode();
 						m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
 						SAFE_RELEASE(m_pTunerDevice);
