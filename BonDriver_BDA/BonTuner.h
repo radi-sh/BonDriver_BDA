@@ -115,6 +115,9 @@ protected:
 	// チューナ固有Dllのロード
 	HRESULT CheckAndInitTunerDependDll(wstring displayName, wstring friendlyName);
 
+	// チューナ固有Dllでのキャプチャデバイス確認
+	HRESULT CheckCapture(wstring displayName, wstring friendlyName);
+		
 	// チューナ固有関数のロード
 	void LoadTunerDependCode(void);
 
@@ -514,6 +517,10 @@ protected:
 	IGraphBuilder *m_pIGraphBuilder;
 	IMediaControl *m_pIMediaControl;
 	CTsWriter *m_pCTsWriter;
+
+	// チューナーのGUIDとFriendryName
+	wstring m_sTunerDisplayName;
+	wstring m_sTunerFriendryName;
 
 	// チューナーの使用するTuningSpace/NetworkProvider等の種類
 	enum enumTunerType {

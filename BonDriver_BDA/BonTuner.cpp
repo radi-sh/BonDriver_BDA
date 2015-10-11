@@ -1908,6 +1908,22 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(wstring displayName, wstring frien
 	return (*func)(m_pTunerDevice, displayName.c_str(), friendlyName.c_str(), m_szIniFilePath);
 }
 
+// チューナ固有Dllでのキャプチャデバイス確認
+HRESULT CBonTuner::CheckCapture(wstring displayName, wstring friendlyName)
+{
+	if (m_hModuleTunerSpecials == NULL) {
+		return S_OK;
+	}
+
+	HRESULT(*func)(const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*) =
+		(HRESULT(*)(const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*))::GetProcAddress(m_hModuleTunerSpecials, "CheckCapture");
+	if (!func) {
+		return S_OK;
+	}
+
+	return (*func)(m_sTunerDisplayName.c_str(), m_sTunerFriendryName.c_str(), displayName.c_str(), friendlyName.c_str(), m_szIniFilePath);
+}
+
 // チューナ固有関数のロード
 void CBonTuner::LoadTunerDependCode(void)
 {
@@ -2326,6 +2342,10 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 						continue;
 					}
 
+					// GUIDとFriendryNameの保存
+					m_sTunerDisplayName = displayName;
+					m_sTunerFriendryName = friendlyName;
+
 					// 使用できるCaptureとの接続～RunGraphまでを試みる
 					if (FAILED(hr = LoadAndConnectCaptureDevice())) {
 						// 動作する組合せが見つからなかったので次のチューナへ
@@ -2431,6 +2451,11 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
 			if (!found)
 				continue;
 			OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s\n  GUID:%s\n", friendlyName.c_str(), displayName.c_str());
+
+			if (FAILED(hr = CheckCapture(displayName, friendlyName))) {
+				OutputDebug(L"[T->C] Discarded by BDASpecials.\n");
+				continue;
+			}
 
 			if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pCaptureDevice))) {
 				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pCaptureDevice, friendlyName.c_str()))) {
