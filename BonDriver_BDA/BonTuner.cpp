@@ -80,11 +80,11 @@ const Polarisation CBonTuner::PolarisationMapping[] = {
 };
 
 const WCHAR CBonTuner::PolarisationChar[] = {
-	0x00,
-	'H',
-	'V',
-	'L',
-	'R'
+	L'\0',
+	L'H',
+	L'V',
+	L'L',
+	L'R'
 };
 
 const CBonTuner::TUNER_SPECIAL_DLL CBonTuner::aTunerSpecialData [] = {
@@ -1424,7 +1424,7 @@ void CBonTuner::ReadIniFile(void)
 				OutputDebug(L"Format Error in readIniFile; Wrong Frequency.\n");
 
 			// 偏波種類
-			if (szPolarisation[0] == ' ')
+			if (szPolarisation[0] == L' ')
 				szPolarisation[0] = 0;
 			val = -1;
 			for (int i = 0; i < POLARISATION_SIZE; i++) {
@@ -2297,8 +2297,8 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 			// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
 			wstring::size_type n = 0;
 			wstring semName = displayName;
-			while ((n = semName.find('\\', n)) != wstring::npos) {
-				semName.replace(n, 1, 1, '/');
+			while ((n = semName.find(L'\\', n)) != wstring::npos) {
+				semName.replace(n, 1, 1, L'/');
 			}
 			semName = L"Global\\" + semName;
 			
