@@ -1854,7 +1854,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam)
 }
 
 // チューナ固有Dllのロード
-HRESULT CBonTuner::CheckAndInitTunerDependDll(wstring displayName, wstring friendlyName)
+HRESULT CBonTuner::CheckAndInitTunerDependDll(void)
 {
 	if (m_aTunerParam.sDLLBaseName == L"") {
 		// チューナ固有関数を使わない場合
@@ -1865,7 +1865,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(wstring displayName, wstring frien
 		// INI ファイルで "AUTO" 指定の場合
 		BOOL found = FALSE;
 		for (int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
-			if ((aTunerSpecialData[i].sTunerGUID != L"") && (displayName.find(aTunerSpecialData[i].sTunerGUID)) != wstring::npos) {
+			if ((aTunerSpecialData[i].sTunerGUID != L"") && (m_sTunerDisplayName.find(aTunerSpecialData[i].sTunerGUID)) != wstring::npos) {
 				// この時のチューナ依存コードをチューナパラメータに変数にセットする
 				m_aTunerParam.sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;
 				break;
@@ -1908,7 +1908,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(wstring displayName, wstring frien
 		return S_OK;
 	}
 
-	return (*func)(m_pTunerDevice, displayName.c_str(), friendlyName.c_str(), m_szIniFilePath);
+	return (*func)(m_pTunerDevice, m_sTunerDisplayName.c_str(), m_sTunerFriendryName.c_str(), m_szIniFilePath);
 }
 
 // チューナ固有Dllでのキャプチャデバイス確認
@@ -2264,10 +2264,8 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 		CDSFilterEnum dsfEnum(KSCATEGORY_BDA_NETWORK_TUNER, CDEF_DEVMON_PNP_DEVICE);
 		while (SUCCEEDED(hr = dsfEnum.next()) && hr == S_OK) {
 			// チューナの DisplayName, FriendlyName を得る
-			wstring displayName;
-			wstring friendlyName;
-			dsfEnum.getDisplayName(&displayName);
-			dsfEnum.getFriendlyName(&friendlyName);
+			dsfEnum.getDisplayName(&m_sTunerDisplayName);
+			dsfEnum.getFriendlyName(&m_sTunerFriendryName);
 
 			// iniファイルでチューナを指定している場合
 			// DisplayName に GUID が含まれるか検査して、NOだったら次のチューナへ
@@ -2276,7 +2274,7 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 				if (m_aTunerParam.sTunerGUID[i].compare(L"") == 0)
 					continue;
 				found = false;
-				if (displayName.find(m_aTunerParam.sTunerGUID[i]) != wstring::npos) {
+				if (m_sTunerDisplayName.find(m_aTunerParam.sTunerGUID[i]) != wstring::npos) {
 					found = true;
 					break;
 				}
@@ -2288,18 +2286,18 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 				if (m_aTunerParam.sTunerFriendlyName[i].compare(L"") == 0)
 					continue;
 				found = false;
-				if (friendlyName.find(m_aTunerParam.sTunerFriendlyName[i]) != wstring::npos) {
+				if (m_sTunerFriendryName.find(m_aTunerParam.sTunerFriendlyName[i]) != wstring::npos) {
 					found = true;
 					break;
 				}
 			}
 			if (!found)
 				continue;
-			OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s\n  GUID:%s\n", friendlyName.c_str(), displayName.c_str());
+			OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s\n  GUID:%s\n", m_sTunerFriendryName.c_str(), m_sTunerDisplayName.c_str());
 
 			// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
 			wstring::size_type n = 0;
-			wstring semName = displayName;
+			wstring semName = m_sTunerDisplayName;
 			while ((n = semName.find(L'\\', n)) != wstring::npos) {
 				semName.replace(n, 1, 1, L'/');
 			}
@@ -2318,7 +2316,7 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 			}
 				
 			if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pTunerDevice))) {
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, friendlyName.c_str()))) {
+				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, m_sTunerFriendryName.c_str()))) {
 					OutputDebug(L"[P->T] Error in AddFilter\n");
 					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
 					::CloseHandle(m_hSemaphore);
@@ -2333,7 +2331,7 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 					OutputDebug(L"[P->T] Connect OK.\n");
 
 					// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
-					if (FAILED(hr = CheckAndInitTunerDependDll(displayName, friendlyName))) {
+					if (FAILED(hr = CheckAndInitTunerDependDll())) {
 						// 何らかの理由で使用できないみたいなので次のチューナへ
 						OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
 						ReleaseTunerDependCode();
@@ -2344,10 +2342,6 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 						m_hSemaphore = NULL;
 						continue;
 					}
-
-					// GUIDとFriendryNameの保存
-					m_sTunerDisplayName = displayName;
-					m_sTunerFriendryName = friendlyName;
 
 					// 使用できるCaptureとの接続～RunGraphまでを試みる
 					if (FAILED(hr = LoadAndConnectCaptureDevice())) {

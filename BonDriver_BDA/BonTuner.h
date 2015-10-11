@@ -113,7 +113,7 @@ protected:
 	BOOL LockChannel(const TuningParam *pTuningParam);
 
 	// チューナ固有Dllのロード
-	HRESULT CheckAndInitTunerDependDll(wstring displayName, wstring friendlyName);
+	HRESULT CheckAndInitTunerDependDll(void);
 
 	// チューナ固有Dllでのキャプチャデバイス確認
 	HRESULT CheckCapture(wstring displayName, wstring friendlyName);
