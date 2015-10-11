@@ -260,7 +260,7 @@ protected:
 	// チューナパラメータ関係
 	////////////////////////////////////////
 
-	// INIファイルで指定できるGUID/FriendryName最大数
+	// INIファイルで指定できるGUID/FriendlyName最大数
 	static const unsigned int MAX_GUID = 10;
 
 	// INI ファイルで指定するチューナパラメータ
@@ -520,9 +520,9 @@ protected:
 	IMediaControl *m_pIMediaControl;
 	CTsWriter *m_pCTsWriter;
 
-	// チューナーのGUIDとFriendryName
+	// チューナーのGUIDとFriendlyName
 	wstring m_sTunerDisplayName;
-	wstring m_sTunerFriendryName;
+	wstring m_sTunerFriendlyName;
 
 	// チューナーの使用するTuningSpace/NetworkProvider等の種類
 	enum enumTunerType {

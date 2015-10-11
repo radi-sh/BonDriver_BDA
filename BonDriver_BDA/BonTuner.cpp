@@ -1908,7 +1908,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(void)
 		return S_OK;
 	}
 
-	return (*func)(m_pTunerDevice, m_sTunerDisplayName.c_str(), m_sTunerFriendryName.c_str(), m_szIniFilePath);
+	return (*func)(m_pTunerDevice, m_sTunerDisplayName.c_str(), m_sTunerFriendlyName.c_str(), m_szIniFilePath);
 }
 
 // チューナ固有Dllでのキャプチャデバイス確認
@@ -1924,7 +1924,7 @@ HRESULT CBonTuner::CheckCapture(wstring displayName, wstring friendlyName)
 		return S_OK;
 	}
 
-	return (*func)(m_sTunerDisplayName.c_str(), m_sTunerFriendryName.c_str(), displayName.c_str(), friendlyName.c_str(), m_szIniFilePath);
+	return (*func)(m_sTunerDisplayName.c_str(), m_sTunerFriendlyName.c_str(), displayName.c_str(), friendlyName.c_str(), m_szIniFilePath);
 }
 
 // チューナ固有関数のロード
@@ -2265,7 +2265,7 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 		while (SUCCEEDED(hr = dsfEnum.next()) && hr == S_OK) {
 			// チューナの DisplayName, FriendlyName を得る
 			dsfEnum.getDisplayName(&m_sTunerDisplayName);
-			dsfEnum.getFriendlyName(&m_sTunerFriendryName);
+			dsfEnum.getFriendlyName(&m_sTunerFriendlyName);
 
 			// iniファイルでチューナを指定している場合
 			// DisplayName に GUID が含まれるか検査して、NOだったら次のチューナへ
@@ -2286,14 +2286,14 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 				if (m_aTunerParam.sTunerFriendlyName[i].compare(L"") == 0)
 					continue;
 				found = false;
-				if (m_sTunerFriendryName.find(m_aTunerParam.sTunerFriendlyName[i]) != wstring::npos) {
+				if (m_sTunerFriendlyName.find(m_aTunerParam.sTunerFriendlyName[i]) != wstring::npos) {
 					found = true;
 					break;
 				}
 			}
 			if (!found)
 				continue;
-			OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s\n  GUID:%s\n", m_sTunerFriendryName.c_str(), m_sTunerDisplayName.c_str());
+			OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s\n  GUID:%s\n", m_sTunerFriendlyName.c_str(), m_sTunerDisplayName.c_str());
 
 			// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
 			wstring::size_type n = 0;
@@ -2316,7 +2316,7 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 			}
 				
 			if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pTunerDevice))) {
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, m_sTunerFriendryName.c_str()))) {
+				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, m_sTunerFriendlyName.c_str()))) {
 					OutputDebug(L"[P->T] Error in AddFilter\n");
 					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
 					::CloseHandle(m_hSemaphore);
