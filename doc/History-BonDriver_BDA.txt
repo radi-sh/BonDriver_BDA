@@ -55,3 +55,12 @@
 ・IDVBTuningSpaceの代わりにIDVBTuningSpace2を使用するようにした
 ・CH定義が存在しなかった場合の動作を従来通り行うよう修正
 
+【2015-10-12】
+・GetCurSpace()が常に-1を返す不具合修正
+・チューナデバイスとキャプチャデバイスのデバイスインスタンスパスをチェックし、間違った組み合わせでのConnectを行わないようにした
+　問題が発生する場合はiniファイルの[Tuner]セクションに
+　CheckDeviceInstancePath=0
+　を追加することにより従来通りの動作（チェックを行わない）になります
+・ConnectしてもよいCaptureかどうかBDASpceials側に問い合わせる関数を追加
+　BDASpecial-PlexPXの2015-10-12版以後を使用する場合はBonDriver_BDAのこのバージョン以後と組み合わせて使用してください
+
