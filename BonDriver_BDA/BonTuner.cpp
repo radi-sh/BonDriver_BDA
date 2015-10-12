@@ -659,6 +659,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 	if (bRet) {
 		OutputDebug(L"SetChannel success.\n");
+		m_dwCurSpace = dwSpace;
 		m_dwCurChannel = dwChannel;
 		return TRUE;
 	}
