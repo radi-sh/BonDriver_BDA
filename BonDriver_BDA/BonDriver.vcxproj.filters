@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="doc">
+      <UniqueIdentifier>{7696d2f5-34b6-428b-82a4-e09fbaafbf7e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BonDriver.cpp">
@@ -58,6 +61,22 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\BonDriver_BDA.ini" />
+    <None Include="..\doc\BonDriver_BDA.sample.ini">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\doc\BonDriver_BDA_SPHD-sample.ini">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\doc\BonDriver_BDA-BSCS-sample.ini">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="..\doc\BonDriver_BDA-UHF-sample.ini">
+      <Filter>doc</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\doc\History-BonDriver_BDA.txt">
+      <Filter>doc</Filter>
+    </Text>
   </ItemGroup>
 </Project>

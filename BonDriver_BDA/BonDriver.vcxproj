@@ -252,7 +252,13 @@
     <ClInclude Include="tswriter.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\BonDriver_BDA.ini" />
+    <None Include="..\doc\BonDriver_BDA-BSCS-sample.ini" />
+    <None Include="..\doc\BonDriver_BDA-UHF-sample.ini" />
+    <None Include="..\doc\BonDriver_BDA.sample.ini" />
+    <None Include="..\doc\BonDriver_BDA_SPHD-sample.ini" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\doc\History-BonDriver_BDA.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
