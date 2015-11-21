@@ -301,15 +301,6 @@ protected:
 	// CH切替動作を強制的に2度行う場合のDelay時間(msec)
 	unsigned int m_nLockTwiceDelay;
 
-#if 0
-	// EnumTuningSpaceで返すTuning Space名
-#ifdef UNICODE
-	wstring m_sTuningSpaceName;
-#else
-	string m_sTuningSpaceName;
-#endif
-#endif
-
 	// SignalLevel 算出方法
 	// 0 .. Strength値 / StrengthCoefficient
 	// 1 .. Quality値 / QualityCoefficient
