@@ -32,6 +32,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 			::DeleteCriticalSection(&CBonTuner::st_LockInstanceList);
 
+			// デバッグログファイルのクローズ
+			CloseDebugLog();
+
 			break;
 	}  
     return TRUE;
