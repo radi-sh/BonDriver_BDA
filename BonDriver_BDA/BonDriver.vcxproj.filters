@@ -78,5 +78,8 @@
     <Text Include="..\doc\History-BonDriver_BDA.txt">
       <Filter>doc</Filter>
     </Text>
+    <Text Include="..\doc\Readme-BonDriver_BDA.txt">
+      <Filter>doc</Filter>
+    </Text>
   </ItemGroup>
 </Project>
