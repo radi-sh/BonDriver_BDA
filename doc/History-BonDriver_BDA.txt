@@ -64,3 +64,10 @@
 ・ConnectしてもよいCaptureかどうかBDASpceials側に問い合わせる関数を追加
 　BDASpecial-PlexPXの2015-10-12版以後を使用する場合はBonDriver_BDAのこのバージョン以後と組み合わせて使用してください
 
+【2015-11-23】
+・iniファイルの[TuningSpaceNN]セクションにChannelLockTwiceTargetを追加
+　ChannelLockTwiceの対象となるCH番号を指定することが出来ます。
+・Readme-BonDriver_BDA.txt追加
+・サンプルiniファイルの誤記修正
+・DLL_PROCESS_DETACH時にデバッグログファイルのクローズを行うようにした
+
