@@ -110,7 +110,7 @@ protected:
 	void GetSignalState(int* pnStrength, int* pnQuality, int* pnLock);
 
 	// チャンネル切替
-	BOOL LockChannel(const TuningParam *pTuningParam);
+	BOOL LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice);
 
 	// チューナ固有Dllのロード
 	HRESULT CheckAndInitTunerDependDll(void);
@@ -347,6 +347,7 @@ protected:
 		long SID;						// サービスID
 		long TSID;						// トランスポートストリームID
 		long ONID;						// オリジナルネットワークID
+		BOOL LockTwiceTarget;			// CH切替動作を強制的に2度行う対象
 		ChData(void)
 			: Satellite(0),
 			  Polarisation(0),
@@ -354,7 +355,8 @@ protected:
 			  Frequency(0),
 			  SID(-1),
 			  TSID(-1),
-			  ONID(-1)
+			  ONID(-1),
+			  LockTwiceTarget(FALSE)
 		{
 		};
 	};

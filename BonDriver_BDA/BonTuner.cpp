@@ -647,7 +647,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	param.TSID = Ch->TSID;
 	param.SID = Ch->SID;
 
-	BOOL bRet = LockChannel(&param);
+	BOOL bRet = LockChannel(&param, m_bLockTwice && Ch->LockTwiceTarget);
 
 	// IBdaSpecialsで追加の処理が必要なら行う
 	if (m_pIBdaSpecials2)
@@ -1488,6 +1488,74 @@ void CBonTuner::ReadIniFile(void)
 			itCh--;
 			itSpace->second->dwNumChannel = itCh->first + 1;
 		}
+
+		// CH切替動作を強制的に2度行う場合の対象CH
+		if (m_bLockTwice) {
+			unsigned int len = ::GetPrivateProfileStringW(sectionname, L"ChannelLockTwiceTarget", L"", buf, 256, m_szIniFilePath);
+			if (len > 0) {
+				WCHAR szToken[256];
+				unsigned int nPos = 0;
+				int nTokenLen;
+				while (nPos < len) {
+					// カンマ区切りまでの文字列を取得
+					::swscanf_s(&buf[nPos], L"%[^,]%n", szToken, 256, &nTokenLen);
+					if (nTokenLen) {
+						// さらに'-'区切りの数値に分解
+						DWORD begin = 0;
+						DWORD end = itSpace->second->dwNumChannel - 1;
+						WCHAR s1[256] = L"";
+						WCHAR s2[256] = L"";
+						WCHAR s3[256] = L"";
+						int num = ::swscanf_s(szToken, L" %[0-9] %[-] %[0-9]", s1, 256, s2, 256, s3, 256);
+						switch (num)
+						{
+						case 1:
+							// "10"の形式（単独指定）
+							begin = end = _wtoi(s1);
+							break;
+						case 2:
+							// "10-"の形式
+							begin = _wtoi(s1);
+							break;
+						case 3:
+							// "10-15"の形式
+							begin = _wtoi(s1);
+							end = _wtoi(s3);
+							break;
+						case 0:
+							num = ::swscanf_s(szToken, L" %[-] %[0-9]", s2, 256, s3, 256);
+							if (num == 2) {
+								// "-10"の形式
+								end = _wtoi(s3);
+							}
+							else {
+								// 解析不能
+								OutputDebug(L"Format Error in readIniFile; ChannelLockTwiceTarget.\n");
+								continue;
+							}
+							break;
+						}
+						// 対象範囲のCHのFlagをSetする
+						for (DWORD ch = begin; ch <= end; ch++) {
+							itCh = itSpace->second->Channels.find(ch);
+							if (itCh != itSpace->second->Channels.end()) {
+								itCh->second->LockTwiceTarget = TRUE;
+							}
+						}
+					} // if (nTokenLen)
+					nPos += nTokenLen + 1;
+				} // while (nPos < len)
+			} // if (len > 0) 
+			else {
+				// ChannelLockTwiceTargetの指定が無い場合はすべてのCHが対象
+				for (DWORD ch = 0; ch < itSpace->second->dwNumChannel - 1; ch++) {
+					itCh = itSpace->second->Channels.find(ch);
+					if (itCh != itSpace->second->Channels.end()) {
+						itCh->second->LockTwiceTarget = TRUE;
+					}
+				}
+			}
+		} // if (m_bLockTwice)
 	}
 
 	// チューニング空間番号0を探す
@@ -1622,7 +1690,7 @@ void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 	return;
 }
 
-BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam)
+BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 {
 	HRESULT hr;
 
@@ -1632,7 +1700,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam)
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
 		m_nCurTone = pTuningParam->Antenna->Tone;
-		if (SUCCEEDED(hr) && m_bLockTwice) {
+		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"TwiceLock 1st[Special2] SUCCESS.\n");
 			::Sleep(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials2->LockChannel(pTuningParam);
@@ -1652,7 +1720,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam)
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
 		m_nCurTone = pTuningParam->Antenna->Tone;
-		if (SUCCEEDED(hr) && m_bLockTwice) {
+		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"TwiceLock 1st[Special] SUCCESS.\n");
 			::Sleep(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
@@ -1812,7 +1880,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam)
 		::Sleep(m_nToneWait); // 衛星切替待ち
 	}
 
-	if (m_bLockTwice) {
+	if (bLockTwice) {
 		// TuneRequestを強制的に2度行う
 		OutputDebug(L"Requesting 1st twice tune.\n");
 		if (FAILED(hr = pITuner->put_TuneRequest(pITuneRequest))) {
