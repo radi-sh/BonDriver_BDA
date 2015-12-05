@@ -417,6 +417,12 @@ const float CBonTuner::_GetSignalLevel(void)
 
 	HRESULT hr;
 	float f = 0.0F;
+
+	// ビットレートを返す場合
+	if (m_nSignalLevelCalcType == 100) {
+		return m_BitRate.GetRate();
+	}
+
 	// IBdaSpecials2固有関数があれば丸投げ
 	if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->GetSignalStrength(&f)) != E_NOINTERFACE) {
 		return f;
@@ -530,6 +536,9 @@ void CBonTuner::PurgeTsStream(void)
 	}
 	m_DecodedTsBuff.clear();
 	::LeaveCriticalSection(&m_csDecodedTSBuff);
+
+	// ビットレート計算用クラス
+	m_BitRate.Clear();
 }
 
 LPCTSTR CBonTuner::GetTunerName(void)
@@ -790,7 +799,8 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 	};
 
 	while (!terminate) {
-		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
+		DWORD remain = pSys->m_BitRate.CheckRate();
+		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, remain);
 		switch (ret)
 		{
 		case WAIT_OBJECT_0:
@@ -831,6 +841,8 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 				}
 			}
 			break;
+		case WAIT_TIMEOUT:
+			break;
 		case WAIT_FAILED:
 		default:
 			DWORD err = ::GetLastError();
@@ -857,6 +869,8 @@ int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, DWORD dwSize)
 	vector<TS_DATA*> *pTsBuff = &pSys->m_TsBuff;
 	CRITICAL_SECTION *pcsTSBuff = &pSys->m_csTSBuff;
 	HANDLE *phOnStreamEvent = &pSys->m_hOnStreamEvent;
+
+	pSys->m_BitRate.AddRate(dwSize);
 
 	while (dwSize > 0 && *pbRecvStarted) {
 		// 途中でPurgeTsStream されると困るのでここで EnterCriticalSectionしておく
