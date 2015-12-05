@@ -275,6 +275,9 @@ const BOOL CBonTuner::_OpenTuner(void)
 
 		OutputDebug(L"Build graph Successfully.\n");
 
+		// チューナの信号状態取得用インターフェースの取得（失敗しても続行）
+		hr = LoadTunerSignalStatistics();
+
 		// TS受信イベント作成
 		m_hOnStreamEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 
@@ -357,6 +360,9 @@ void CBonTuner::_CloseTuner(void)
 	if (m_LastBuff != NULL) {
 		SAFE_DELETE(m_LastBuff);
 	}
+
+	// チューナの信号状態取得用インターフェース解放
+	UnloadTunerSignalStatistics();
 
 	// グラフ解放
 	CleanupGraph();
@@ -1649,7 +1655,7 @@ void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 {
 	if (pnStrength) *pnStrength = 0;
 	if (pnQuality) *pnQuality = 0;
-	if (pnLock) *pnLock = 0;
+	if (pnLock) *pnLock = 1;
 
 	// チューナ固有 GetSignalState があれば、丸投げ
 	HRESULT hr;
@@ -1662,44 +1668,28 @@ void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 	if (m_pTunerDevice == NULL)
 		return;
 
-	IBDA_Topology *bdaNetTop = NULL;
-	if (FAILED(hr = m_pTunerDevice->QueryInterface(__uuidof(IBDA_Topology), (void **)&bdaNetTop)))
-		return;
+	if (m_pIBDA_SignalStatistics) {
+		long longVal;
+		BYTE byteVal;
 
-	ULONG NodeTypes;
-	ULONG NodeType[32];
-	IUnknown *iNode = NULL;
+		if (pnStrength) {
+			longVal = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalStrength(&longVal)))
+				*pnStrength = (int)longVal;
+		}
 
-	long longVal = 0;
-	BYTE byteVal = 0;
+		if (pnQuality) {
+			longVal = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalQuality(&longVal)))
+				*pnQuality = min(max(longVal, 0), 100);
+		}
 
-	if (FAILED(hr = bdaNetTop->GetNodeTypes(&NodeTypes, 32, NodeType))) {
-		OutputDebug(L"Fail to get node type.\n");
-		return;
-	}
-
-	for (unsigned int i=0; i<NodeTypes; i++) {
-		if (SUCCEEDED(hr = bdaNetTop->GetControlNode(0, 1, NodeType[i], &iNode))) {
-			IBDA_SignalStatistics *pSigStats = NULL;
-			if (SUCCEEDED(hr = iNode->QueryInterface(__uuidof(IBDA_SignalStatistics), (void **)(&pSigStats)))) {
-				longVal = 0;
-				if (SUCCEEDED(hr = pSigStats->get_SignalStrength(&longVal)))
-					if (pnStrength) *pnStrength = (int)longVal;
-
-				longVal = 0;
-				if (SUCCEEDED(hr = pSigStats->get_SignalQuality(&longVal)))
-					if (pnQuality) *pnQuality = min(max(longVal, 0), 100);
-
-				byteVal = 0;
-				if (SUCCEEDED(hr = pSigStats->get_SignalLocked(&byteVal)))
-					if (pnLock) *pnLock = byteVal;
-
-				SAFE_RELEASE(pSigStats);
-			}
-			SAFE_RELEASE(iNode);
+		if (pnLock) {
+			byteVal = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalLocked(&byteVal)))
+				*pnLock = byteVal;
 		}
 	}
-	SAFE_RELEASE(bdaNetTop);
 
 	return;
 }
@@ -2796,6 +2786,56 @@ void CBonTuner::UnloadTif(void)
 
 	SAFE_RELEASE(m_pTif);
 }
+
+HRESULT CBonTuner::LoadTunerSignalStatistics(void)
+{
+	HRESULT hr;
+
+	if (m_pTunerDevice == NULL) {
+		OutputDebug(L"[LoadTunerSignalStatistics] TunerDevice NOT SET.\n");
+		return E_POINTER;
+	}
+
+	CComQIPtr<IBDA_Topology> pIBDA_Topology(m_pTunerDevice);
+	if (!pIBDA_Topology) {
+		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_Topology.\n");
+		return E_FAIL;
+	}
+
+	ULONG NodeTypes;
+	ULONG NodeType[32];
+	if (FAILED(hr = pIBDA_Topology->GetNodeTypes(&NodeTypes, 32, NodeType))) {
+		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get NodeTypes.\n");
+		return E_FAIL;
+	}
+
+	BOOL bFound = FALSE;
+	for (ULONG i = 0; i < NodeTypes; i++) {
+		IUnknown *pControlNode = NULL;
+		if (SUCCEEDED(hr = pIBDA_Topology->GetControlNode(0UL, 1UL, NodeType[i], &pControlNode))) {
+			if (SUCCEEDED(hr = pControlNode->QueryInterface(__uuidof(IBDA_SignalStatistics), (void **)(&m_pIBDA_SignalStatistics)))) {
+				OutputDebug(L"[LoadTunerSignalStatistics] SUCCESS.\n");
+				bFound = TRUE;
+			}
+			SAFE_RELEASE(pControlNode);
+		}
+		if (bFound)
+			break;
+	}
+
+	if (!m_pIBDA_SignalStatistics) {
+		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_SignalStatistics.\n");
+		return E_FAIL;
+	}
+
+	return S_OK;
+}
+
+void CBonTuner::UnloadTunerSignalStatistics(void)
+{
+	SAFE_RELEASE(m_pIBDA_SignalStatistics);
+}
+
 
 // Connect pins (Common subroutine)
 //  全てのピンを接続して成功したら終了

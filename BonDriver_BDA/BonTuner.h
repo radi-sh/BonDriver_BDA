@@ -159,6 +159,10 @@ protected:
 	HRESULT LoadAndConnectTif(void);
 	void UnloadTif(void);
 
+	// チューナ信号状態取得用インターフェース
+	HRESULT LoadTunerSignalStatistics(void);
+	void UnloadTunerSignalStatistics(void);
+
 	// Pin の接続
 	HRESULT Connect(const WCHAR* pszName, IBaseFilter* pFrom, IBaseFilter* pTo);
 
@@ -596,6 +600,9 @@ protected:
 	IGraphBuilder *m_pIGraphBuilder;
 	IMediaControl *m_pIMediaControl;
 	CTsWriter *m_pCTsWriter;
+
+	// チューナ信号状態取得用インターフェース
+	IBDA_SignalStatistics *m_pIBDA_SignalStatistics;
 
 	// チューナーのGUIDとFriendlyName
 	wstring m_sTunerDisplayName;
