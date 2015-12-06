@@ -138,6 +138,9 @@ CBonTuner::CBonTuner()
 	m_nLockWaitRetry(0),
 	m_bLockTwice(FALSE),
 	m_nLockTwiceDelay(100),
+	m_nWatchDogSignalLocked(0),
+	m_nWatchDogBitRate(0),
+	m_nReOpenWhenGiveUpReLock(0),
 	m_nSignalLevelCalcType(0),
 	m_fStrengthCoefficient(1),
 	m_fQualityCoefficient(1),
@@ -247,9 +250,11 @@ const BOOL CBonTuner::OpenTuner(void)
 	return ret;
 }
 
-
 const BOOL CBonTuner::_OpenTuner(void)
 {
+	if (m_bOpened)
+		return TRUE;
+
 	HRESULT hr;
 
 	do {
@@ -554,6 +559,31 @@ LPCTSTR CBonTuner::GetTunerName(void)
 
 const BOOL CBonTuner::IsTunerOpening(void)
 {
+	if (m_aCOMProc.hThread == NULL)
+		return FALSE;
+
+	DWORD dw;
+	BOOL ret = FALSE;
+
+	::EnterCriticalSection(&m_aCOMProc.csLock);
+
+	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqIsTunerOpening;
+	::SetEvent(m_aCOMProc.hReqEvent);
+	HANDLE h[2] = {
+		m_aCOMProc.hEndEvent,
+		m_aCOMProc.hThread
+	};
+	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
+	if (dw == WAIT_OBJECT_0) {
+		ret = m_aCOMProc.uRetVal.IsTunerOpening;
+	}
+
+	::LeaveCriticalSection(&m_aCOMProc.csLock);
+	return ret;
+}
+
+const BOOL CBonTuner::_IsTunerOpening(void)
+{
 	return m_bOpened;
 }
 
@@ -653,20 +683,19 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_bRecvStarted = FALSE;
 	PurgeTsStream();
 	ChData * Ch = it2->second;
-	TuningParam param;
-	param.Frequency = Ch->Frequency;
-	param.Polarisation = PolarisationMapping[Ch->Polarisation];
-	param.Antenna = &m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];
-	param.Modulation = &m_aModulationType[Ch->ModulationType];
-	param.ONID = Ch->ONID;
-	param.TSID = Ch->TSID;
-	param.SID = Ch->SID;
+	m_LastTuningParam.Frequency = Ch->Frequency;
+	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];
+	m_LastTuningParam.Antenna = &m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];
+	m_LastTuningParam.Modulation = &m_aModulationType[Ch->ModulationType];
+	m_LastTuningParam.ONID = Ch->ONID;
+	m_LastTuningParam.TSID = Ch->TSID;
+	m_LastTuningParam.SID = Ch->SID;
 
-	BOOL bRet = LockChannel(&param, m_bLockTwice && Ch->LockTwiceTarget);
+	BOOL bRet = LockChannel(&m_LastTuningParam, m_bLockTwice && Ch->LockTwiceTarget);
 
 	// IBdaSpecialsで追加の処理が必要なら行う
 	if (m_pIBdaSpecials2)
-		hr = m_pIBdaSpecials2->PostLockChannel(&param);
+		hr = m_pIBdaSpecials2->PostLockChannel(&m_LastTuningParam);
 
 	::Sleep(100);
 	PurgeTsStream();
@@ -686,10 +715,60 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 const DWORD CBonTuner::GetCurSpace(void)
 {
+	if (m_aCOMProc.hThread == NULL)
+		return CBonTuner::SPACE_INVALID;
+
+	DWORD dw;
+	DWORD ret = CBonTuner::SPACE_INVALID;
+
+	::EnterCriticalSection(&m_aCOMProc.csLock);
+
+	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqGetCurSpace;
+	::SetEvent(m_aCOMProc.hReqEvent);
+	HANDLE h[2] = {
+		m_aCOMProc.hEndEvent,
+		m_aCOMProc.hThread
+	};
+	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
+	if (dw == WAIT_OBJECT_0) {
+		ret = m_aCOMProc.uRetVal.GetCurSpace;
+	}
+
+	::LeaveCriticalSection(&m_aCOMProc.csLock);
+	return ret;
+}
+
+const DWORD CBonTuner::_GetCurSpace(void)
+{
 	return m_dwCurSpace;
 }
 
 const DWORD CBonTuner::GetCurChannel(void)
+{
+	if (m_aCOMProc.hThread == NULL)
+		return CBonTuner::CHANNEL_INVALID;
+
+	DWORD dw;
+	DWORD ret = CBonTuner::CHANNEL_INVALID;
+
+	::EnterCriticalSection(&m_aCOMProc.csLock);
+
+	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqGetCurChannel;
+	::SetEvent(m_aCOMProc.hReqEvent);
+	HANDLE h[2] = {
+		m_aCOMProc.hEndEvent,
+		m_aCOMProc.hThread
+	};
+	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
+	if (dw == WAIT_OBJECT_0) {
+		ret = m_aCOMProc.uRetVal.GetCurChannel;
+	}
+
+	::LeaveCriticalSection(&m_aCOMProc.csLock);
+	return ret;
+}
+
+const DWORD CBonTuner::_GetCurChannel(void)
 {
 	return m_dwCurChannel;
 }
@@ -719,12 +798,13 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 	};
 
 	while (!terminate) {
-		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
+		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, 1000);
 		switch (ret)
 		{
 		case WAIT_OBJECT_0:
 			terminate = TRUE;
 			break;
+
 		case WAIT_OBJECT_0 + 1:
 			switch (pCOMProc->nRequest)
 			{
@@ -735,23 +815,83 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 				break;
 
 			case eCOMReqCloseTuner:
+				// OpenTuner・LockChannelの再試行中なら中止
+				pCOMProc->ResetReOpenTuner();
+				pCOMProc->ResetReLockChannel();
+
 				pSys->_CloseTuner();
 				::SetEvent(pCOMProc->hEndEvent);
 				break;
 
 			case eCOMReqSetChannel:
-				pCOMProc->uRetVal.SetChannel = pSys->_SetChannel(pCOMProc->uParam.SetChannel.dwSpace, pCOMProc->uParam.SetChannel.dwChannel);
+				// LockChannelの再試行中なら中止
+				pCOMProc->ResetReLockChannel();
+
+				// OpenTunerの再試行中ならFALSEを返す
+				if (pCOMProc->bDoReOpenTuner) {
+					pCOMProc->ClearReOpenChannel();
+					pCOMProc->uRetVal.SetChannel = FALSE;
+				}
+				else {
+					pCOMProc->uRetVal.SetChannel = pSys->_SetChannel(pCOMProc->uParam.SetChannel.dwSpace, pCOMProc->uParam.SetChannel.dwChannel);
+				}
 				::SetEvent(pCOMProc->hEndEvent);
+				pCOMProc->dwTickSignalLockErr = 0;
+				pCOMProc->dwTickBitRateErr = 0;
 				break;
 
 			case eCOMReqGetSignalLevel:
-				pCOMProc->uRetVal.GetSignalLevel = pSys->_GetSignalLevel();
+				// OpenTunerの再試行中なら0を返す
+				if (pCOMProc->bDoReOpenTuner) {
+					pCOMProc->uRetVal.GetSignalLevel = 0.0F;
+				}
+				else {
+					pCOMProc->uRetVal.GetSignalLevel = pSys->_GetSignalLevel();
+				}
 				::SetEvent(pCOMProc->hEndEvent);
 				break;
+
+			case eCOMReqIsTunerOpening:
+				// OpenTunerの再試行中ならTRUEを返す
+				if (pCOMProc->bDoReOpenTuner) {
+					pCOMProc->uRetVal.IsTunerOpening = TRUE;
+				}
+				else {
+					pCOMProc->uRetVal.IsTunerOpening = pSys->_IsTunerOpening();
+				}
+				::SetEvent(pCOMProc->hEndEvent);
+				break;
+
+			case eCOMReqGetCurSpace:
+				// OpenTunerの再試行中なら退避値を返す
+				if (pCOMProc->bDoReOpenTuner) {
+					pCOMProc->uRetVal.GetCurSpace = pCOMProc->dwReOpenSpace;
+				}
+				else {
+					pCOMProc->uRetVal.GetCurSpace = pSys->_GetCurSpace();
+				}
+				::SetEvent(pCOMProc->hEndEvent);
+				break;
+
+			case eCOMReqGetCurChannel:
+				// OpenTunerの再試行中なら退避値を返す
+				if (pCOMProc->bDoReOpenTuner) {
+					pCOMProc->uRetVal.GetCurChannel = pCOMProc->dwReOpenChannel;
+				}
+				else {
+					pCOMProc->uRetVal.GetCurChannel = pSys->_GetCurChannel();
+				}
+				::SetEvent(pCOMProc->hEndEvent);
+				break;
+
 			default:
 				break;
 			}
 			break;
+
+		case WAIT_TIMEOUT:
+			break;
+
 		case WAIT_FAILED:
 		default:
 			DWORD err = ::GetLastError();
@@ -759,7 +899,77 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			terminate = TRUE;
 			break;
 		}
-	}
+
+		if (terminate)
+			break;
+
+		// 異常検知＆リカバリー
+		// 1000ms毎処理
+		if (pCOMProc->CheckTick()) {
+
+			// 異常検知
+			if (!pCOMProc->bDoReLockChannel && !pCOMProc->bDoReOpenTuner && pSys->m_dwCurChannel != CBonTuner::CHANNEL_INVALID) {
+
+				// SignalLockの状態確認
+				if (pSys->m_nWatchDogSignalLocked != 0) {
+					int lock = 0;
+					pSys->GetSignalState(NULL, NULL, &lock);
+					if (pCOMProc->CheckSignalLockErr(lock, pSys->m_nWatchDogSignalLocked * 1000)) {
+						// チャンネルロック再実行
+						OutputDebug(L"COMProcThread: WatchDogSignalLocked time is up.\n");
+						pCOMProc->SetReLockChannel();
+					}
+				} // SignalLockの状態確認
+
+				// BitRate確認
+				if (pSys->m_nWatchDogBitRate != 0) {
+					if (pCOMProc->CheckBitRateErr((pSys->m_BitRate.GetRate() > 0.0F), pSys->m_nWatchDogBitRate * 1000)) {
+						// チャンネルロック再実行
+						OutputDebug(L"COMProcThread: WatchDogBitRate time is up.\n");
+						pCOMProc->SetReLockChannel();
+					}
+				} // BitRate確認
+			} // 異常検知
+
+			// CH切替動作試行後のOpenTuner再実行
+			if (pCOMProc->bDoReOpenTuner) {
+				// OpenTuner再実行
+				pSys->_CloseTuner();
+				if (pSys->_OpenTuner() && (!pCOMProc->CheckReOpenChannel() || pSys->_SetChannel(pCOMProc->dwReOpenSpace, pCOMProc->dwReOpenChannel))) {
+					// OpenTunerに成功し、SetChannnelに成功もしくは必要ない
+					OutputDebug(L"COMProcThread: Re-OpenTuner SUCCESS.\n");
+					pCOMProc->ResetReOpenTuner();
+				}
+				else {
+					// 失敗...そのまま次回もチャレンジする
+					OutputDebug(L"COMProcThread: Re-OpenTuner FAILED.\n");
+				}
+			} // CH切替動作試行後のOpenTuner再実行
+
+			// 異常検知後チャンネルロック再実行
+			if (!pCOMProc->bDoReOpenTuner && pCOMProc->bDoReLockChannel) {
+				// チャンネルロック再実行
+				if (pSys->LockChannel(&pSys->m_LastTuningParam, FALSE)) {
+					// LockChannelに成功した
+					OutputDebug(L"COMProcThread: Re-LockChannel SUCCESS.\n");
+					pCOMProc->ResetReLockChannel();
+				}
+				else {
+					// LockChannel失敗
+					OutputDebug(L"COMProcThread: Re-LockChannel FAILED.\n");
+					if (pSys->m_nReOpenWhenGiveUpReLock != 0) {
+						// CH切替動作試行回数設定値が0以外
+						if (pCOMProc->CheckReLockFailCount(pSys->m_nReOpenWhenGiveUpReLock)) {
+							// CH切替動作試行回数を超えたのでOpenTuner再実行
+							OutputDebug(L"COMProcThread: ReOpenWhenGiveUpReLock count is up.\n");
+							pCOMProc->SetReOpenTuner(pSys->m_dwCurSpace, pSys->m_dwCurChannel);
+							pCOMProc->ResetReLockChannel();
+						}
+					}
+				}
+			} // 異常検知後チャンネルロック再実行
+		} // 1000ms毎処理
+	} // while (!terminate)
 
 	::CoUninitialize();
 	OutputDebug(L"COMProcThread: Thread terminated.\n");
@@ -1036,6 +1246,15 @@ void CBonTuner::ReadIniFile(void)
 
 	// CH切替動作を強制的に2度行う場合のDelay時間
 	m_nLockTwiceDelay = (DWORD)::GetPrivateProfileIntW(L"TUNER", L"ChannelLockTwiceDelay", 100, m_szIniFilePath);
+
+	// SignalLockの異常検知時間(秒)
+	m_nWatchDogSignalLocked = ::GetPrivateProfileIntW(L"TUNER", L"WatchDogSignalLocked", 0, m_szIniFilePath);
+
+	// BitRateの異常検知時間(秒)
+	m_nWatchDogBitRate = ::GetPrivateProfileIntW(L"TUNER", L"WatchDogBitRate", 0, m_szIniFilePath);
+
+	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
+	m_nReOpenWhenGiveUpReLock = ::GetPrivateProfileIntW(L"TUNER", L"ReOpenWhenGiveUpReLock", 0, m_szIniFilePath);
 
 	// Tuning Space名（互換用）
 	::GetPrivateProfileStringW(L"TUNER", L"TuningSpaceName", L"スカパー", buf, 64, m_szIniFilePath);

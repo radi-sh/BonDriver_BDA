@@ -169,11 +169,15 @@ protected:
 	// 全ての Pin を切断する
 	void DisconnectAll(IBaseFilter* pFilter);
 
-	// COM処理を実際に行う関数（COM処理専用スレッドから呼び出される）
+	// CCOM処理専用スレッドから呼び出される関数
 	const BOOL _OpenTuner(void);
 	void _CloseTuner(void);
 	const BOOL _SetChannel(const DWORD dwSpace, const DWORD dwChannel);
 	const float _GetSignalLevel(void);
+	const BOOL _IsTunerOpening(void);
+	const DWORD _GetCurSpace(void);
+	const DWORD _GetCurChannel(void);
+
 
 protected:
 	////////////////////////////////////////
@@ -189,6 +193,9 @@ protected:
 		eCOMReqCloseTuner,
 		eCOMReqSetChannel,
 		eCOMReqGetSignalLevel,
+		eCOMReqIsTunerOpening,
+		eCOMReqGetCurSpace,
+		eCOMReqGetCurChannel,
 	};
 
 	struct COMReqParamSetChannel {
@@ -204,6 +211,9 @@ protected:
 		BOOL OpenTuner;
 		BOOL SetChannel;
 		float GetSignalLevel;
+		BOOL IsTunerOpening;
+		DWORD GetCurSpace;
+		DWORD GetCurChannel;
 	};
 
 	struct COMProc {
@@ -214,18 +224,42 @@ protected:
 		enumCOMRequest nRequest;		// リクエスト
 		COMReqParm uParam;				// パラメータ
 		COMReqRetVal uRetVal;			// 戻り値
+		DWORD dwTick;					// 現在のTickCount
+		DWORD dwTickLastCheck;			// 最後に異常監視の確認を行ったTickCount
+		DWORD dwTickSignalLockErr;		// SignalLockの異常発生TickCount
+		DWORD dwTickBitRateErr;			// BitRateの異常発生TckCount
+		BOOL bSignalLockErr;			// SignalLockの異常発生中Flag
+		BOOL bBitRateErr;				// BitRateの異常発生中Flag
+		BOOL bDoReLockChannel;			// チャンネルロック再実行中
+		BOOL bDoReOpenTuner;			// チューナー再オープン中
+		unsigned int nReLockFailCount;	// Re-LockChannel失敗回数
+		DWORD dwReOpenSpace;			// チューナー再オープン時のカレントチューニングスペース番号退避
+		DWORD dwReOpenChannel;			// チューナー再オープン時のカレントチャンネル番号退避
 		HANDLE hTerminateRequest;		// スレッド終了要求
+		
 		COMProc(void)
 			: hThread(NULL),
 			  hReqEvent(NULL),
 			  hEndEvent(NULL),
-			  hTerminateRequest(NULL)
+			  hTerminateRequest(NULL),
+			  dwTick(0),
+			  dwTickLastCheck(0),
+			  dwTickSignalLockErr(0),
+			  dwTickBitRateErr(0),
+			  bSignalLockErr(FALSE),
+			  bBitRateErr(FALSE),
+			  bDoReLockChannel(FALSE),
+			  bDoReOpenTuner(FALSE),
+			  dwReOpenSpace(CBonTuner::SPACE_INVALID),
+			  dwReOpenChannel(CBonTuner::CHANNEL_INVALID),
+			  nReLockFailCount(0)
 		{
 			hReqEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 			hEndEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 			hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 			::InitializeCriticalSection(&csLock);
 		};
+		
 		~COMProc(void)
 		{
 			::CloseHandle(hReqEvent);
@@ -236,6 +270,112 @@ protected:
 			hTerminateRequest = NULL;
 			::DeleteCriticalSection(&csLock);
 		};
+		
+		inline BOOL CheckTick(void)
+		{
+			dwTick = ::GetTickCount();
+			if (dwTick - dwTickLastCheck > 1000) {
+				dwTickLastCheck = dwTick;
+				return TRUE;
+			}
+			return FALSE;
+		}
+		
+		inline void ResetWatchDog(void)
+		{
+			bSignalLockErr = FALSE;
+			bBitRateErr = FALSE;
+		}
+
+		inline BOOL CheckSignalLockErr(BOOL state, DWORD threshold)
+		{
+			if (state) {
+				//正常
+				bSignalLockErr = FALSE;
+			} else {
+				// 異常
+				if (!bSignalLockErr) {
+					// 今回発生
+					bSignalLockErr = TRUE;
+					dwTickSignalLockErr = dwTick;
+				}
+				else {
+					// 前回以前に発生していた
+					if ((dwTick - dwTickSignalLockErr) > threshold) {
+						// 設定時間以上経過している
+						ResetWatchDog();
+						return TRUE;
+					}
+				}
+			}
+			return FALSE;
+		}
+		
+		inline BOOL CheckBitRateErr(BOOL state, DWORD threshold)
+		{
+			if (state) {
+				//正常
+				bSignalLockErr = FALSE;
+			}
+			else {
+				// 異常
+				if (!bBitRateErr) {
+					// 今回発生
+					bBitRateErr = TRUE;
+					dwTickBitRateErr = dwTick;
+				}
+				else {
+					// 前回以前に発生していた
+					if ((dwTick - dwTickBitRateErr) > threshold) {
+						// 設定時間以上経過している
+						ResetWatchDog();
+						return TRUE;
+					}
+				}
+			}
+			return FALSE;
+		}
+
+		inline void SetReLockChannel(void)
+		{
+			bDoReLockChannel = TRUE;
+			nReLockFailCount = 0;
+		}
+		
+		inline void ResetReLockChannel(void)
+		{
+			bDoReLockChannel = FALSE;
+			nReLockFailCount = 0;
+		}
+		
+		inline BOOL CheckReLockFailCount(unsigned int threshold)
+		{
+			return (++nReLockFailCount >= threshold);
+		}
+		
+		inline void SetReOpenTuner(DWORD space, DWORD channel)
+		{
+			bDoReOpenTuner = TRUE;
+			dwReOpenSpace = space;
+			dwReOpenChannel = channel;
+		}
+		
+		inline void ClearReOpenChannel(void)
+		{
+			dwReOpenSpace = CBonTuner::SPACE_INVALID;
+			dwReOpenChannel = CBonTuner::CHANNEL_INVALID;
+		}
+		
+		inline BOOL CheckReOpenChannel(void)
+		{
+			return (dwReOpenSpace != CBonTuner::SPACE_INVALID && dwReOpenChannel != CBonTuner::CHANNEL_INVALID);
+		}
+
+		inline void ResetReOpenTuner(void)
+		{
+			bDoReOpenTuner = FALSE;
+			ClearReOpenChannel();
+		}
 	};
 	COMProc m_aCOMProc;
 
@@ -304,6 +444,15 @@ protected:
 
 	// CH切替動作を強制的に2度行う場合のDelay時間(msec)
 	unsigned int m_nLockTwiceDelay;
+
+	// SignalLockedの監視時間(msec) 0で監視しない
+	unsigned int m_nWatchDogSignalLocked;
+
+	// BitRateの監視時間(msec) 0で監視しない
+	unsigned int m_nWatchDogBitRate;
+
+	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
+	unsigned int m_nReOpenWhenGiveUpReLock;
 
 	// SignalLevel 算出方法
 	// 0 .. Strength値 / StrengthCoefficient
@@ -638,6 +787,9 @@ protected:
 
 	// トーン切替状態不明
 	static const long TONE_UNKNOWN = -1;
+
+	// 最後にLockChannelを行った時のチューニングパラメータ
+	TuningParam m_LastTuningParam;
 
 	// TunerSpecial DLL module handle
 	HMODULE m_hModuleTunerSpecials;
