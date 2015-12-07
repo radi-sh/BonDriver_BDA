@@ -824,6 +824,9 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 				break;
 
 			case eCOMReqSetChannel:
+				// 異常検知監視タイマー初期化
+				pCOMProc->ResetWatchDog();
+
 				// LockChannelの再試行中なら中止
 				pCOMProc->ResetReLockChannel();
 
@@ -836,8 +839,6 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 					pCOMProc->uRetVal.SetChannel = pSys->_SetChannel(pCOMProc->uParam.SetChannel.dwSpace, pCOMProc->uParam.SetChannel.dwChannel);
 				}
 				::SetEvent(pCOMProc->hEndEvent);
-				pCOMProc->dwTickSignalLockErr = 0;
-				pCOMProc->dwTickBitRateErr = 0;
 				break;
 
 			case eCOMReqGetSignalLevel:
