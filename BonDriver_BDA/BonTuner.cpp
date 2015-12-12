@@ -27,9 +27,6 @@
 // bstr_t
 #include <comdef.h>
 
-// transform()
-#include <algorithm>
-
 #pragma comment(lib, "Strmiids.lib")
 #pragma comment(lib, "ksproxy.lib")
 
@@ -1145,6 +1142,9 @@ void CBonTuner::ReadIniFile(void)
 	::wcscpy_s(m_szIniFilePath + ::wcslen(m_szIniFilePath) - 3, 4, L"ini");
 
 	WCHAR buf[256];
+	WCHAR buf2[256];
+	WCHAR buf3[256];
+	WCHAR buf4[256];
 #ifndef UNICODE
 	char charBuf[512];
 #endif
@@ -1163,52 +1163,35 @@ void CBonTuner::ReadIniFile(void)
 	// Tuner セクション
 	//
 
-	for (int i = 0; i < MAX_GUID; i++) {
+	// GUID0 - GUID99: TunerデバイスのGUID ... 指定されなければ見つかった順に使う事を意味する。
+	// FriendlyName0 - FriendlyName99: TunerデバイスのFriendlyName ... 指定されなければ見つかった順に使う事を意味する。
+	// CaptureGUID0 - CaptureGUID99: CaptureデバイスのGUID ... 指定されなければ接続可能なデバイスを検索する。
+	// CaptureFriendlyName0 - CaptureFriendlyName99: CaptureデバイスのFriendlyName ... 指定されなければ接続可能なデバイスを検索する。
+	for (unsigned int i = 0; i < MAX_GUID; i++) {
 		WCHAR keyname[64];
-		// GUID0 - GUID9: TunerデバイスのGUID ... 指定されなければ見つかった順に使う事を意味する。
-		::swprintf_s(keyname, 64, L"GUID%01d", i);
+		::swprintf_s(keyname, 64, L"GUID%d", i);
 		::GetPrivateProfileStringW(L"TUNER", keyname, L"", buf, 256, m_szIniFilePath);
-		strBuf = buf;
-		::transform(strBuf.begin(), strBuf.end(), strBuf.begin(), towlower);
-		m_aTunerParam.sTunerGUID[i] = strBuf.c_str();
-
-		// FriendlyName0 - FriendlyName9: TunerデバイスのFriendlyName ... 指定されなければ見つかった順に使う事を意味する。
-		::swprintf_s(keyname, 64, L"FriendlyName%01d", i);
-		::GetPrivateProfileStringW(L"TUNER", keyname, L"", buf, 256, m_szIniFilePath);
-		m_aTunerParam.sTunerFriendlyName[i] = buf;
-
-		// CaptureGUID0 - CaptureGUID9: CaptureデバイスのGUID ... 指定されなければ接続可能なデバイスを検索する。
-		::swprintf_s(keyname, 64, L"CaptureGUID%01d", i);
-		::GetPrivateProfileStringW(L"TUNER", keyname, L"", buf, 256, m_szIniFilePath);
-		strBuf = buf;
-		::transform(strBuf.begin(), strBuf.end(), strBuf.begin(), towlower);
-		m_aTunerParam.sCaptureGUID[i] = strBuf.c_str();
-
-		// CaptureFriendlyName0 - CaptureFriendlyName9: CaptureデバイスのFriendlyName ... 指定されなければ接続可能なデバイスを検索する。
-		::swprintf_s(keyname, 64, L"CaptureFriendlyName%01d", i);
-		::GetPrivateProfileStringW(L"TUNER", keyname, L"", buf, 256, m_szIniFilePath);
-		m_aTunerParam.sCaptureFriendlyName[i] = buf;
+		::swprintf_s(keyname, 64, L"FriendlyName%d", i);
+		::GetPrivateProfileStringW(L"TUNER", keyname, L"", buf2, 256, m_szIniFilePath);
+		::swprintf_s(keyname, 64, L"CaptureGUID%d", i);
+		::GetPrivateProfileStringW(L"TUNER", keyname, L"", buf3, 256, m_szIniFilePath);
+		::swprintf_s(keyname, 64, L"CaptureFriendlyName%d", i);
+		::GetPrivateProfileStringW(L"TUNER", keyname, L"", buf4, 256, m_szIniFilePath);
+		if (buf[0] == L'\0' && buf2[0] == L'\0' && buf3[0] == L'\0' && buf4[0] == L'\0') {
+			// どれも指定されていない
+			if (i == 0) {
+				// 番号なしの型式で読込む
+				::GetPrivateProfileStringW(L"TUNER", L"GUID", L"", buf, 256, m_szIniFilePath);
+				::GetPrivateProfileStringW(L"TUNER", L"FriendlyName", L"", buf2, 256, m_szIniFilePath);
+				::GetPrivateProfileStringW(L"TUNER", L"CaptureGUID", L"", buf3, 256, m_szIniFilePath);
+				::GetPrivateProfileStringW(L"TUNER", L"CaptureFriendlyName", L"", buf4, 256, m_szIniFilePath);
+				// どれも指定されていない場合でも登録
+			} else
+				break;
+		}
+		TunerSearchData *sdata = new TunerSearchData(buf, buf2, buf3, buf4);
+		m_aTunerParam.Tuner.insert(pair<int, TunerSearchData*>(i, sdata));
 	}
-
-	// GUIDが指定されていればGUID0に上書き
-	::GetPrivateProfileStringW(L"TUNER", L"GUID", m_aTunerParam.sTunerGUID[0].c_str(), buf, 256, m_szIniFilePath);
-	strBuf = buf;
-	::transform(strBuf.begin(), strBuf.end(), strBuf.begin(), towlower);
-	m_aTunerParam.sTunerGUID[0] = strBuf.c_str();
-
-	// FriendlyNameが指定されていればFriendlyName0に上書き
-	::GetPrivateProfileStringW(L"TUNER", L"FriendlyName", m_aTunerParam.sTunerFriendlyName[0].c_str(), buf, 256, m_szIniFilePath);
-	m_aTunerParam.sTunerFriendlyName[0] = buf;
-
-	// CaptureGUIDが指定されていればCaptureGUID0に上書き
-	::GetPrivateProfileStringW(L"TUNER", L"CaptureGUID", m_aTunerParam.sCaptureGUID[0].c_str(), buf, 256, m_szIniFilePath);
-	strBuf = buf;
-	::transform(strBuf.begin(), strBuf.end(), strBuf.begin(), towlower);
-	m_aTunerParam.sCaptureGUID[0] = strBuf.c_str();
-
-	// CaptureFriendlyNameが指定されていればCaptureFriendlyName0に上書き
-	::GetPrivateProfileStringW(L"TUNER", L"CaptureFriendlyName", m_aTunerParam.sCaptureFriendlyName[0].c_str(), buf, 256, m_szIniFilePath);
-	m_aTunerParam.sCaptureFriendlyName[0] = buf;
 
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 	m_aTunerParam.bCheckDeviceInstancePath = (BOOL)::GetPrivateProfileIntW(L"TUNER", L"CheckDeviceInstancePath", 1, m_szIniFilePath);
@@ -2553,129 +2536,117 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 		return E_POINTER;
 	}
 
-	try {
-		CDSFilterEnum dsfEnum(KSCATEGORY_BDA_NETWORK_TUNER, CDEF_DEVMON_PNP_DEVICE);
-		while (SUCCEEDED(hr = dsfEnum.next()) && hr == S_OK) {
-			// チューナの DisplayName, FriendlyName を得る
-			dsfEnum.getDisplayName(&m_sTunerDisplayName);
-			dsfEnum.getFriendlyName(&m_sTunerFriendlyName);
+	for (unsigned int i = 0; i < m_aTunerParam.Tuner.size(); i++) {
+		try {
+			CDSFilterEnum dsfEnum(KSCATEGORY_BDA_NETWORK_TUNER, CDEF_DEVMON_PNP_DEVICE);
+			while (SUCCEEDED(hr = dsfEnum.next()) && hr == S_OK) {
+				// チューナの DisplayName, FriendlyName を得る
+				dsfEnum.getDisplayName(&m_sTunerDisplayName);
+				dsfEnum.getFriendlyName(&m_sTunerFriendlyName);
 
-			// iniファイルでチューナを指定している場合
-			// DisplayName に GUID が含まれるか検査して、NOだったら次のチューナへ
-			bool found = true;
-			for (int i = 0; i < MAX_GUID; i++) {
-				if (m_aTunerParam.sTunerGUID[i].compare(L"") == 0)
+				// DisplayName に GUID が含まれるか検査して、NOだったら次のチューナへ
+				if (m_aTunerParam.Tuner[i]->TunerGUID.compare(L"") != 0 && m_sTunerDisplayName.find(m_aTunerParam.Tuner[i]->TunerGUID) == wstring::npos) {
 					continue;
-				found = false;
-				if (m_sTunerDisplayName.find(m_aTunerParam.sTunerGUID[i]) != wstring::npos) {
-					found = true;
-					break;
 				}
-			}
-			if (!found)
-				continue;
-			// FriendlyName が含まれるか検査して、NOだったら次のチューナへ
-			for (int i = 0; i < MAX_GUID; i++) {
-				if (m_aTunerParam.sTunerFriendlyName[i].compare(L"") == 0)
-					continue;
-				found = false;
-				if (m_sTunerFriendlyName.find(m_aTunerParam.sTunerFriendlyName[i]) != wstring::npos) {
-					found = true;
-					break;
-				}
-			}
-			if (!found)
-				continue;
-			OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s\n  GUID:%s\n", m_sTunerFriendlyName.c_str(), m_sTunerDisplayName.c_str());
 
-			// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
-			wstring::size_type n = 0;
-			wstring semName = m_sTunerDisplayName;
-			while ((n = semName.find(L'\\', n)) != wstring::npos) {
-				semName.replace(n, 1, 1, L'/');
-			}
-			semName = L"Global\\" + semName;
-			
-			// 排他処理
-			m_hSemaphore = ::CreateSemaphoreW(NULL, 1, 1, semName.c_str());
-			DWORD result = ::WaitForSingleObject(m_hSemaphore, 0);
-			if (result != WAIT_OBJECT_0) {
-				OutputDebug(L"[P->T] Another is using.\n");
-				// 使用中なので次のチューナを探す
-				::CloseHandle(m_hSemaphore);
-				m_hSemaphore = NULL;
-				SAFE_RELEASE(m_pTunerDevice);
-				continue;
-			}
-				
-			if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pTunerDevice))) {
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, m_sTunerFriendlyName.c_str()))) {
-					OutputDebug(L"[P->T] Error in AddFilter\n");
-					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+				// FriendlyName が含まれるか検査して、NOだったら次のチューナへ
+				if (m_aTunerParam.Tuner[i]->TunerFriendlyName.compare(L"") != 0 && m_sTunerFriendlyName.find(m_aTunerParam.Tuner[i]->TunerFriendlyName) == wstring::npos) {
+					continue;
+				}
+				OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s\n  GUID:%s\n", m_sTunerFriendlyName.c_str(), m_sTunerDisplayName.c_str());
+
+				// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
+				wstring::size_type n = 0;
+				wstring semName = m_sTunerDisplayName;
+				while ((n = semName.find(L'\\', n)) != wstring::npos) {
+					semName.replace(n, 1, 1, L'/');
+				}
+				semName = L"Global\\" + semName;
+
+				// 排他処理
+				m_hSemaphore = ::CreateSemaphoreW(NULL, 1, 1, semName.c_str());
+				DWORD result = ::WaitForSingleObject(m_hSemaphore, 0);
+				if (result != WAIT_OBJECT_0) {
+					OutputDebug(L"[P->T] Another is using.\n");
+					// 使用中なので次のチューナを探す
 					::CloseHandle(m_hSemaphore);
 					m_hSemaphore = NULL;
 					SAFE_RELEASE(m_pTunerDevice);
 					continue;
 				}
-				
-				// connect してみる
-				if (SUCCEEDED(hr = Connect(L"Provider->Tuner", m_pNetworkProvider, m_pTunerDevice))) {
-					// connect 成功
-					OutputDebug(L"[P->T] Connect OK.\n");
 
-					// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
-					if (FAILED(hr = CheckAndInitTunerDependDll())) {
-						// 何らかの理由で使用できないみたいなので次のチューナへ
-						OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
-						ReleaseTunerDependCode();
+				if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pTunerDevice))) {
+					if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, m_sTunerFriendlyName.c_str()))) {
+						OutputDebug(L"[P->T] Error in AddFilter\n");
+						::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+						::CloseHandle(m_hSemaphore);
+						m_hSemaphore = NULL;
+						SAFE_RELEASE(m_pTunerDevice);
+						continue;
+					}
+
+					// connect してみる
+					if (SUCCEEDED(hr = Connect(L"Provider->Tuner", m_pNetworkProvider, m_pTunerDevice))) {
+						// connect 成功
+						OutputDebug(L"[P->T] Connect OK.\n");
+
+						// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
+						if (FAILED(hr = CheckAndInitTunerDependDll())) {
+							// 何らかの理由で使用できないみたいなので次のチューナへ
+							OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
+							ReleaseTunerDependCode();
+							m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
+							SAFE_RELEASE(m_pTunerDevice);
+							::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+							::CloseHandle(m_hSemaphore);
+							m_hSemaphore = NULL;
+							continue;
+						}
+
+						// 使用できるCaptureとの接続～RunGraphまでを試みる
+						if (FAILED(hr = LoadAndConnectCaptureDevice(m_aTunerParam.Tuner[i]->CaptureGUID, m_aTunerParam.Tuner[i]->CaptureFriendlyName))) {
+							// 動作する組合せが見つからなかったので次のチューナへ
+							DisconnectAll(m_pTunerDevice);
+							UnloadCaptureDevice();
+							ReleaseTunerDependCode();
+							m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
+							SAFE_RELEASE(m_pTunerDevice);
+							::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+							::CloseHandle(m_hSemaphore);
+							m_hSemaphore = NULL;
+							continue;
+						}
+						// 成功
+						// ここでチューナが確定するので、チューナ固有関数をロードする
+						LoadTunerDependCode();
+						return S_OK;
+					}
+					else {
+						// NetworkProviderが異なる等の理由でconnectに失敗
+						// 次のチューナへ
+						OutputDebug(L"[P->T] Connect Failed.\n");
 						m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
 						SAFE_RELEASE(m_pTunerDevice);
 						::ReleaseSemaphore(m_hSemaphore, 1, NULL);
 						::CloseHandle(m_hSemaphore);
 						m_hSemaphore = NULL;
-						continue;
 					}
-
-					// 使用できるCaptureとの接続～RunGraphまでを試みる
-					if (FAILED(hr = LoadAndConnectCaptureDevice())) {
-						// 動作する組合せが見つからなかったので次のチューナへ
-						DisconnectAll(m_pTunerDevice);
-						UnloadCaptureDevice();
-						ReleaseTunerDependCode();
-						m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-						SAFE_RELEASE(m_pTunerDevice);
-						::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-						::CloseHandle(m_hSemaphore);
-						m_hSemaphore = NULL;
-						continue;
-					}
-					// 成功
-					// ここでチューナが確定するので、チューナ固有関数をロードする
-					LoadTunerDependCode();
-					return S_OK;
-				} else {
-					// NetworkProviderが異なる等の理由でconnectに失敗
-					// 次のチューナへ
-					OutputDebug(L"[P->T] Connect Failed.\n");
-					m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-					SAFE_RELEASE(m_pTunerDevice);
+				}
+				else {
 					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
 					::CloseHandle(m_hSemaphore);
 					m_hSemaphore = NULL;
 				}
-			} else {
-				::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-				::CloseHandle(m_hSemaphore);
-				m_hSemaphore = NULL;
 			}
 		}
-		OutputDebug(L"[P->T] Tuner not found.\n");
-		return E_FAIL;
-	} catch (...) {
-		OutputDebug(L"[P->T] Fail to construct CDSFilterEnum.\n");
-		SAFE_RELEASE(m_pTunerDevice);
-		return E_FAIL;
+		catch (...) {
+			OutputDebug(L"[P->T] Fail to construct CDSFilterEnum.\n");
+			SAFE_RELEASE(m_pTunerDevice);
+			return E_FAIL;
+		}
 	}
+	OutputDebug(L"[P->T] Tuner not found.\n");
+	return E_FAIL;
 }
 
 void CBonTuner::UnloadTunerDevice(void)
@@ -2696,7 +2667,7 @@ void CBonTuner::UnloadTunerDevice(void)
 // 指定されてなければ KSCATEGORY_BDA_RECEIVER_COMPONENT カテゴリのCaptureDeviceを
 // 順番にロードして Load済みの TunerDevice と connect できる CaptureDevice を
 // 探して connect する
-HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
+HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searchFrienlyName)
 {
 	HRESULT hr;
 
@@ -2714,32 +2685,15 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
 			dsfEnum.getDisplayName(&displayName);
 			dsfEnum.getFriendlyName(&friendlyName);
 
-			// iniファイルでキャプチャデバイスを指定している場合
 			// DisplayName に GUID が含まれるか検査して、NOだったら次のキャプチャデバイスへ
-			bool found = true;
-			for (int i = 0; i < MAX_GUID; i++) {
-				if (m_aTunerParam.sCaptureGUID[i].compare(L"") == 0)
-					continue;
-				found = false;
-				if (displayName.find(m_aTunerParam.sCaptureGUID[i]) != wstring::npos) {
-					found = true;
-					break;
-				}
-			}
-			if (!found)
+			if (searchGuid.compare(L"") != 0 && displayName.find(searchGuid) == wstring::npos) {
 				continue;
+			}
+
 			// FriendlyName が含まれるか検査して、NOだったら次のキャプチャデバイスへ
-			for (int i = 0; i < MAX_GUID; i++) {
-				if (m_aTunerParam.sCaptureFriendlyName[i].compare(L"") == 0)
-					continue;
-				found = false;
-				if (friendlyName.find(m_aTunerParam.sCaptureFriendlyName[i]) != wstring::npos) {
-					found = true;
-					break;
-				}
-			}
-			if (!found)
+			if (searchFrienlyName.compare(L"") != 0 && friendlyName.find(searchFrienlyName) == wstring::npos) {
 				continue;
+			}
 			OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s\n  GUID:%s\n", friendlyName.c_str(), displayName.c_str());
 
 			if (m_aTunerParam.bCheckDeviceInstancePath) {
@@ -2832,7 +2786,8 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
 					// 成功したのでそのままreturn
 					OutputDebug(L"RunGraph OK.\n");
 					return S_OK;
-				} else {
+				}
+				else {
 					// connect できなければチューナとの組合せが正しくないと思われる
 					// 次のキャプチャデバイスへ
 					OutputDebug(L"[T->C] Connect Failed, trying next capturedevice.\n");
@@ -2843,12 +2798,12 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(void)
 		}
 		OutputDebug(L"[T->C] CaptureDevice not found.\n");
 		return E_FAIL;
-	} catch (...) {
+	}
+	catch (...) {
 		OutputDebug(L"[T->C] Fail to construct CDSFilterEnum.\n");
 		SAFE_RELEASE(m_pCaptureDevice);
 		return E_FAIL;
 	}
-
 }
 
 void CBonTuner::UnloadCaptureDevice(void)

@@ -23,6 +23,9 @@
 
 #include "common.h"
 
+// transform()
+#include <algorithm>
+
 using namespace std;
 
 class CTsWriter;
@@ -144,7 +147,7 @@ protected:
 	void UnloadTunerDevice(void);
 	
 	// CaptureDevice
-	HRESULT LoadAndConnectCaptureDevice(void);
+	HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searchFrienlyName);
 	void UnloadCaptureDevice(void);
 	
 	// TsWriter
@@ -405,14 +408,31 @@ protected:
 	////////////////////////////////////////
 
 	// INIファイルで指定できるGUID/FriendlyName最大数
-	static const unsigned int MAX_GUID = 10;
+	static const unsigned int MAX_GUID = 100;
+
+	// チューナ・キャプチャ検索に使用するGUID文字列とFriendlyName文字列の組合せ
+	struct TunerSearchData {
+		wstring TunerGUID;
+		wstring TunerFriendlyName;
+		wstring CaptureGUID;
+		wstring CaptureFriendlyName;
+		TunerSearchData(void)
+		{
+		};
+		TunerSearchData(WCHAR* tunerGuid, WCHAR* tunerFriendlyName, WCHAR* captureGuid, WCHAR* captureFriendlyName)
+			: TunerGUID(tunerGuid),
+			TunerFriendlyName(tunerFriendlyName),
+			CaptureGUID(captureGuid),
+			CaptureFriendlyName(captureFriendlyName)
+		{
+			::transform(TunerGUID.begin(), TunerGUID.end(), TunerGUID.begin(), towlower);
+			::transform(CaptureGUID.begin(), CaptureGUID.end(), CaptureGUID.begin(), towlower);
+		};
+	};
 
 	// INI ファイルで指定するチューナパラメータ
 	struct TunerParam {
-		wstring sTunerGUID[MAX_GUID];			// TunerのGUID指定
-		wstring sTunerFriendlyName[MAX_GUID];	// TunerのFriendlyName指定
-		wstring sCaptureGUID[MAX_GUID];			// CaptureのGUID指定
-		wstring sCaptureFriendlyName[MAX_GUID];	// CaptureのFriendlyName指定
+		map<int, TunerSearchData*> Tuner;		// TunerとCaptureのGUID/FriendlyName指定
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 #ifdef UNICODE
 		wstring sTunerName;						// GetTunerNameで返す名前
@@ -423,6 +443,13 @@ protected:
 		TunerParam(void)
 			: bCheckDeviceInstancePath(TRUE)
 		{
+		};
+		~TunerParam(void)
+		{
+			for (map<int, TunerSearchData*>::iterator it = Tuner.begin(); it != Tuner.end(); it++) {
+				SAFE_DELETE(it->second);
+			}
+			Tuner.clear();
 		};
 	};
 	TunerParam m_aTunerParam;
