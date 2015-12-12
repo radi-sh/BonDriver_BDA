@@ -399,7 +399,7 @@ const float CBonTuner::GetSignalLevel(void)
 		return FALSE;
 
 	DWORD dw;
-	float ret = 0;
+	float ret = 0.0F;
 
 	::EnterCriticalSection(&m_aCOMProc.csLock);
 
@@ -530,7 +530,7 @@ void CBonTuner::PurgeTsStream(void)
 
 	// 受信TSバッファ
 	::EnterCriticalSection(&m_csTSBuff);
-	for (int i = 0; i < (int)m_TsBuff.size(); i++) {
+	for (unsigned int i = 0; i < m_TsBuff.size(); i++) {
 		SAFE_DELETE(m_TsBuff[i])
 	}
 	m_TsBuff.clear();
@@ -539,7 +539,7 @@ void CBonTuner::PurgeTsStream(void)
 
 	// デコード後TSバッファ
 	::EnterCriticalSection(&m_csDecodedTSBuff);
-	for (int i = 0; i < (int)m_DecodedTsBuff.size(); i++) {
+	for (unsigned int i = 0; i < m_DecodedTsBuff.size(); i++) {
 		SAFE_DELETE(m_DecodedTsBuff[i])
 	}
 	m_DecodedTsBuff.clear();
@@ -587,7 +587,7 @@ const BOOL CBonTuner::_IsTunerOpening(void)
 LPCTSTR CBonTuner::EnumTuningSpace(const DWORD dwSpace)
 {
 	if (dwSpace < m_TuningData.dwNumSpace) {
-		map<int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
+		map<unsigned int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
 		if (it != m_TuningData.Spaces.end())
 			return it->second->sTuningSpaceName.c_str();
 		else
@@ -602,10 +602,10 @@ LPCTSTR CBonTuner::EnumTuningSpace(const DWORD dwSpace)
 
 LPCTSTR CBonTuner::EnumChannelName(const DWORD dwSpace, const DWORD dwChannel)
 {
-	map<int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
+	map<unsigned int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
 	if (it != m_TuningData.Spaces.end()) {
 		if (dwChannel < it->second->dwNumChannel) {
-			map<int, ChData*>::iterator it2 = it->second->Channels.find(dwChannel);
+			map<unsigned int, ChData*>::iterator it2 = it->second->Channels.find(dwChannel);
 			if (it2 != it->second->Channels.end())
 				return it2->second->sServiceName.c_str();
 			else
@@ -655,7 +655,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_dwCurSpace = CBonTuner::SPACE_INVALID;
 	m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
 
-	map<int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
+	map<unsigned int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
 	if (it == m_TuningData.Spaces.end()) {
 		OutputDebug(L"    Invalid channel space.\n");
 		return FALSE;
@@ -666,7 +666,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 		return FALSE;
 	}
 
-	map<int, ChData*>::iterator it2 = it->second->Channels.find(dwChannel);
+	map<unsigned int, ChData*>::iterator it2 = it->second->Channels.find(dwChannel);
 	if (it2 == it->second->Channels.end()) {
 		OutputDebug(L"    Reserved channel number.\n");
 		return FALSE;
@@ -1190,7 +1190,7 @@ void CBonTuner::ReadIniFile(void)
 				break;
 		}
 		TunerSearchData *sdata = new TunerSearchData(buf, buf2, buf3, buf4);
-		m_aTunerParam.Tuner.insert(pair<int, TunerSearchData*>(i, sdata));
+		m_aTunerParam.Tuner.insert(pair<unsigned int, TunerSearchData*>(i, sdata));
 	}
 
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
@@ -1217,19 +1217,19 @@ void CBonTuner::ReadIniFile(void)
 	m_nToneWait = ::GetPrivateProfileIntW(L"TUNER", L"ToneSignalWait", 100, m_szIniFilePath);
 
 	// CH切替後のLock確認時間
-	m_nLockWait = (DWORD)::GetPrivateProfileIntW(L"TUNER", L"ChannelLockWait", 2000, m_szIniFilePath);
+	m_nLockWait = ::GetPrivateProfileIntW(L"TUNER", L"ChannelLockWait", 2000, m_szIniFilePath);
 
 	// CH切替後のLock確認Delay時間
-	m_nLockWaitDelay = (DWORD)::GetPrivateProfileIntW(L"TUNER", L"ChannelLockWaitDelay", 0, m_szIniFilePath);
+	m_nLockWaitDelay = ::GetPrivateProfileIntW(L"TUNER", L"ChannelLockWaitDelay", 0, m_szIniFilePath);
 
 	// CH切替後のLock確認Retry回数
-	m_nLockWaitRetry = (DWORD)::GetPrivateProfileIntW(L"TUNER", L"ChannelLockWaitRetry", 0, m_szIniFilePath);
+	m_nLockWaitRetry = ::GetPrivateProfileIntW(L"TUNER", L"ChannelLockWaitRetry", 0, m_szIniFilePath);
 
 	// CH切替動作を強制的に2度行うかどうか
-	m_bLockTwice = !!(::GetPrivateProfileIntW(L"TUNER", L"ChannelLockTwice", 0, m_szIniFilePath));
+	m_bLockTwice = (BOOL)(::GetPrivateProfileIntW(L"TUNER", L"ChannelLockTwice", 0, m_szIniFilePath));
 
 	// CH切替動作を強制的に2度行う場合のDelay時間
-	m_nLockTwiceDelay = (DWORD)::GetPrivateProfileIntW(L"TUNER", L"ChannelLockTwiceDelay", 100, m_szIniFilePath);
+	m_nLockTwiceDelay = ::GetPrivateProfileIntW(L"TUNER", L"ChannelLockTwiceDelay", 100, m_szIniFilePath);
 
 	// SignalLockの異常検知時間(秒)
 	m_nWatchDogSignalLocked = ::GetPrivateProfileIntW(L"TUNER", L"WatchDogSignalLocked", 0, m_szIniFilePath);
@@ -1253,14 +1253,14 @@ void CBonTuner::ReadIniFile(void)
 	// Strength 値補正係数
 	::GetPrivateProfileStringW(L"TUNER", L"StrengthCoefficient", L"1.0", buf, 256, m_szIniFilePath);
 	m_fStrengthCoefficient = (float)::_wtof(buf);
-	if (m_fStrengthCoefficient == 0)
-		m_fStrengthCoefficient = 1;
+	if (m_fStrengthCoefficient == 0.0F)
+		m_fStrengthCoefficient = 1.0F;
 
 	// Quality 値補正係数
 	::GetPrivateProfileStringW(L"TUNER", L"QualityCoefficient", L"1.0", buf, 256, m_szIniFilePath);
 	m_fQualityCoefficient = (float)::_wtof(buf);
-	if (m_fQualityCoefficient == 0)
-		m_fQualityCoefficient = 1;
+	if (m_fQualityCoefficient == 0.0F)
+		m_fQualityCoefficient = 1.0F;
 
 	// チューナーの使用するTuningSpace / NetworkProvider等の種類
 	//    1 ..DVB - S
@@ -1279,10 +1279,10 @@ void CBonTuner::ReadIniFile(void)
 
 	// ストリームデータバッファ1個分のサイズ
 	// 188×設定数(bytes)
-	m_dwBuffSize = 188 * (DWORD)::GetPrivateProfileIntW(L"BONDRIVER", L"BuffSize", 1024, m_szIniFilePath);
+	m_dwBuffSize = 188 * ::GetPrivateProfileIntW(L"BONDRIVER", L"BuffSize", 1024, m_szIniFilePath);
 
 	// ストリームデータバッファの最大個数
-	m_dwMaxBuffCount = (DWORD)::GetPrivateProfileIntW(L"BONDRIVER", L"MaxBuffCount", 512, m_szIniFilePath);
+	m_dwMaxBuffCount = ::GetPrivateProfileIntW(L"BONDRIVER", L"MaxBuffCount", 512, m_szIniFilePath);
 
 	// WaitTsStream時、指定された個数分のストリームデータバッファが貯まるまで待機する
 	// チューナのCPU負荷が高いときは数値を大き目にすると効果がある場合もある
@@ -1339,16 +1339,16 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// 衛星設定1～4の設定を読込
-	for (int satellite = 1; satellite < MAX_SATELLITE; satellite++) {
+	for (unsigned int satellite = 1; satellite < MAX_SATELLITE; satellite++) {
 		WCHAR keyname[64];
 		::swprintf_s(keyname, 64, L"Satellite%01dName", satellite);
 		::GetPrivateProfileStringW(L"SATELLITE", keyname, L"", buf, 64, m_szIniFilePath);
-		if (buf[0] != 0) {
+		if (buf[0] != L'\0') {
 			m_sSatelliteName[satellite] = buf;
 		}
 
 		// 偏波種類1～4のアンテナ設定を読込
-		for (int polarisation = 1; polarisation < POLARISATION_SIZE; polarisation++) {
+		for (unsigned int polarisation = 1; polarisation < POLARISATION_SIZE; polarisation++) {
 			// 局発周波数 (KHz)
 			// 全偏波共通での設定があれば読み込む
 			::swprintf_s(keyname, 64, L"Satellite%01dOscillator", satellite);
@@ -1437,12 +1437,12 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// 変調方式設定0～3の値を読込
-	for (int modulation = 0; modulation < MAX_MODULATION; modulation++) {
+	for (unsigned int modulation = 0; modulation < MAX_MODULATION; modulation++) {
 		WCHAR keyname[64];
 		// チャンネル名生成用変調方式名称
 		::swprintf_s(keyname, 64, L"ModulationType%01dName", modulation);
 		::GetPrivateProfileStringW(L"MODULATION", keyname, L"", buf, 64, m_szIniFilePath);
-		if (buf[0] != 0) {
+		if (buf[0] != L'\0') {
 			m_sModulationName[modulation] = buf;
 		}
 
@@ -1490,10 +1490,10 @@ void CBonTuner::ReadIniFile(void)
 	// 使用されていないCH番号があっても前詰せず確保しておくかどうか
 	// 0 .. 使用されてない番号があった場合前詰し連続させる
 	// 1 .. 使用されていない番号をそのまま空CHとして確保しておく
-	m_bReserveUnusedCh = !!(::GetPrivateProfileIntW(L"CHANNEL", L"ReserveUnusedCh", 0, m_szIniFilePath));
+	m_bReserveUnusedCh = (BOOL)(::GetPrivateProfileIntW(L"CHANNEL", L"ReserveUnusedCh", 0, m_szIniFilePath));
 
-	map<int, TuningSpaceData*>::iterator itSpace;
-	map<int, ChData*>::iterator itCh;
+	map<unsigned int, TuningSpaceData*>::iterator itSpace;
+	map<unsigned int, ChData*>::iterator itCh;
 	// チューニング空間00～99の設定を読込
 	for (DWORD space = 0; space < 100; space++)	{
 		DWORD result;
@@ -1514,7 +1514,7 @@ void CBonTuner::ReadIniFile(void)
 		itSpace = m_TuningData.Spaces.find(space);
 		if (itSpace == m_TuningData.Spaces.end()) {
 			TuningSpaceData *tuningSpaceData = new TuningSpaceData();
-			itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<int, TuningSpaceData*>(space, tuningSpaceData));
+			itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<unsigned int, TuningSpaceData*>(space, tuningSpaceData));
 		}
 
 		// Tuning Space名
@@ -1530,11 +1530,11 @@ void CBonTuner::ReadIniFile(void)
 		::GetPrivateProfileStringW(sectionname, L"ChannelSettingsAuto", L"", buf, 256, m_szIniFilePath);
 		temp = buf;
 		if (temp == L"UHF") {
-			for (int ch = 0; ch < 50; ch++) {
+			for (unsigned int ch = 0; ch < 50; ch++) {
 				itCh = itSpace->second->Channels.find(ch);
 				if (itCh == itSpace->second->Channels.end()) {
 					ChData *chData = new ChData();
-					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<int, ChData*>(ch, chData));
+					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(ch, chData));
 				}
 
 				itCh->second->Satellite = 0;
@@ -1552,11 +1552,11 @@ void CBonTuner::ReadIniFile(void)
 			itSpace->second->dwNumChannel = 50;
 		}
 		else if (temp == L"CATV") {
-			for (int ch = 0; ch < 51; ch++) {
+			for (unsigned int ch = 0; ch < 51; ch++) {
 				itCh = itSpace->second->Channels.find(ch);
 				if (itCh == itSpace->second->Channels.end()) {
 					ChData *chData = new ChData();
-					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<int, ChData*>(ch, chData));
+					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(ch, chData));
 				}
 
 				itCh->second->Satellite = 0;
@@ -1617,7 +1617,7 @@ void CBonTuner::ReadIniFile(void)
 			itCh = itSpace->second->Channels.find(chNum);
 			if (itCh == itSpace->second->Channels.end()) {
 				ChData *chData = new ChData();
-				itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<int, ChData*>(chNum, chData));
+				itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(chNum, chData));
 			}
 
 			WCHAR szSatellite[256] = L"";
@@ -1652,9 +1652,9 @@ void CBonTuner::ReadIniFile(void)
 
 			// 偏波種類
 			if (szPolarisation[0] == L' ')
-				szPolarisation[0] = 0;
+				szPolarisation[0] = L'\0';
 			val = -1;
-			for (int i = 0; i < POLARISATION_SIZE; i++) {
+			for (unsigned int i = 0; i < POLARISATION_SIZE; i++) {
 				if (szPolarisation[0] == PolarisationChar[i]) {
 					val = i;
 					break;
@@ -1787,7 +1787,7 @@ void CBonTuner::ReadIniFile(void)
 		// ここには来ないはずだけど一応
 		// 空のTuningSpaceDataをチューニング空間番号0に挿入
 		TuningSpaceData *tuningSpaceData = new TuningSpaceData;
-		itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<int, TuningSpaceData*>(0, tuningSpaceData));
+		itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<unsigned int, TuningSpaceData*>(0, tuningSpaceData));
 	}
 
 	if (!itSpace->second->Channels.size()) {
@@ -1809,7 +1809,7 @@ void CBonTuner::ReadIniFile(void)
 			::wcstombs_s(NULL, charBuf, 512, buf, _TRUNCATE);
 			chData->sServiceName = charBuf;
 #endif
-			itSpace->second->Channels.insert(pair<int, ChData*>(0, chData));
+			itSpace->second->Channels.insert(pair<unsigned int, ChData*>(0, chData));
 			//   124.0E 12.613GHz H DVB-S2
 			chData = new ChData();
 			chData->Satellite = 2;
@@ -1823,7 +1823,7 @@ void CBonTuner::ReadIniFile(void)
 			::wcstombs_s(NULL, charBuf, 512, buf, _TRUNCATE);
 			chData->sServiceName = charBuf;
 #endif
-			itSpace->second->Channels.insert(pair<int, ChData*>(1, chData));
+			itSpace->second->Channels.insert(pair<unsigned int, ChData*>(1, chData));
 			//   128.0E 12.733GHz H DVB-S2
 			chData = new ChData();
 			chData->Satellite = 1;
@@ -1837,7 +1837,7 @@ void CBonTuner::ReadIniFile(void)
 			::wcstombs_s(NULL, charBuf, 512, buf, _TRUNCATE);
 			chData->sServiceName = charBuf;
 #endif
-			itSpace->second->Channels.insert(pair<int, ChData*>(2, chData));
+			itSpace->second->Channels.insert(pair<unsigned int, ChData*>(2, chData));
 			itSpace->second->dwNumChannel = 3;
 		}
 	}
@@ -2140,7 +2140,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(void)
 	if (m_aTunerParam.sDLLBaseName == L"AUTO") {
 		// INI ファイルで "AUTO" 指定の場合
 		BOOL found = FALSE;
-		for (int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
+		for (unsigned int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
 			if ((aTunerSpecialData[i].sTunerGUID != L"") && (m_sTunerDisplayName.find(aTunerSpecialData[i].sTunerGUID)) != wstring::npos) {
 				// この時のチューナ依存コードをチューナパラメータに変数にセットする
 				m_aTunerParam.sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;

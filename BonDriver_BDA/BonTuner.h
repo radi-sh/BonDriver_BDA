@@ -432,7 +432,8 @@ protected:
 
 	// INI ファイルで指定するチューナパラメータ
 	struct TunerParam {
-		map<int, TunerSearchData*> Tuner;		// TunerとCaptureのGUID/FriendlyName指定
+		map<unsigned int, TunerSearchData*> Tuner;
+												// TunerとCaptureのGUID/FriendlyName指定
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 #ifdef UNICODE
 		wstring sTunerName;						// GetTunerNameで返す名前
@@ -446,7 +447,7 @@ protected:
 		};
 		~TunerParam(void)
 		{
-			for (map<int, TunerSearchData*>::iterator it = Tuner.begin(); it != Tuner.end(); it++) {
+			for (map<unsigned int, TunerSearchData*>::iterator it = Tuner.begin(); it != Tuner.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Tuner.clear();
@@ -548,7 +549,7 @@ protected:
 #else
 		string sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
 #endif
-		map<int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
+		map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;				// チャンネル数
 		TuningSpaceData(void)
 			: dwNumChannel(0)
@@ -556,7 +557,7 @@ protected:
 		};
 		~TuningSpaceData(void)
 		{
-			for (map<int, ChData*>::iterator it = Channels.begin(); it != Channels.end(); it++) {
+			for (map<unsigned int, ChData*>::iterator it = Channels.begin(); it != Channels.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Channels.clear();
@@ -565,7 +566,7 @@ protected:
 
 	// チューニングスペース一覧
 	struct TuningData {
-		map<int, TuningSpaceData*> Spaces;	// チューニングスペース番号とデータ
+		map<unsigned int, TuningSpaceData*> Spaces;	// チューニングスペース番号とデータ
 		DWORD dwNumSpace;					// チューニングスペース数
 		TuningData(void)
 			: dwNumSpace(0)
@@ -573,7 +574,7 @@ protected:
 		};
 		~TuningData(void)
 		{
-			for (map<int, TuningSpaceData*>::iterator it = Spaces.begin(); it != Spaces.end(); it++) {
+			for (map<unsigned int, TuningSpaceData*>::iterator it = Spaces.begin(); it != Spaces.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Spaces.clear();
@@ -716,7 +717,7 @@ protected:
 			DWORD Tick = ::GetTickCount();
 			if (Tick - LastTick > 1000) {
 				::EnterCriticalSection(&csRateLast);
-				for (int i = (sizeof(RateLast) / sizeof(RateLast[0])) - 1; i > 0; i--) {
+				for (unsigned int i = (sizeof(RateLast) / sizeof(RateLast[0])) - 1; i > 0; i--) {
 					RateLast[i] = RateLast[i - 1];
 					total += RateLast[i];
 				}
@@ -741,7 +742,7 @@ protected:
 			::EnterCriticalSection(&csRateLast);
 			::EnterCriticalSection(&csRate1Sec);
 			Rate1sec = 0;
-			for (int i = 0; i < sizeof(RateLast) / sizeof(RateLast[0]); i++) {
+			for (unsigned int i = 0; i < sizeof(RateLast) / sizeof(RateLast[0]); i++) {
 				RateLast[i] = 0;
 			}
 			DataCount = 0;
