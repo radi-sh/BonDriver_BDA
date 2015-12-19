@@ -2575,68 +2575,72 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 					continue;
 				}
 
-				if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pTunerDevice))) {
-					if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, m_sTunerFriendlyName.c_str()))) {
-						OutputDebug(L"[P->T] Error in AddFilter\n");
-						::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-						::CloseHandle(m_hSemaphore);
-						m_hSemaphore = NULL;
-						SAFE_RELEASE(m_pTunerDevice);
-						continue;
-					}
-
-					// connect してみる
-					if (SUCCEEDED(hr = Connect(L"Provider->Tuner", m_pNetworkProvider, m_pTunerDevice))) {
-						// connect 成功
-						OutputDebug(L"[P->T] Connect OK.\n");
-
-						// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
-						if (FAILED(hr = CheckAndInitTunerDependDll())) {
-							// 何らかの理由で使用できないみたいなので次のチューナへ
-							OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
-							ReleaseTunerDependCode();
-							m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-							SAFE_RELEASE(m_pTunerDevice);
-							::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-							::CloseHandle(m_hSemaphore);
-							m_hSemaphore = NULL;
-							continue;
-						}
-
-						// 使用できるCaptureとの接続～RunGraphまでを試みる
-						if (FAILED(hr = LoadAndConnectCaptureDevice(m_aTunerParam.Tuner[i]->CaptureGUID, m_aTunerParam.Tuner[i]->CaptureFriendlyName))) {
-							// 動作する組合せが見つからなかったので次のチューナへ
-							DisconnectAll(m_pTunerDevice);
-							UnloadCaptureDevice();
-							ReleaseTunerDependCode();
-							m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-							SAFE_RELEASE(m_pTunerDevice);
-							::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-							::CloseHandle(m_hSemaphore);
-							m_hSemaphore = NULL;
-							continue;
-						}
-						// 成功
-						// ここでチューナが確定するので、チューナ固有関数をロードする
-						LoadTunerDependCode();
-						return S_OK;
-					}
-					else {
-						// NetworkProviderが異なる等の理由でconnectに失敗
-						// 次のチューナへ
-						OutputDebug(L"[P->T] Connect Failed.\n");
-						m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-						SAFE_RELEASE(m_pTunerDevice);
-						::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-						::CloseHandle(m_hSemaphore);
-						m_hSemaphore = NULL;
-					}
-				}
-				else {
+				// デバイスのフィルタを取得
+				if (FAILED(hr = dsfEnum.getFilter(&m_pTunerDevice))) {
+					OutputDebug(L"[P->T] Error in Get Filter\n");
 					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
 					::CloseHandle(m_hSemaphore);
 					m_hSemaphore = NULL;
+					continue;
 				}
+
+				// フィルタを追加
+				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, m_sTunerFriendlyName.c_str()))) {
+					OutputDebug(L"[P->T] Error in AddFilter\n");
+					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+					::CloseHandle(m_hSemaphore);
+					m_hSemaphore = NULL;
+					SAFE_RELEASE(m_pTunerDevice);
+					continue;
+				}
+
+				// connect してみる
+				if (FAILED(hr = Connect(L"Provider->Tuner", m_pNetworkProvider, m_pTunerDevice))) {
+					// NetworkProviderが異なる等の理由でconnectに失敗
+					// 次のチューナへ
+					OutputDebug(L"[P->T] Connect Failed.\n");
+					m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
+					SAFE_RELEASE(m_pTunerDevice);
+					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+					::CloseHandle(m_hSemaphore);
+					m_hSemaphore = NULL;
+					continue;
+				}
+
+				// connect 成功
+				OutputDebug(L"[P->T] Connect OK.\n");
+
+				// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
+				if (FAILED(hr = CheckAndInitTunerDependDll())) {
+					// 何らかの理由で使用できないみたいなので次のチューナへ
+					OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
+					ReleaseTunerDependCode();
+					m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
+					SAFE_RELEASE(m_pTunerDevice);
+					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+					::CloseHandle(m_hSemaphore);
+					m_hSemaphore = NULL;
+					continue;
+				}
+
+				// 使用できるCaptureとの接続～RunGraphまでを試みる
+				if (FAILED(hr = LoadAndConnectCaptureDevice(m_aTunerParam.Tuner[i]->CaptureGUID, m_aTunerParam.Tuner[i]->CaptureFriendlyName))) {
+					// 動作する組合せが見つからなかったので次のチューナへ
+					DisconnectAll(m_pTunerDevice);
+					UnloadCaptureDevice();
+					ReleaseTunerDependCode();
+					m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
+					SAFE_RELEASE(m_pTunerDevice);
+					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+					::CloseHandle(m_hSemaphore);
+					m_hSemaphore = NULL;
+					continue;
+				}
+
+				// 成功
+				// ここでチューナが確定するので、チューナ固有関数をロードする
+				LoadTunerDependCode();
+				return S_OK;
 			}
 		}
 		catch (...) {
@@ -2721,80 +2725,90 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searc
 				continue;
 			}
 
-			if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pCaptureDevice))) {
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pCaptureDevice, friendlyName.c_str()))) {
-					OutputDebug(L"[T->C] Error in AddFilter.\n");
-					SAFE_RELEASE(m_pCaptureDevice);
-					continue;
-				}
-
-				// connect してみる
-				if (SUCCEEDED(hr = Connect(L"Tuner->Capture", m_pTunerDevice, m_pCaptureDevice))) {
-					// connect 成功
-					OutputDebug(L"[T->C] Connect OK.\n");
-					// TsWriteと接続
-					if (FAILED(LoadAndConnectTsWriter())) {
-						// 失敗したら次のキャプチャデバイスへ
-						DisconnectAll(m_pTsWriter);
-						DisconnectAll(m_pCaptureDevice);
-						UnloadTsWriter();
-						m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-						SAFE_RELEASE(m_pCaptureDevice);
-						continue;
-					}
-					// TsDemuxerと接続
-					if (FAILED(LoadAndConnectDemux())) {
-						// 失敗したら次のキャプチャデバイスへ
-						DisconnectAll(m_pDemux);
-						DisconnectAll(m_pTsWriter);
-						DisconnectAll(m_pCaptureDevice);
-						UnloadDemux();
-						UnloadTsWriter();
-						m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-						SAFE_RELEASE(m_pCaptureDevice);
-						continue;
-					}
-					// TIFと接続
-					if (FAILED(LoadAndConnectTif())) {
-						// 失敗したら次のキャプチャデバイスへ
-						DisconnectAll(m_pTif);
-						DisconnectAll(m_pDemux);
-						DisconnectAll(m_pTsWriter);
-						DisconnectAll(m_pCaptureDevice);
-						UnloadTif();
-						UnloadDemux();
-						UnloadTsWriter();
-						m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-						SAFE_RELEASE(m_pCaptureDevice);
-						continue;
-					}
-					// Runしてみる
-					if (FAILED(hr = RunGraph())) {
-						// 失敗したら次のキャプチャデバイスへ
-						OutputDebug(L"RunGraph Failed.\n");
-						DisconnectAll(m_pTif);
-						DisconnectAll(m_pDemux);
-						DisconnectAll(m_pTsWriter);
-						DisconnectAll(m_pCaptureDevice);
-						UnloadTif();
-						UnloadDemux();
-						UnloadTsWriter();
-						m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-						SAFE_RELEASE(m_pCaptureDevice);
-						continue;
-					}
-					// 成功したのでそのままreturn
-					OutputDebug(L"RunGraph OK.\n");
-					return S_OK;
-				}
-				else {
-					// connect できなければチューナとの組合せが正しくないと思われる
-					// 次のキャプチャデバイスへ
-					OutputDebug(L"[T->C] Connect Failed, trying next capturedevice.\n");
-					m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-					SAFE_RELEASE(m_pCaptureDevice);
-				}
+			// デバイスのフィルタを取得
+			if (FAILED(hr = dsfEnum.getFilter(&m_pCaptureDevice))) {
+				OutputDebug(L"[T->C] Error in Get Filter.\n");
+				continue;
 			}
+
+			// フィルタを追加
+			if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pCaptureDevice, friendlyName.c_str()))) {
+				OutputDebug(L"[T->C] Error in AddFilter.\n");
+				SAFE_RELEASE(m_pCaptureDevice);
+				continue;
+			}
+
+			// connect してみる
+			if (FAILED(hr = Connect(L"Tuner->Capture", m_pTunerDevice, m_pCaptureDevice))) {
+				// connect できなければチューナとの組合せが正しくないと思われる
+				// 次のキャプチャデバイスへ
+				OutputDebug(L"[T->C] Connect Failed, trying next capturedevice.\n");
+				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
+				SAFE_RELEASE(m_pCaptureDevice);
+				continue;
+			}
+
+			// connect 成功
+			OutputDebug(L"[T->C] Connect OK.\n");
+
+			// TsWriteと接続
+			if (FAILED(LoadAndConnectTsWriter())) {
+				// 失敗したら次のキャプチャデバイスへ
+				DisconnectAll(m_pTsWriter);
+				DisconnectAll(m_pCaptureDevice);
+				UnloadTsWriter();
+				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
+				SAFE_RELEASE(m_pCaptureDevice);
+				continue;
+			}
+
+			// TsDemuxerと接続
+			if (FAILED(LoadAndConnectDemux())) {
+				// 失敗したら次のキャプチャデバイスへ
+				DisconnectAll(m_pDemux);
+				DisconnectAll(m_pTsWriter);
+				DisconnectAll(m_pCaptureDevice);
+				UnloadDemux();
+				UnloadTsWriter();
+				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
+				SAFE_RELEASE(m_pCaptureDevice);
+				continue;
+			}
+
+			// TIFと接続
+			if (FAILED(LoadAndConnectTif())) {
+				// 失敗したら次のキャプチャデバイスへ
+				DisconnectAll(m_pTif);
+				DisconnectAll(m_pDemux);
+				DisconnectAll(m_pTsWriter);
+				DisconnectAll(m_pCaptureDevice);
+				UnloadTif();
+				UnloadDemux();
+				UnloadTsWriter();
+				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
+				SAFE_RELEASE(m_pCaptureDevice);
+				continue;
+			}
+
+			// Runしてみる
+			if (FAILED(hr = RunGraph())) {
+				// 失敗したら次のキャプチャデバイスへ
+				OutputDebug(L"RunGraph Failed.\n");
+				DisconnectAll(m_pTif);
+				DisconnectAll(m_pDemux);
+				DisconnectAll(m_pTsWriter);
+				DisconnectAll(m_pCaptureDevice);
+				UnloadTif();
+				UnloadDemux();
+				UnloadTsWriter();
+				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
+				SAFE_RELEASE(m_pCaptureDevice);
+				continue;
+			}
+
+			// 成功したのでそのままreturn
+			OutputDebug(L"RunGraph OK.\n");
+			return S_OK;
 		}
 		OutputDebug(L"[T->C] CaptureDevice not found.\n");
 		return E_FAIL;
@@ -2825,6 +2839,7 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(void)
 		return E_POINTER;
 	}
 
+	// インスタンス作成
 	m_pCTsWriter = static_cast<CTsWriter *>(CTsWriter::CreateInstance(NULL, &hr));
 	if (!m_pCTsWriter) {
 		OutputDebug(L"[C->W] Fail to load TsWriter filter.\n");
@@ -2833,12 +2848,14 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(void)
 
 	m_pCTsWriter->AddRef();
 
+	// フィルタを取得
 	if (FAILED(hr = m_pCTsWriter->QueryInterface(IID_IBaseFilter, (void**)(&m_pTsWriter)))) {
 		OutputDebug(L"[C->W] Fail to get TsWriter interface.\n");
 		SAFE_RELEASE(m_pCTsWriter);
 		return hr;
 	}
 
+	// フィルタを追加
 	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTsWriter, FILTER_GRAPH_NAME_TSWRITER))) {
 		OutputDebug(L"[C->W] Fail to add TsWriter filter into graph.\n");
 		SAFE_RELEASE(m_pTsWriter);
@@ -2846,6 +2863,7 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(void)
 		return hr;
 	}
 
+	// connect してみる
 	if (FAILED(hr = Connect(L"Capture->TsWriter", m_pCaptureDevice, m_pTsWriter))) {
 		OutputDebug(L"[C->W] Failed to connect.\n");
 		SAFE_RELEASE(m_pTsWriter);
@@ -2853,6 +2871,7 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(void)
 		return hr;
 	}
 
+	// connect 成功なのでこのまま終了
 	OutputDebug(L"[C->W] Connect OK.\n");
 	return S_OK;
 }
@@ -2876,23 +2895,27 @@ HRESULT CBonTuner::LoadAndConnectDemux(void)
 			return E_POINTER;
 	}
 
+	// インスタンス作成
 	if (FAILED(hr = ::CoCreateInstance(CLSID_MPEG2Demultiplexer, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void **)(&m_pDemux)))) {
 		OutputDebug(L"[W->M] Fail to load MPEG2-Demultiplexer.\n");
 		return hr;
 	}
 
+	// フィルタを追加
 	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pDemux, FILTER_GRAPH_NAME_DEMUX))) {
 		OutputDebug(L"[W->M] Fail to add MPEG2-Demultiplexer into graph.\n");
 		SAFE_RELEASE(m_pDemux);
 		return hr;
 	}
 
+	// connect してみる
 	if (FAILED(hr = Connect(L"Grabber->Demux", m_pTsWriter, m_pDemux))) {
 		OutputDebug(L"[W->M] Fail to connect Grabber->Demux.\n");
 		SAFE_RELEASE(m_pDemux);
 		return hr;
 	}
 
+	// connect 成功なのでこのまま終了
 	OutputDebug(L"[W->M] Connect OK.\n");
 	return S_OK;
 }
@@ -2926,23 +2949,29 @@ HRESULT CBonTuner::LoadAndConnectTif(void)
 			if (friendlyName.find(FILTER_GRAPH_NAME_TIF) == wstring::npos)
 				continue;
 
-			if (SUCCEEDED(hr = dsfEnum.getFilter(&m_pTif))) {
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTif, FILTER_GRAPH_NAME_TIF))) {
-					SAFE_RELEASE(m_pTif);
-					OutputDebug(L"[M->I] Error in AddFilter.\n");
-					return hr;
-				}
-				// connect してみる
-				if (SUCCEEDED(hr = Connect(L"Demux -> Tif", m_pDemux, m_pTif))) {
-					OutputDebug(L"[M->I] Connect OK.\n");
-					// connect 成功 なのでこのまま終了
-					return S_OK;
-				} else {
-					m_pIGraphBuilder->RemoveFilter(m_pTif);
-					SAFE_RELEASE(m_pTif);
-					// connect できなければ次の TIF フィルタへ
-				}
+			// フィルタを取得
+			if (FAILED(hr = dsfEnum.getFilter(&m_pTif))) {
+				OutputDebug(L"[M->I] Error in Get Filter\n");
+				return hr;
 			}
+
+			// フィルタを追加
+			if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTif, FILTER_GRAPH_NAME_TIF))) {
+				SAFE_RELEASE(m_pTif);
+				OutputDebug(L"[M->I] Error in AddFilter.\n");
+				return hr;
+			}
+
+			// connect してみる
+			if (FAILED(hr = Connect(L"Demux -> Tif", m_pDemux, m_pTif))) {
+				m_pIGraphBuilder->RemoveFilter(m_pTif);
+				SAFE_RELEASE(m_pTif);
+				return hr;
+			}
+
+			// connect 成功なのでこのまま終了
+			OutputDebug(L"[M->I] Connect OK.\n");
+			return S_OK;
 		}
 		OutputDebug(L"[M->I] MPEG2 Transport Information Filter not found.\n");
 		return E_FAIL;
