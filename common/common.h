@@ -54,7 +54,7 @@ static inline void SetDebugLog(WCHAR *szLogPath)
 		return;
 	}
 
-	_wfopen_s(&g_fpLog, szLogPath, L"a+");
+	g_fpLog = _wfsopen(szLogPath, L"a+", _SH_DENYNO);
 
 	return;
 }
