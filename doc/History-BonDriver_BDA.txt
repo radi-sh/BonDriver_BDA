@@ -71,3 +71,21 @@
 ・サンプルiniファイルの誤記修正
 ・DLL_PROCESS_DETACH時にデバッグログファイルのクローズを行うようにした
 
+【2015-12-23】
+・開発環境をVisual Studio Community 2015 Update 1に変更
+　通常版の実行には「Visual Studio 2015 Update 1 の Visual C++ 再頒布可能パッケージ」のインストールが必要です
+　「Visual Studio 2015 の Visual C++ 再頒布可能パッケージ」を既にインストールしている場合でも別途インストールが必要ですので注意してください
+・iniファイルのSignalLevelCalcType（SignalLevel算出方法）にビットレート値を指定できるようにした
+・CBonTuner::GetSignalState周りのコード見直し
+・iniファイルの[Tuner]セクションに下記3項目を追加し、受信異常時に自動での再チューニング/再オープンを行えるようにした
+　WatchDogSignalLocked
+　WatchDogBitRate
+　ReOpenWhenGiveUpReLock
+・iniファイル[Tuner]セクションのGUID/FriendlyName/CaptureGUID/CaptureFriendlyNameの仕様変更
+　- 複数指定する場合に指定できる数値を0～9の10個から0～99の100個に変更
+　- 下記の順序で検索するようにした
+　　Guid0 / FriendlyName0 / CaptureGuid0 / CaptureFriendlyName0 の組合せ
+　　Guid1 / FriendlyName1 / CaptureGuid1 / CaptureFriendlyName1 の組合せ
+　　Guid2 / FriendlyName2 / CaptureGuid2 / CaptureFriendlyName2 の組合せ
+・複数プロセスから同じBonDriverを開いている場合でもDebugLogオプションがそれぞれで有効になるようにした
+

@@ -32,8 +32,8 @@ Windows XP以降 (x86/x64)
 通常版でうまくいかない方は、ランタイム内蔵版もお試しください。
 
 2. Visual C++ 再頒布可能パッケージのインストール
-「Visual Studio 2015 の Visual C++ 再頒布可能パッケージ」を下記URLよりダウンロードし、インストールしてください。
-https://www.microsoft.com/ja-jp/download/details.aspx?id=48145
+「Visual Studio 2015 Update 1 の Visual C++ 再頒布可能パッケージ」を下記URLよりダウンロードし、インストールしてください。
+https://www.microsoft.com/ja-JP/download/details.aspx?id=49984
 x86/x64の2種類がありますので注意してください。よくわからない場合は両方インストールしても大丈夫です。
 
 当然ですが、アプリで別のバージョンのVisual C++ 再頒布可能パッケージを必要とする場合はそれのインストールも別途必要です。
