@@ -2676,8 +2676,8 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searc
 {
 	HRESULT hr;
 
-	if (!m_pITuningSpace || !m_pNetworkProvider || ! m_pTunerDevice) {
-		OutputDebug(L"[T->C] TuningSpace, NetworkProvider or TunerDevice NOT SET.\n");
+	if (!m_pTunerDevice) {
+		OutputDebug(L"[T->C] TunerDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
@@ -2835,8 +2835,8 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(void)
 {
 	HRESULT hr = E_FAIL;
 
-	if (!m_pITuningSpace || !m_pNetworkProvider || !m_pTunerDevice || !m_pCaptureDevice) {
-		OutputDebug(L"[C->W] TuningSpace, NetworkProvider, TunerDevice or CaptureDevice NOT SET.\n");
+	if (!m_pCaptureDevice) {
+		OutputDebug(L"[C->W] CaptureDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
@@ -2891,8 +2891,8 @@ HRESULT CBonTuner::LoadAndConnectDemux(void)
 {
 	HRESULT hr;
 
-	if (!m_pITuningSpace || !m_pNetworkProvider || !m_pTunerDevice || !m_pCaptureDevice || !m_pTsWriter) {
-			OutputDebug(L"[W->M] TuningSpace, NetworkProvider, TunerDevice CaptureDevice or Grabber NOT SET.\n");
+	if (!m_pTsWriter) {
+			OutputDebug(L"[W->M] TsWriter NOT SET.\n");
 			return E_POINTER;
 	}
 
@@ -2934,8 +2934,8 @@ HRESULT CBonTuner::LoadAndConnectTif(void)
 {
 	HRESULT hr;
 
-	if (!m_pITuningSpace || !m_pNetworkProvider || !m_pTunerDevice || !m_pCaptureDevice || !m_pTsWriter || !m_pDemux) {
-			OutputDebug(L"[M->I] TuningSpace, NetworkProvider, TunerDevice CaptureDevice, Grabber or Demux NOT SET.\n");
+	if (!m_pDemux) {
+			OutputDebug(L"[M->I] Demux NOT SET.\n");
 			return E_POINTER;
 	}
 
