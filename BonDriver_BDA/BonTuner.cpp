@@ -2053,7 +2053,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 				// m_pITuningSpace‚ÌŽÀ‘Ì‚ªDVB-TˆÈŠO‚ÌŽž‚ÍŽÀs‚³‚ê‚È‚¢
 
 				// Žü”g”‚Ì‘Ñˆæ• (MHz)‚ðÝ’è
-				pIDVBTLocator->put_Bandwidth(6);
+				pIDVBTLocator->put_Bandwidth(pTuningParam->Modulation->BandWidth);
 			}
 		}
 
