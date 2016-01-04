@@ -1266,7 +1266,7 @@ void CBonTuner::ReadIniFile(void)
 	// チューナーの使用するTuningSpace / NetworkProvider等の種類
 	//    1 ..DVB - S
 	//    2 ..DVB - T
-	m_nDVBSystemType = ::GetPrivateProfileIntW(L"TUNER", L"DVBSystemType", 1, m_szIniFilePath);
+	m_nDVBSystemType = (enumTunerType)::GetPrivateProfileIntW(L"TUNER", L"DVBSystemType", 1, m_szIniFilePath);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	//    1 ..SPHD

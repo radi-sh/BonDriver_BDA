@@ -790,7 +790,7 @@ protected:
 		eTunerTypeDVBS = 1,
 		eTunerTypeDVBT = 2,
 	};
-	DWORD m_nDVBSystemType;
+	enumTunerType m_nDVBSystemType;
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV
 	DWORD m_nDefaultNetwork;
