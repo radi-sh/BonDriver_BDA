@@ -2461,6 +2461,11 @@ void CBonTuner::UnloadTuningSpace(void)
 //   ‚ ‚é‚ç‚µ‚¢
 HRESULT CBonTuner::InitTuningSpace(void)
 {
+	if (!m_pITuningSpace) {
+		OutputDebug(L"TuningSpace NOT SET.\n");
+		return E_POINTER;
+	}
+
 	CComQIPtr<ITuner> pITuner(m_pNetworkProvider);
 	if (!pITuner) {
 		OutputDebug(L"Fail to get ITuner.\n");
