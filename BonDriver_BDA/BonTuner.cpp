@@ -164,6 +164,7 @@ CBonTuner::CBonTuner()
 	m_pIGraphBuilder(NULL),
 	m_pIMediaControl(NULL), 
 	m_pCTsWriter(NULL),
+	m_pIBDA_SignalStatistics(NULL),
 	m_nDVBSystemType(eTunerTypeDVBS),
 	m_nDefaultNetwork(1),
 	m_bOpened(FALSE),
