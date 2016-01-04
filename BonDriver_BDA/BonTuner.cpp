@@ -1264,14 +1264,14 @@ void CBonTuner::ReadIniFile(void)
 		m_fQualityCoefficient = 1.0F;
 
 	// チューナーの使用するTuningSpace / NetworkProvider等の種類
-	//    1 ..DVB - S
-	//    2 ..DVB - T
+	//    1 .. DVB-S
+	//    2 .. DVB-T
 	m_nDVBSystemType = (enumTunerType)::GetPrivateProfileIntW(L"TUNER", L"DVBSystemType", 1, m_szIniFilePath);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
-	//    1 ..SPHD
-	//    2 ..BS/CS110
-	//    3 ..UHF/CATV
+	//    1 .. SPHD
+	//    2 .. BS/CS110
+	//    3 .. UHF/CATV
 	m_nDefaultNetwork = ::GetPrivateProfileIntW(L"TUNER", L"DefaultNetwork", 1, m_szIniFilePath);
 
 	//
