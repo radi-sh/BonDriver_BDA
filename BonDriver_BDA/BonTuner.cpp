@@ -2059,7 +2059,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// DVB Triplet IDÇÃê›íË
 		{
 			CComQIPtr<IDVBTuneRequest> pIDVBTuneRequest(pITuneRequest);
-			if (pITuneRequest) {
+			if (pIDVBTuneRequest) {
 				if (pTuningParam->ONID != -1)
 					pIDVBTuneRequest->put_ONID(pTuningParam->ONID);
 				if (pTuningParam->TSID != -1)
