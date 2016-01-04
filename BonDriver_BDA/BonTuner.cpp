@@ -1194,6 +1194,9 @@ void CBonTuner::ReadIniFile(void)
 		m_aTunerParam.Tuner.insert(pair<unsigned int, TunerSearchData*>(i, sdata));
 	}
 
+	// TunerデバイスのみでCaptureデバイスが存在しない
+	m_aTunerParam.bNotExistCaptureDevice = (BOOL)::GetPrivateProfileIntW(L"TUNER", L"NotExistCaptureDevice", 0, m_szIniFilePath);
+
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 	m_aTunerParam.bCheckDeviceInstancePath = (BOOL)::GetPrivateProfileIntW(L"TUNER", L"CheckDeviceInstancePath", 1, m_szIniFilePath);
 
@@ -2630,17 +2633,32 @@ HRESULT CBonTuner::LoadAndConnectTunerDevice(void)
 				}
 
 				// 使用できるCaptureとの接続～RunGraphまでを試みる
-				if (FAILED(hr = LoadAndConnectCaptureDevice(m_aTunerParam.Tuner[i]->CaptureGUID, m_aTunerParam.Tuner[i]->CaptureFriendlyName))) {
-					// 動作する組合せが見つからなかったので次のチューナへ
-					DisconnectAll(m_pTunerDevice);
-					UnloadCaptureDevice();
-					ReleaseTunerDependCode();
-					m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-					SAFE_RELEASE(m_pTunerDevice);
-					::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-					::CloseHandle(m_hSemaphore);
-					m_hSemaphore = NULL;
-					continue;
+				if (m_aTunerParam.bNotExistCaptureDevice) {
+					// Captureデバイスが存在しない場合はTsWriter以降と接続～Run
+					if (FAILED(hr = LoadAndConnectMiscFilters())) {
+						// 失敗したら次のチューナへ
+						DisconnectAll(m_pTunerDevice);
+						ReleaseTunerDependCode();
+						m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
+						SAFE_RELEASE(m_pTunerDevice);
+						::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+						::CloseHandle(m_hSemaphore);
+						m_hSemaphore = NULL;
+						continue;
+					}
+				}
+				else {
+					if (FAILED(hr = LoadAndConnectCaptureDevice(m_aTunerParam.Tuner[i]->CaptureGUID, m_aTunerParam.Tuner[i]->CaptureFriendlyName))) {
+						// 動作する組合せが見つからなかったので次のチューナへ
+						DisconnectAll(m_pTunerDevice);
+						ReleaseTunerDependCode();
+						m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
+						SAFE_RELEASE(m_pTunerDevice);
+						::ReleaseSemaphore(m_hSemaphore, 1, NULL);
+						::CloseHandle(m_hSemaphore);
+						m_hSemaphore = NULL;
+						continue;
+					}
 				}
 
 				// 成功
@@ -2757,56 +2775,10 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searc
 			// connect 成功
 			OutputDebug(L"[T->C] Connect OK.\n");
 
-			// TsWriteと接続
-			if (FAILED(LoadAndConnectTsWriter())) {
+			// TsWrite以降と接続～Run
+			if (FAILED(LoadAndConnectMiscFilters())) {
 				// 失敗したら次のキャプチャデバイスへ
-				DisconnectAll(m_pTsWriter);
 				DisconnectAll(m_pCaptureDevice);
-				UnloadTsWriter();
-				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-				SAFE_RELEASE(m_pCaptureDevice);
-				continue;
-			}
-
-			// TsDemuxerと接続
-			if (FAILED(LoadAndConnectDemux())) {
-				// 失敗したら次のキャプチャデバイスへ
-				DisconnectAll(m_pDemux);
-				DisconnectAll(m_pTsWriter);
-				DisconnectAll(m_pCaptureDevice);
-				UnloadDemux();
-				UnloadTsWriter();
-				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-				SAFE_RELEASE(m_pCaptureDevice);
-				continue;
-			}
-
-			// TIFと接続
-			if (FAILED(LoadAndConnectTif())) {
-				// 失敗したら次のキャプチャデバイスへ
-				DisconnectAll(m_pTif);
-				DisconnectAll(m_pDemux);
-				DisconnectAll(m_pTsWriter);
-				DisconnectAll(m_pCaptureDevice);
-				UnloadTif();
-				UnloadDemux();
-				UnloadTsWriter();
-				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-				SAFE_RELEASE(m_pCaptureDevice);
-				continue;
-			}
-
-			// Runしてみる
-			if (FAILED(hr = RunGraph())) {
-				// 失敗したら次のキャプチャデバイスへ
-				OutputDebug(L"RunGraph Failed.\n");
-				DisconnectAll(m_pTif);
-				DisconnectAll(m_pDemux);
-				DisconnectAll(m_pTsWriter);
-				DisconnectAll(m_pCaptureDevice);
-				UnloadTif();
-				UnloadDemux();
-				UnloadTsWriter();
 				m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
 				SAFE_RELEASE(m_pCaptureDevice);
 				continue;
@@ -2826,6 +2798,48 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searc
 	}
 }
 
+HRESULT CBonTuner::LoadAndConnectMiscFilters(void)
+{
+	HRESULT hr;
+
+	// TsWriteと接続
+	if (FAILED(hr = LoadAndConnectTsWriter())) {
+		return hr;
+	}
+
+	// TsDemuxerと接続
+	if (FAILED(hr = LoadAndConnectDemux())) {
+		DisconnectAll(m_pTsWriter);
+		UnloadTsWriter();
+		return hr;
+	}
+
+	// TIFと接続
+	if (FAILED(hr = LoadAndConnectTif())) {
+		DisconnectAll(m_pDemux);
+		DisconnectAll(m_pTsWriter);
+		UnloadDemux();
+		UnloadTsWriter();
+		return hr;
+	}
+
+	// Runしてみる
+	if (FAILED(hr = RunGraph())) {
+		OutputDebug(L"RunGraph Failed.\n");
+		DisconnectAll(m_pTif);
+		DisconnectAll(m_pDemux);
+		DisconnectAll(m_pTsWriter);
+		UnloadTif();
+		UnloadDemux();
+		UnloadTsWriter();
+		return hr;
+	}
+
+	// 成功
+	OutputDebug(L"RunGraph OK.\n");
+	return S_OK;
+}
+
 void CBonTuner::UnloadCaptureDevice(void)
 {
 	HRESULT hr;
@@ -2840,8 +2854,8 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(void)
 {
 	HRESULT hr = E_FAIL;
 
-	if (!m_pCaptureDevice) {
-		OutputDebug(L"[C->W] CaptureDevice NOT SET.\n");
+	if (!m_pTunerDevice || (!m_pCaptureDevice && !m_aTunerParam.bNotExistCaptureDevice)) {
+		OutputDebug(L"[C->W] TunerDevice or CaptureDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
@@ -2870,11 +2884,22 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(void)
 	}
 
 	// connect してみる
-	if (FAILED(hr = Connect(L"Capture->TsWriter", m_pCaptureDevice, m_pTsWriter))) {
-		OutputDebug(L"[C->W] Failed to connect.\n");
-		SAFE_RELEASE(m_pTsWriter);
-		SAFE_RELEASE(m_pCTsWriter);
-		return hr;
+	if (m_aTunerParam.bNotExistCaptureDevice) {
+		// Captureデバイスが存在しない場合はTunerと接続
+		if (FAILED(hr = Connect(L"Tuner->TsWriter", m_pTunerDevice, m_pTsWriter))) {
+			OutputDebug(L"[T->W] Failed to connect.\n");
+			SAFE_RELEASE(m_pTsWriter);
+			SAFE_RELEASE(m_pCTsWriter);
+			return hr;
+		}
+	}
+	else {
+		if (FAILED(hr = Connect(L"Capture->TsWriter", m_pCaptureDevice, m_pTsWriter))) {
+			OutputDebug(L"[C->W] Failed to connect.\n");
+			SAFE_RELEASE(m_pTsWriter);
+			SAFE_RELEASE(m_pCTsWriter);
+			return hr;
+		}
 	}
 
 	// connect 成功なのでこのまま終了

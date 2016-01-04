@@ -162,6 +162,9 @@ protected:
 	HRESULT LoadAndConnectTif(void);
 	void UnloadTif(void);
 
+	// TsWriter/Demultiplexer/TIFをLoad&ConnectしRunする
+	HRESULT CBonTuner::LoadAndConnectMiscFilters(void);
+
 	// チューナ信号状態取得用インターフェース
 	HRESULT LoadTunerSignalStatistics(void);
 	void UnloadTunerSignalStatistics(void);
@@ -434,6 +437,7 @@ protected:
 	struct TunerParam {
 		map<unsigned int, TunerSearchData*> Tuner;
 												// TunerとCaptureのGUID/FriendlyName指定
+		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 #ifdef UNICODE
 		wstring sTunerName;						// GetTunerNameで返す名前
@@ -442,7 +446,8 @@ protected:
 #endif
 		wstring sDLLBaseName;					// 固有DLL
 		TunerParam(void)
-			: bCheckDeviceInstancePath(TRUE)
+			: bNotExistCaptureDevice(TRUE),
+			  bCheckDeviceInstancePath(TRUE)
 		{
 		};
 		~TunerParam(void)
