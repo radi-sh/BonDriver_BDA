@@ -4,11 +4,15 @@
 
 // アンテナ設定
 struct AntennaParam {
-	long Oscillator;		// LNB周波数 (MHz)
+	long HighOscillator;	// High側LNB周波数 (MHz)
+	long LowOscillator;		// Low側LNB周波数 (MHz)
+	long LNBSwitch;			// LNB切替周波数 (MHz)
 	long Tone;				// トーン信号 0 .. off, 1.. on
 	long DiSEqC;			// DiSeqC指定
 	AntennaParam(void)
-		: Oscillator(-1),
+		: HighOscillator(-1),
+		  LowOscillator(-1),
+		  LNBSwitch(-1),
 		  Tone(-1),
 		  DiSEqC(-1)
 	{};

@@ -1314,16 +1314,20 @@ void CBonTuner::ReadIniFile(void)
 		// SPHD
 		// ‰q¯Ý’è1iJCSAT-3Aj
 		m_sSatelliteName[1] = L"128.0E";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-		m_aSatellite[1].Polarisation[1].Oscillator = 11200000;	// ‚’¼•Î”gŽžLNBŽü”g”
+		m_aSatellite[1].Polarisation[1].HighOscillator = m_aSatellite[1].Polarisation[1].LowOscillator = 11200000;
+																// ‚’¼•Î”gŽžLNBŽü”g”
 		m_aSatellite[1].Polarisation[1].Tone = 0;				// ‚’¼•Î”gŽžƒg[ƒ“M†
-		m_aSatellite[1].Polarisation[2].Oscillator = 11200000;	// …•½•Î”gŽžLNBŽü”g”
+		m_aSatellite[1].Polarisation[2].HighOscillator = m_aSatellite[1].Polarisation[2].LowOscillator = 11200000;
+																// …•½•Î”gŽžLNBŽü”g”
 		m_aSatellite[1].Polarisation[2].Tone = 0;				// …•½•Î”gŽžƒg[ƒ“M†
 
 		// ‰q¯Ý’è2iJCSAT-4Bj
 		m_sSatelliteName[2] = L"124.0E";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-		m_aSatellite[2].Polarisation[1].Oscillator = 11200000;	// ‚’¼•Î”gŽžLNBŽü”g”
+		m_aSatellite[2].Polarisation[1].HighOscillator = m_aSatellite[2].Polarisation[1].LowOscillator = 11200000;	
+																// ‚’¼•Î”gŽžLNBŽü”g”
 		m_aSatellite[2].Polarisation[1].Tone = 1;				// ‚’¼•Î”gŽžƒg[ƒ“M†
-		m_aSatellite[2].Polarisation[2].Oscillator = 11200000;	// …•½•Î”gŽžLNBŽü”g”
+		m_aSatellite[2].Polarisation[2].HighOscillator = m_aSatellite[2].Polarisation[2].LowOscillator = 11200000;
+																// …•½•Î”gŽžLNBŽü”g”
 		m_aSatellite[2].Polarisation[2].Tone = 1;				// …•½•Î”gŽžƒg[ƒ“M†
 		break;
 
@@ -1331,9 +1335,11 @@ void CBonTuner::ReadIniFile(void)
 		// BS/CS110
 		// ‰q¯Ý’è1
 		m_sSatelliteName[1] = L"BS/CS110";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-		m_aSatellite[1].Polarisation[3].Oscillator = 10678000;	// ‚’¼•Î”gŽžLNBŽü”g”
+		m_aSatellite[1].Polarisation[3].HighOscillator = m_aSatellite[1].Polarisation[3].LowOscillator = 10678000;
+																// ‚’¼•Î”gŽžLNBŽü”g”
 		m_aSatellite[1].Polarisation[3].Tone = 0;				// ‚’¼•Î”gŽžƒg[ƒ“M†
-		m_aSatellite[1].Polarisation[4].Oscillator = 10678000;	// …•½•Î”gŽžLNBŽü”g”
+		m_aSatellite[1].Polarisation[4].HighOscillator = m_aSatellite[1].Polarisation[4].LowOscillator = 10678000;
+																// …•½•Î”gŽžLNBŽü”g”
 		m_aSatellite[1].Polarisation[4].Tone = 0;				// …•½•Î”gŽžƒg[ƒ“M†
 		break;
 
@@ -1356,12 +1362,34 @@ void CBonTuner::ReadIniFile(void)
 			// ‹Ç”­Žü”g” (KHz)
 			// ‘S•Î”g‹¤’Ê‚Å‚ÌÝ’è‚ª‚ ‚ê‚Î“Ç‚Ýž‚Þ
 			::swprintf_s(keyname, 64, L"Satellite%01dOscillator", satellite);
-			m_aSatellite[satellite].Polarisation[polarisation].Oscillator
-				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].Oscillator, m_szIniFilePath);
+			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator = m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator, m_szIniFilePath);
+			::swprintf_s(keyname, 64, L"Satellite%01dHighOscillator", satellite);
+			m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator, m_szIniFilePath);
+			::swprintf_s(keyname, 64, L"Satellite%01dLowOscillator", satellite);
+			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].LowOscillator, m_szIniFilePath);
 			// ŒÂ•ÊÝ’è‚ª‚ ‚ê‚Îã‘‚«‚Å“Ç‚Ýž‚Þ
 			::swprintf_s(keyname, 64, L"Satellite%01d%cOscillator", satellite, PolarisationChar[polarisation]);
-			m_aSatellite[satellite].Polarisation[polarisation].Oscillator
-				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].Oscillator, m_szIniFilePath);
+			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator = m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator, m_szIniFilePath);
+			::swprintf_s(keyname, 64, L"Satellite%01d%cHighOscillator", satellite, PolarisationChar[polarisation]);
+			m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator, m_szIniFilePath);
+			::swprintf_s(keyname, 64, L"Satellite%01d%cLowOscillator", satellite, PolarisationChar[polarisation]);
+			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].LowOscillator, m_szIniFilePath);
+
+			// LNBØ‘ÖŽü”g” (KHz)
+			// ‘S•Î”g‹¤’Ê‚Å‚ÌÝ’è‚ª‚ ‚ê‚Î“Ç‚Ýž‚Þ
+			::swprintf_s(keyname, 64, L"Satellite%01dLNBSwitch", satellite);
+			m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch, m_szIniFilePath);
+			// ŒÂ•ÊÝ’è‚ª‚ ‚ê‚Îã‘‚«‚Å“Ç‚Ýž‚Þ
+			::swprintf_s(keyname, 64, L"Satellite%01d%cLNBSwitch", satellite, PolarisationChar[polarisation]);
+			m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch
+				= (long)::GetPrivateProfileIntW(L"SATELLITE", keyname, m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch, m_szIniFilePath);
 
 			// ƒg[ƒ“M† (0 or 1)
 			// ‘S•Î”g‹¤’Ê‚Å‚ÌÝ’è‚ª‚ ‚ê‚Î“Ç‚Ýž‚Þ
@@ -1953,12 +1981,22 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			// m_pITuningSpace‚ÌŽÀ‘Ì‚ªDVB-SˆÈŠO‚ÌŽž‚ÍŽÀs‚³‚ê‚È‚¢
 
 			// LNB Žü”g”‚ðÝ’è
-			pIDVBSTuningSpace->put_HighOscillator(pTuningParam->Antenna->Oscillator);
-			pIDVBSTuningSpace->put_LowOscillator(pTuningParam->Antenna->Oscillator);
+			if (pTuningParam->Antenna->HighOscillator) {
+				pIDVBSTuningSpace->put_HighOscillator(pTuningParam->Antenna->HighOscillator);
+			}
+			if (pTuningParam->Antenna->LowOscillator) {
+				pIDVBSTuningSpace->put_LowOscillator(pTuningParam->Antenna->LowOscillator);
+			}
 
 			// LNBƒXƒCƒbƒ`‚ÌŽü”g”‚ðÝ’è
-			// 10GHz‚ðÝ’è‚µ‚Ä‚¨‚¯‚ÎHigh‘¤‚ÉA20GHz‚ðÝ’è‚µ‚Ä‚¨‚¯‚ÎLow‘¤‚ÉØ‘Ö‚í‚é‚Í‚¸
-			pIDVBSTuningSpace->put_LNBSwitch((pTuningParam->Antenna->Tone != 0) ? 10000000 : 20000000);
+			if (pTuningParam->Antenna->LNBSwitch != -1) {
+				// LNBSwitchŽü”g”‚ÌÝ’è‚ª‚³‚ê‚Ä‚¢‚é
+				pIDVBSTuningSpace->put_LNBSwitch(pTuningParam->Antenna->LNBSwitch);
+			}
+			else {
+				// 10GHz‚ðÝ’è‚µ‚Ä‚¨‚¯‚ÎHigh‘¤‚ÉA20GHz‚ðÝ’è‚µ‚Ä‚¨‚¯‚ÎLow‘¤‚ÉØ‘Ö‚í‚é‚Í‚¸
+				pIDVBSTuningSpace->put_LNBSwitch((pTuningParam->Antenna->Tone != 0) ? 10000000 : 20000000);
+			}
 
 			// ˆÊ‘Š•Ï’²ƒXƒyƒNƒgƒ‹”½“]‚ÌŽí—Þ
 			pIDVBSTuningSpace->put_SpectralInversion(BDA_SPECTRAL_INVERSION_AUTOMATIC);
@@ -2037,21 +2075,30 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// QPSK ƒVƒ“ƒ{ƒ‹ ƒŒ[ƒg‚ðÝ’è
 		pILocator->put_SymbolRate(pTuningParam->Modulation->SymbolRate);
 
+		// IDVBSLocator“Á—L
 		{
 			CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
 			if (pIDVBSLocator) {
-				// m_pITuningSpace‚ÌŽÀ‘Ì‚ªDVB-SˆÈŠO‚ÌŽž‚ÍŽÀs‚³‚ê‚È‚¢
-
 				// M†‚Ì•Î”g‚ðÝ’è
 				pIDVBSLocator->put_SignalPolarisation(pTuningParam->Polarisation);
 			}
 		}
 
+		// IDVBSLocator2“Á—L
+		{
+			CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
+			if (pIDVBSLocator2) {
+				// M†‚Ì•Î”g‚ðÝ’è
+				if (pTuningParam->Antenna->DiSEqC >= BDA_LNB_SOURCE_A) {
+					pIDVBSLocator2->put_DiseqLNBSource((LNB_Source)(pTuningParam->Antenna->DiSEqC));
+				}
+			}
+		}
+
+		// IDVBTLocator“Á—L
 		{
 			CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
 			if (pIDVBTLocator) {
-				// m_pITuningSpace‚ÌŽÀ‘Ì‚ªDVB-TˆÈŠO‚ÌŽž‚ÍŽÀs‚³‚ê‚È‚¢
-
 				// Žü”g”‚Ì‘Ñˆæ• (MHz)‚ðÝ’è
 				pIDVBTLocator->put_Bandwidth(pTuningParam->Modulation->BandWidth);
 			}
