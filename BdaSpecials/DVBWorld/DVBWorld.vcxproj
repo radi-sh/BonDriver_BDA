@@ -30,7 +30,6 @@
     <ProjectGuid>{44944B3D-7C7F-4362-83D1-3930A7E058AE}</ProjectGuid>
     <RootNamespace>DVBWorld</RootNamespace>
     <ProjectName>DVBWorld</ProjectName>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
