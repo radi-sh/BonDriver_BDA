@@ -12,14 +12,17 @@ Windows XP以降 (x86/x64)
   所謂スカパー!プレミアムが視聴できるチューナーです。
 ・ISDB-T/ISDB-Sチューナー
   地デジ/BS/CS110が視聴できるチューナーです。
+・その他
 
   BDA互換なインターフェース以外の操作を必要とするチューナーの場合、対応するBDASpecialプラグインが必要となります。
 
-【対応しているBDASpecialプラグイン】(2015/11/23現在)
+【対応しているBDASpecialプラグイン】(2016/1/10現在)
 ・このBonDriver専用のBDASpecialプラグイン
   -PlexPX.dll（PX-Q3PE/PX-W3PE/PX-W3PE V2/PX-W3U3/PX-W3U3 V2/PX-W3U2/PX-S3U2/PX-S3U）
+  -DVBWorld.dll（現在バイナリでの配布は行っていません。ソースコードからビルドしてください）
+  -TBS.dll（現在バイナリでの配布は行っていません。ソースコードからビルドしてください）
 ・「Bon_SPHD_BDA_PATCH_2」相当のBDASpecialプラグイン
-  -DVBWrold.dll
+  -DVBWorld.dll
   -TBS.dll
 
 【使い方】
@@ -57,15 +60,14 @@ x86/x64の2種類がありますので注意してください。よくわからない場合は両方インストー
   BonDriver_SPHD_0.ini
   BonDriver_SPHD_1.dll
   BonDriver_SPHD_1.ini
-  DVBWrold.dll
 
 ※「Bon_SPHD_BDA_PATCH_2」相当のBDASpecialプラグインを使用する場合で、同一のプロセスから複数のBonDriverの読込が行われる場合（BonDriverProxyEx等）は下記のようにBDASpecialプラグインも複数用意し、iniファイルでUseSpecial="DVBWorld_0"のように個別にファイル名を指定してください。
   BonDriver_SPHD_0.dll
   BonDriver_SPHD_0.ini
   BonDriver_SPHD_1.dll
   BonDriver_SPHD_1.ini
-  DVBWrold_0.dll
-  DVBWrold_1.dll
+  DVBWorld_0.dll
+  DVBWorld_1.dll
 
 【サポートとか】
 ・最新バージョンとソースファイルの配布場所

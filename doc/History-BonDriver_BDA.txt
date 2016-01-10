@@ -89,3 +89,23 @@
 　　Guid2 / FriendlyName2 / CaptureGuid2 / CaptureFriendlyName2 の組合せ
 ・複数プロセスから同じBonDriverを開いている場合でもDebugLogオプションがそれぞれで有効になるようにした
 
+【2016-01-10】
+・チューナのオープンに失敗した場合に不正終了してしまうことがある不具合を修正
+・キャプチャデバイスを使用しないタイプのチューナに対応するオプションを追加
+　詳細はBonDriver_BDA.sample.iniのNotExistCaptureDeviceの項目を参照してください
+・iniファイルでModulationTypeXBandWidthを設定しても固定で6になっていた点を修正
+・衛星受信パラメータの仕様変更
+　- HighOscillator / LowOscillator / LNBSwitch の組合せでの指定を可能にした
+　- 機種固有API無しでのDiSEqCの指定を可能にした
+・SignalLevel算出方法に、ITuner::get_SignalStrengthを使用する設定を追加
+　詳細はBonDriver_BDA.sample.iniのSignalLevelCalcTypeの項目を参照してください 
+・SignalLockedの判定方法の設定を追加
+　詳細はBonDriver_BDA.sample.iniのSignalLockedJudgeTypeの項目を参照してください
+・iniファイルのDVBSystemTypeで指定できる種類にDVB-C/ISDB-S/ISDB-T/ATSC/Digital-Cable等を追加
+　詳細はBonDriver_BDA.sample.iniのDVBSystemTypeの項目を参照してください
+・iniファイルでのNetwork Provider指定を追加
+　詳細はBonDriver_BDA.sample.iniのNetworkProviderの項目を参照してください
+・ATSC / Digital-Cable用のCh定義設定を追加
+　詳細はBonDriver_BDA.sample.iniのCH設定の項目を参照してください
+・iniファイルのBuffSizeに0を設定した場合に、上流より受取ったストリームデータサイズそのままで扱うようにした
+
