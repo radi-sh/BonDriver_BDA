@@ -141,6 +141,7 @@ CBonTuner::CBonTuner()
 	m_nSignalLevelCalcType(0),
 	m_fStrengthCoefficient(1),
 	m_fQualityCoefficient(1),
+	m_nSignalLockedJudgeType(1),
 	m_dwBuffSize(188 * 1024),
 	m_dwMaxBuffCount(512),
 	m_nWaitTsCount(1),
@@ -155,6 +156,7 @@ CBonTuner::CBonTuner()
 	m_bRecvStarted(FALSE),
 	m_hSemaphore(NULL),
 	m_pITuningSpace(NULL),
+	m_pITuner(NULL),
 	m_pNetworkProvider(NULL),
 	m_pTunerDevice(NULL),
 	m_pCaptureDevice(NULL),
@@ -278,8 +280,10 @@ const BOOL CBonTuner::_OpenTuner(void)
 
 		OutputDebug(L"Build graph Successfully.\n");
 
-		// チューナの信号状態取得用インターフェースの取得（失敗しても続行）
-		hr = LoadTunerSignalStatistics();
+		if (m_nSignalLockedJudgeType == 1 || m_nSignalLevelCalcType < 10) {
+			// チューナの信号状態取得用インターフェースの取得（失敗しても続行）
+			hr = LoadTunerSignalStatistics();
+		}
 
 		// TS受信イベント作成
 		m_hOnStreamEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -451,14 +455,14 @@ const float CBonTuner::_GetSignalLevel(void)
 	if (!nLock)
 		// Lock出来ていない場合は0を返す
 		return 0;
-	if (nStrength < 0 && (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2))
+	if (nStrength < 0 && (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12))
 		// Strengthは-1を返す場合がある
 		return (float)nStrength;
 	float s = 1.0F;
 	float q = 1.0F;
-	if (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2)
+	if (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12)
 		s = float(nStrength) / m_fStrengthCoefficient;
-	if (m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2)
+	if (m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12)
 		q = float(nQuality) / m_fQualityCoefficient;
 	return s * q;
 }
@@ -1249,9 +1253,13 @@ void CBonTuner::ReadIniFile(void)
 	wstring sTempTuningSpaceName = buf;
 
 	// SignalLevel 算出方法
-	// 0 .. Strength値 / StrengthCoefficient
-	// 1 .. Quality値 / QualityCoefficient
-	// 2 .. (Strength値 / StrengthCoefficient) * (Quality値 / QualityCoefficient)
+	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値
+	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値
+	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient)
+	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値
+	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値
+	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient)
+	// 100 .. ビットレート値(Mibps)
 	m_nSignalLevelCalcType = ::GetPrivateProfileIntW(L"TUNER", L"SignalLevelCalcType", 0, m_szIniFilePath);
 
 	// Strength 値補正係数
@@ -1265,6 +1273,12 @@ void CBonTuner::ReadIniFile(void)
 	m_fQualityCoefficient = (float)::_wtof(buf);
 	if (m_fQualityCoefficient == 0.0F)
 		m_fQualityCoefficient = 1.0F;
+
+	// チューニング状態の判断方法
+	// 0 .. 常にチューニングに成功している状態として判断する
+	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
+	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
+	m_nSignalLockedJudgeType = ::GetPrivateProfileIntW(L"TUNER", L"SignalLockedJudgeType", 1, m_szIniFilePath);
 
 	// チューナーの使用するTuningSpace / NetworkProvider等の種類
 	//    1 .. DVB-S
@@ -1903,26 +1917,42 @@ void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 	if (m_pTunerDevice == NULL)
 		return;
 
-	if (m_pIBDA_SignalStatistics) {
-		long longVal;
-		BYTE byteVal;
+	long longVal;
+	BYTE byteVal;
 
-		if (pnStrength) {
+	if (m_pITuner) {
+		if (((m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12) && pnStrength) || 
+				((m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12) && pnQuality) ||
+				(m_nSignalLockedJudgeType == 2 && pnLock)) {
+			longVal = 0;
+			if (SUCCEEDED(hr = m_pITuner->get_SignalStrength(&longVal))) {
+				if ((m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12) && pnStrength)
+					*pnStrength = longVal > 0 ? (int)(0xffff - (longVal & 0xffff)) : (int)longVal;
+				if ((m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12) && pnQuality)
+					*pnQuality = longVal > 0 ? (int)min(max(longVal >> 16, 0), 100) : 0;
+				if (m_nSignalLockedJudgeType == 2 && pnLock)
+					*pnLock = longVal > 0 ? 1 : 0;
+			}
+		}
+	}
+
+	if (m_pIBDA_SignalStatistics) {
+		if ((m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2) && pnStrength) {
 			longVal = 0;
 			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalStrength(&longVal)))
 				*pnStrength = (int)longVal;
 		}
 
-		if (pnQuality) {
+		if ((m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2) && pnQuality) {
 			longVal = 0;
 			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalQuality(&longVal)))
 				*pnQuality = min(max(longVal, 0), 100);
 		}
 
-		if (pnLock) {
+		if (m_nSignalLockedJudgeType == 1 && pnLock) {
 			byteVal = 0;
 			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalLocked(&byteVal)))
-				*pnLock = byteVal;
+				*pnLock = (int)byteVal;
 		}
 	}
 
@@ -2032,12 +2062,6 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// 固有関数がないだけなので、何もせず
 	}
 
-	CComQIPtr<ITuner> pITuner(m_pNetworkProvider);
-	if (!pITuner) {
-		OutputDebug(L"Fail to get ITuner.\n");
-		return FALSE;
-	}
-
 	CComPtr<ITuneRequest> pITuneRequest;
 	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
 		OutputDebug(L"Fail to create ITuneRequest.\n");
@@ -2128,7 +2152,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	if (pTuningParam->Antenna->Tone != m_nCurTone) {
 		//トーン切替ありの場合、先に一度TuneRequestしておく
 		OutputDebug(L"Requesting pre tune.\n");
-		if (FAILED(hr = pITuner->put_TuneRequest(pITuneRequest))) {
+		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
 			OutputDebug(L"Fail to put pre tune request.\n");
 			return FALSE;
 		}
@@ -2141,7 +2165,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	if (bLockTwice) {
 		// TuneRequestを強制的に2度行う
 		OutputDebug(L"Requesting 1st twice tune.\n");
-		if (FAILED(hr = pITuner->put_TuneRequest(pITuneRequest))) {
+		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
 			OutputDebug(L"Fail to put 1st twice tune request.\n");
 			return FALSE;
 		}
@@ -2153,7 +2177,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	int nLock = 0;
 	do {
 		OutputDebug(L"Requesting tune.\n");
-		if (FAILED(hr = pITuner->put_TuneRequest(pITuneRequest))) {
+		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
 			OutputDebug(L"Fail to put tune request.\n");
 			return FALSE;
 		}
@@ -2516,12 +2540,12 @@ HRESULT CBonTuner::InitTuningSpace(void)
 		return E_POINTER;
 	}
 
-	CComQIPtr<ITuner> pITuner(m_pNetworkProvider);
-	if (!pITuner) {
-		OutputDebug(L"Fail to get ITuner.\n");
-		return E_FAIL;
+	if (!m_pITuner) {
+		OutputDebug(L"ITuner NOT SET.\n");
+		return E_POINTER;
 	}
-	pITuner->put_TuningSpace(m_pITuningSpace);
+
+	m_pITuner->put_TuningSpace(m_pITuningSpace);
 
 	HRESULT hr;
 	CComPtr<ITuneRequest> pITuneRequest;
@@ -2537,7 +2561,7 @@ HRESULT CBonTuner::InitTuningSpace(void)
 	}
 
 	pITuneRequest->put_Locator(pILocator);
-	pITuner->put_TuneRequest(pITuneRequest);
+	m_pITuner->put_TuneRequest(pITuneRequest);
 
 	return S_OK;
 }
@@ -2567,6 +2591,11 @@ HRESULT CBonTuner::LoadNetworkProvider(void)
 		return hr;
 	}
 
+	if (FAILED(hr = m_pNetworkProvider->QueryInterface(__uuidof(ITuner), (void **)&m_pITuner))) {
+		OutputDebug(L"Fail to get ITuner.\n");
+		return E_FAIL;
+	}
+
 	return S_OK;
 }
 
@@ -2576,6 +2605,7 @@ void CBonTuner::UnloadNetworkProvider(void)
 	if (m_pIGraphBuilder && m_pNetworkProvider)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pNetworkProvider);
 
+	SAFE_RELEASE(m_pITuner);
 	SAFE_RELEASE(m_pNetworkProvider);
 }
 

@@ -488,9 +488,13 @@ protected:
 	unsigned int m_nReOpenWhenGiveUpReLock;
 
 	// SignalLevel 算出方法
-	// 0 .. Strength値 / StrengthCoefficient
-	// 1 .. Quality値 / QualityCoefficient
-	// 2 .. (Strength値 / StrengthCoefficient) * (Quality値 / QualityCoefficient)
+	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値
+	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値
+	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient)
+	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値
+	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値
+	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient)
+	// 100 .. ビットレート値(Mibps)
 	unsigned int m_nSignalLevelCalcType;
 
 	// Strength 値補正係数
@@ -498,6 +502,12 @@ protected:
 
 	// Quality 値補正係数
 	float m_fQualityCoefficient;
+
+	// チューニング状態の判断方法
+	// 0 .. 常にチューニングに成功している状態として判断する
+	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
+	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
+	unsigned int m_nSignalLockedJudgeType;
 
 	////////////////////////////////////////
 	// BonDriver パラメータ関係
@@ -773,6 +783,7 @@ protected:
 
 	// Graph
 	ITuningSpace *m_pITuningSpace;
+	ITuner *m_pITuner;
 	IBaseFilter *m_pNetworkProvider;
 	IBaseFilter *m_pTunerDevice;
 	IBaseFilter *m_pCaptureDevice;
