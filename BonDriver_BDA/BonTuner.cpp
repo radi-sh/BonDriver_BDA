@@ -148,8 +148,6 @@ CBonTuner::CBonTuner()
 	m_hOnStreamEvent(NULL),
 	m_hOnDecodeEvent(NULL),
 	m_LastBuff(NULL),
-	m_pbyRecvBuff(NULL),
-	m_dwBuffOffset(0),
 	m_bRecvStarted(FALSE),
 	m_hSemaphore(NULL),
 	m_pITuningSpace(NULL),
@@ -187,7 +185,8 @@ CBonTuner::CBonTuner()
 
 	ReadIniFile();
 
-	m_pbyRecvBuff = new BYTE[m_dwBuffSize];
+	m_TsBuff.SetSize(m_dwBuffSize, m_dwMaxBuffCount);
+	m_DecodedTsBuff.SetSize(0, m_dwMaxBuffCount);
 
 	// COM処理専用スレッド起動
 	m_aCOMProc.hThread = ::CreateThread(NULL, 0, CBonTuner::COMProcThread, this, 0, NULL);
@@ -208,8 +207,6 @@ CBonTuner::~CBonTuner()
 
 	::DeleteCriticalSection(&m_csDecodedTSBuff);
 	::DeleteCriticalSection(&m_csTSBuff);
-
-	SAFE_DELETE_ARRAY(m_pbyRecvBuff);
 
 	// インスタンスリストから自身を削除
 	::EnterCriticalSection(&st_LockInstanceList);
@@ -362,9 +359,7 @@ void CBonTuner::_CloseTuner(void)
 
 	// バッファ解放
 	PurgeTsStream();
-	if (m_LastBuff != NULL) {
-		SAFE_DELETE(m_LastBuff);
-	}
+	SAFE_DELETE(m_LastBuff);
 
 	// チューナの信号状態取得用インターフェース解放
 	UnloadTunerSignalStatistics();
@@ -489,7 +484,7 @@ const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
 
 const DWORD CBonTuner::GetReadyCount(void)
 {
-	return (DWORD)m_DecodedTsBuff.size();
+	return (DWORD)m_DecodedTsBuff.Size();
 }
 
 const BOOL CBonTuner::GetTsStream(BYTE *pDst, DWORD *pdwSize, DWORD *pdwRemain)
@@ -505,22 +500,17 @@ const BOOL CBonTuner::GetTsStream(BYTE *pDst, DWORD *pdwSize, DWORD *pdwRemain)
 
 const BOOL CBonTuner::GetTsStream(BYTE **ppDst, DWORD *pdwSize, DWORD *pdwRemain)
 {
-	if (m_LastBuff != NULL) {
-		SAFE_DELETE(m_LastBuff);
-	}
+	SAFE_DELETE(m_LastBuff);
 	BOOL bRet = TRUE;
-	// 判定の前後で条件が変ってはまずいのでここで CriticalSection しておく
-	::EnterCriticalSection(&m_csDecodedTSBuff);
-	if (m_DecodedTsBuff.size() != 0) {
-		m_LastBuff = m_DecodedTsBuff[0];
-		m_DecodedTsBuff.erase(m_DecodedTsBuff.begin());
-		::LeaveCriticalSection(&m_csDecodedTSBuff);
+	m_LastBuff = m_DecodedTsBuff.Get();
+	if (m_LastBuff) {
 		*pdwSize = m_LastBuff->dwSize;
 		*ppDst = m_LastBuff->pbyBuff;
-		*pdwRemain = (DWORD)m_DecodedTsBuff.size();
-	} else {
-		::LeaveCriticalSection(&m_csDecodedTSBuff);
+		*pdwRemain = (DWORD)m_DecodedTsBuff.Size();
+	}
+	else {
 		*pdwSize = 0;
+		*ppDst = NULL;
 		*pdwRemain = 0;
 		bRet = FALSE;
 	}
@@ -532,21 +522,10 @@ void CBonTuner::PurgeTsStream(void)
 	// m_LastBuff は参照されている可能性があるので delete しない
 
 	// 受信TSバッファ
-	::EnterCriticalSection(&m_csTSBuff);
-	for (unsigned int i = 0; i < m_TsBuff.size(); i++) {
-		SAFE_DELETE(m_TsBuff[i])
-	}
-	m_TsBuff.clear();
-	m_dwBuffOffset = 0;
-	::LeaveCriticalSection(&m_csTSBuff);
+	m_TsBuff.Purge();
 
 	// デコード後TSバッファ
-	::EnterCriticalSection(&m_csDecodedTSBuff);
-	for (unsigned int i = 0; i < m_DecodedTsBuff.size(); i++) {
-		SAFE_DELETE(m_DecodedTsBuff[i])
-	}
-	m_DecodedTsBuff.clear();
-	::LeaveCriticalSection(&m_csDecodedTSBuff);
+	m_DecodedTsBuff.Purge();
 
 	// ビットレート計算用クラス
 	m_BitRate.Clear();
@@ -982,17 +961,7 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 {
 	BOOL terminate = FALSE;
 	CBonTuner* pSys = (CBonTuner*)lpParameter;
-	DecodeProc* pDecodeProc = &pSys->m_aDecodeProc;
 
-	DWORD dwMaxBuffCount = pSys->m_dwMaxBuffCount;
-	vector<TS_DATA*> *pTsBuff = &pSys->m_TsBuff;
-	vector<TS_DATA*> *pDecodedTsBuff = &pSys->m_DecodedTsBuff;
-	unsigned int nWaitTsCount = pSys->m_nWaitTsCount;
-	CRITICAL_SECTION *pcsTSBuff = &pSys->m_csTSBuff;
-	CRITICAL_SECTION *pcsDecodedTSBuff = &pSys->m_csDecodedTSBuff;
-	HANDLE *phOnStreamEvent = &pSys->m_hOnStreamEvent;
-	HANDLE *phOnDecodeEvent = &pSys->m_hOnDecodeEvent;
-	IBdaSpecials2a1 *pIBdaSpecials2 = *(&pSys->m_pIBdaSpecials2);
 	BOOL bNeedDecode = FALSE;
 
 	HRESULT hr;
@@ -1004,15 +973,15 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 
 	// IBdaSpecialsによるデコード処理が必要かどうか
 	BOOL b = FALSE;
-	if (pIBdaSpecials2 && SUCCEEDED(hr = pIBdaSpecials2->IsDecodingNeeded(&b))) {
+	if (pSys->m_pIBdaSpecials2 && SUCCEEDED(hr = pSys->m_pIBdaSpecials2->IsDecodingNeeded(&b))) {
 		if (b)
 			bNeedDecode = TRUE;
 	}
 	OutputDebug(L"DecodeProcThread: Detected IBdaSpecials decoding=%d.\n", bNeedDecode);
 
 	HANDLE h[2] = {
-		pDecodeProc->hTerminateRequest,
-		*phOnStreamEvent
+		pSys->m_aDecodeProc.hTerminateRequest,
+		pSys->m_hOnStreamEvent
 	};
 
 	while (!terminate) {
@@ -1026,35 +995,18 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 		case WAIT_OBJECT_0 + 1:
 			{
 				// TSバッファからのデータ取得
-				TS_DATA *pBuff = NULL;
-				::EnterCriticalSection(pcsTSBuff);
-				if (pTsBuff->size() != 0) {
-					pBuff = (*pTsBuff)[0];
-					pTsBuff->erase(pTsBuff->begin());
-				}
-				::LeaveCriticalSection(pcsTSBuff);
-
-				if (pBuff) {
+				while (TS_DATA *pBuff = pSys->m_TsBuff.Get()) {
 					// 必要ならばIBdaSpecialsによるデコード処理を行う
 					if (bNeedDecode) {
-						pIBdaSpecials2->Decode(pBuff->pbyBuff, pBuff->dwSize);
+						pSys->m_pIBdaSpecials2->Decode(pBuff->pbyBuff, pBuff->dwSize);
 					}
-
-					::EnterCriticalSection(pcsDecodedTSBuff);
 
 					// 取得したバッファをデコード済みバッファに追加
-					while (pDecodedTsBuff->size() >= dwMaxBuffCount) {
-						// オーバーフローなら古いものを消す
-						SAFE_DELETE((*pDecodedTsBuff)[0]);
-						pDecodedTsBuff->erase(pDecodedTsBuff->begin());
-					}
-					pDecodedTsBuff->push_back(pBuff);
+					pSys->m_DecodedTsBuff.Add(pBuff);
 
 					// 受信イベントセット
-					if (pDecodedTsBuff->size() >= nWaitTsCount)
-						::SetEvent(*phOnDecodeEvent);
-
-					::LeaveCriticalSection(pcsDecodedTSBuff);
+					if (pSys->m_DecodedTsBuff.Size() >= pSys->m_nWaitTsCount)
+						::SetEvent(pSys->m_hOnDecodeEvent);
 				}
 			}
 			break;
@@ -1078,46 +1030,13 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, DWORD dwSize)
 {
 	CBonTuner* pSys = (CBonTuner*)pParam;
-	BOOL *pbRecvStarted = &pSys->m_bRecvStarted;
-	DWORD dwBuffSize = pSys->m_dwBuffSize;
-	BYTE *pbyRecvBuff = pSys->m_pbyRecvBuff;
-	DWORD *pdwBuffOffset = &pSys->m_dwBuffOffset;
-	DWORD dwMaxBuffCount = pSys->m_dwMaxBuffCount;
-	vector<TS_DATA*> *pTsBuff = &pSys->m_TsBuff;
-	CRITICAL_SECTION *pcsTSBuff = &pSys->m_csTSBuff;
-	HANDLE *phOnStreamEvent = &pSys->m_hOnStreamEvent;
 
 	pSys->m_BitRate.AddRate(dwSize);
 
-	while (dwSize > 0 && *pbRecvStarted) {
-		// 途中でPurgeTsStream されると困るのでここで EnterCriticalSectionしておく
-		::EnterCriticalSection(pcsTSBuff);
-		DWORD dwCopySize = (dwBuffSize > *pdwBuffOffset + dwSize) ? dwSize : dwBuffSize - *pdwBuffOffset;
-		::CopyMemory(pbyRecvBuff + *pdwBuffOffset, pbData, dwCopySize);
-		*pdwBuffOffset += dwCopySize;
-		dwSize -= dwCopySize;
-		pbData += dwCopySize;
-
-		// テンポラリバッファが完成している
-		if (*pdwBuffOffset >= dwBuffSize) {
-			// テンポラリバッファから新規TSバッファへコピー
-			TS_DATA* pItem = new TS_DATA;
-			pItem->dwSize = dwBuffSize;
-			pItem->pbyBuff = new BYTE[dwBuffSize];
-			::CopyMemory(pItem->pbyBuff, pbyRecvBuff, dwBuffSize);
-			*pdwBuffOffset = 0;
-
-			// FIFOへ追加
-			while(pTsBuff->size() >= dwMaxBuffCount) {
-				// オーバーフローなら古いものを消す
-				SAFE_DELETE((*pTsBuff)[0]);
-				pTsBuff->erase(pTsBuff->begin());
-			}
-			pTsBuff->push_back(pItem);
-			// 受信イベントセット
-			::SetEvent(*phOnStreamEvent);
+	if (pSys->m_bRecvStarted) {
+		if (pSys->m_TsBuff.AddData(pbData, dwSize)) {
+			::SetEvent(pSys->m_hOnStreamEvent);
 		}
-		::LeaveCriticalSection(pcsTSBuff);
 	}
 
 	return 0;
@@ -3673,4 +3592,114 @@ void CBonTuner::DisconnectAll(IBaseFilter* pFilter)
 		}
 		SAFE_RELEASE(pIEnumPins);
 	}
+}
+
+CBonTuner::TS_BUFF::TS_BUFF(void)
+	: TempBuff(NULL),
+	TempOffset(0),
+	BuffSize(0),
+	MaxCount(0)
+{
+	::InitializeCriticalSection(&cs);
+}
+
+CBonTuner::TS_BUFF::~TS_BUFF(void)
+{
+	Purge();
+	SAFE_DELETE_ARRAY(TempBuff);
+	::DeleteCriticalSection(&cs);
+}
+
+void CBonTuner::TS_BUFF::SetSize(DWORD dwBuffSize, DWORD dwMaxCount)
+{
+	Purge();
+	SAFE_DELETE_ARRAY(TempBuff);
+	if (dwBuffSize) {
+		TempBuff = new BYTE[dwBuffSize];
+	}
+	BuffSize = dwBuffSize;
+	MaxCount = dwMaxCount;
+}
+
+void CBonTuner::TS_BUFF::Purge(void)
+{
+	// 受信TSバッファ
+	::EnterCriticalSection(&cs);
+	while (!List.empty()) {
+		SAFE_DELETE(List.front());
+		List.pop_front();
+	}
+	TempOffset = 0;
+	::LeaveCriticalSection(&cs);
+}
+
+void CBonTuner::TS_BUFF::Add(TS_DATA *pItem)
+{
+	::EnterCriticalSection(&cs);
+	while (List.size() >= MaxCount) {
+		// オーバーフローなら古いものを消す
+		SAFE_DELETE(List.front());
+		List.pop_front();
+	}
+	List.push_back(pItem);
+	::LeaveCriticalSection(&cs);
+}
+
+BOOL CBonTuner::TS_BUFF::AddData(BYTE *pbyData, DWORD dwSize)
+{
+	BOOL ret = false;
+	while (dwSize) {
+		TS_DATA *pItem = NULL;
+		::EnterCriticalSection(&cs);
+		if (TempBuff) {
+			// iniファイルでBuffSizeが指定されている場合はそのサイズに合わせる
+			DWORD dwCopySize = (BuffSize > TempOffset + dwSize) ? dwSize : BuffSize - TempOffset;
+			::CopyMemory(TempBuff + TempOffset, pbyData, dwCopySize);
+			TempOffset += dwCopySize;
+			dwSize -= dwCopySize;
+			pbyData += dwCopySize;
+
+			if (TempOffset >= BuffSize) {
+				// テンポラリバッファのデータを追加
+				pItem = new TS_DATA(TempBuff, TempOffset, FALSE);
+				TempBuff = new BYTE[BuffSize];
+				TempOffset = 0;
+			}
+		}
+		else {
+			// BuffSizeが指定されていない場合は上流から受け取ったサイズでそのまま追加
+			pItem = new TS_DATA(pbyData, dwSize, TRUE);
+			dwSize = 0;
+		}
+
+		if (pItem) {
+			// FIFOへ追加
+			while (List.size() >= MaxCount) {
+				// オーバーフローなら古いものを消す
+				SAFE_DELETE(List.front());
+				List.pop_front();
+			}
+			List.push_back(pItem);
+			ret = TRUE;
+		}
+		::LeaveCriticalSection(&cs);
+	}
+	return ret;
+}
+
+CBonTuner::TS_DATA * CBonTuner::TS_BUFF::Get(void)
+{
+	TS_DATA *ts = NULL;
+	::EnterCriticalSection(&cs);
+	if (!List.empty()) {
+		ts = List.front();
+		List.pop_front();
+	}
+	::LeaveCriticalSection(&cs);
+	return ts;
+}
+
+size_t CBonTuner::TS_BUFF::Size(void)
+{
+	return List.size();
 }

@@ -674,7 +674,7 @@ protected:
 	HANDLE m_hOnDecodeEvent;
 
 	// 受信TSデータバッファ
-	struct TS_DATA{
+	struct TS_DATA {
 		BYTE* pbyBuff;
 		DWORD dwSize;
 		TS_DATA(void)
@@ -682,23 +682,49 @@ protected:
 			  dwSize(0)
 		{
 		};
+		TS_DATA(BYTE* data, DWORD size, BOOL copy = FALSE)
+		{
+			if (copy) {
+				pbyBuff = new BYTE[size];
+				::CopyMemory(pbyBuff, data, size);
+			}
+			else {
+				pbyBuff = data;
+			}
+			dwSize = size;
+		};
 		~TS_DATA(void) {
 			SAFE_DELETE_ARRAY(pbyBuff);
 		};
 	};
-	vector<TS_DATA*> m_TsBuff;
+
+	class TS_BUFF {
+	private:
+		list<TS_DATA *> List;
+		BYTE *TempBuff;
+		DWORD TempOffset;
+		DWORD BuffSize;
+		DWORD MaxCount;
+		CRITICAL_SECTION cs;
+	public:
+		TS_BUFF(void);
+		~TS_BUFF(void);
+		void SetSize(DWORD dwBuffSize, DWORD dwMaxCount);
+		void Purge(void);
+		void Add(TS_DATA *pItem);
+		BOOL AddData(BYTE *pbyData, DWORD dwSize);
+		TS_DATA * Get(void);
+		size_t Size(void);
+	};
+
+	// 受信TSデータバッファ
+	TS_BUFF m_TsBuff;
 
 	// Decode処理の終わったTSデータバッファ
-	vector<TS_DATA*> m_DecodedTsBuff;
+	TS_BUFF m_DecodedTsBuff;
 
 	// GetTsStreamで参照されるバッファ
 	TS_DATA* m_LastBuff;
-
-	// バッファ作成用テンポラリバッファ
-	BYTE *m_pbyRecvBuff;
-
-	// テンポラリバッファの位置
-	DWORD m_dwBuffOffset;
 
 	// データ受信中
 	BOOL m_bRecvStarted;
