@@ -540,9 +540,20 @@ protected:
 		unsigned int Polarisation;		// 偏波種類番号 (0 .. 未指定, 1 .. H, 2 .. V, 3 .. L, 4 .. R)
 		unsigned int ModulationType;	// 変調方式設定番号
 		long Frequency;					// 周波数(KHz)
-		long SID;						// サービスID
-		long TSID;						// トランスポートストリームID
-		long ONID;						// オリジナルネットワークID
+		union {
+			long SID;					// サービスID
+			long PhysicalChannel;		// ATSC / Digital Cable用
+		};
+		union {
+			long TSID;					// トランスポートストリームID
+			long Channel;				// ATSC / Digital Cable用
+		};
+		union {
+			long ONID;					// オリジナルネットワークID
+			long MinorChannel;			// ATSC / Digital Cable用
+		};
+		long MajorChannel;				// Digital Cable用
+		long SourceID;					// Digital Cable用
 		BOOL LockTwiceTarget;			// CH切替動作を強制的に2度行う対象
 		ChData(void)
 			: Satellite(0),
@@ -552,6 +563,8 @@ protected:
 			  SID(-1),
 			  TSID(-1),
 			  ONID(-1),
+			  MajorChannel(-1),
+			  SourceID(-1),
 			  LockTwiceTarget(FALSE)
 		{
 		};
@@ -801,12 +814,30 @@ protected:
 	wstring m_sTunerDisplayName;
 	wstring m_sTunerFriendlyName;
 
-	// チューナーの使用するTuningSpace/NetworkProvider等の種類
+	// チューナーの使用するTuningSpaceの種類
 	enum enumTunerType {
-		eTunerTypeDVBS = 1,
-		eTunerTypeDVBT = 2,
+		eTunerTypeDVBS = 1,				// DBV-S/DVB-S2
+		eTunerTypeDVBT = 2,				// DVB-T
+		eTunerTypeDVBC = 3,				// DVB-C
+		eTunerTypeDVBT2 = 4,			// DVB-T2
+		eTunerTypeISDBS = 11,			// ISDB-S
+		eTunerTypeISDBT = 12,			// ISDB-T
+		eTunerTypeATSC_Antenna = 21,	// ATSC
+		eTunerTypeATSC_Cable = 22,		// ATSC Cable
+		eTunerTypeDigitalCable = 23,	// Digital Cable
 	};
 	enumTunerType m_nDVBSystemType;
+
+	// チューナーに使用するNetworkProvider 
+	enum enumNetworkProvider {
+		eNetworkProviderAuto = 0,		// 自動
+		eNetworkProviderGeneric = 1,	// Microsoft Network Provider
+		eNetworkProviderDVBS = 2,		// Microsoft DVB-S Network Provider
+		eNetworkProviderDVBT = 3,		// Microsoft DVB-T Network Provider
+		eNetworkProviderDVBC = 4,		// Microsoft DVB-C Network Provider
+		eNetworkProviderATSC = 5,		// Microsoft ATSC Network Provider
+	};
+	enumNetworkProvider m_nNetworkProvider;
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV
 	DWORD m_nDefaultNetwork;
@@ -840,7 +871,7 @@ protected:
 
 	// チューナ固有関数 IBdaSpecials
 	IBdaSpecials *m_pIBdaSpecials;
-	IBdaSpecials2a *m_pIBdaSpecials2;
+	IBdaSpecials2a1 *m_pIBdaSpecials2;
 
 	// チューナ固有の関数が必要かどうかを自動判別するDB
 	// GUID をキーに DLL 名を得る

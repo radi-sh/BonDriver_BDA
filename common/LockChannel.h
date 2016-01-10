@@ -44,9 +44,20 @@ struct TuningParam {
 	Polarisation Polarisation;			// 信号の偏波
 	const AntennaParam *Antenna;		// アンテナ設定データ
 	const ModulationMethod *Modulation;	// 変調方式設定データ
-	long ONID;							// オリジナルネットワークID
-	long TSID;							// トランスポートストリームID
-	long SID;							// サービスID
+	union {
+		long ONID;						// オリジナルネットワークID
+		long PhysicalChannel;			// ATSC / Digital Cable用
+	};
+	union {
+		long TSID;						// トランスポートストリームID
+		long Channel;					// ATSC / Digital Cable用
+	};
+	union {
+		long SID;						// サービスID
+		long MinorChannel;				// ATSC / Digital Cable用
+	};
+	long MajorChannel;					// Digital Cable用
+	long SourceID;						// Digital Cable用
 	TuningParam(void)
 		: Frequency(-1),
 		  Polarisation(BDA_POLARISATION_NOT_SET),
@@ -54,6 +65,8 @@ struct TuningParam {
 		  Modulation(NULL),
 		  ONID(-1),
 		  TSID(-1),
-		  SID(-1)
+		  SID(-1),
+		  MajorChannel(-1),
+		  SourceID(-1)
 	{};
 };

@@ -5,7 +5,7 @@
 #include "LockChannel.h"
 #include "IBdaSpecials.h"
 
-class IBdaSpecials2a : public IBdaSpecials
+class IBdaSpecials2a1 : public IBdaSpecials
 {
 public:
 	virtual const HRESULT Set22KHz(long nTone) = 0;
