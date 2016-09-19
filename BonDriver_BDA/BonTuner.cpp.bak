@@ -3161,7 +3161,7 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searc
 			// connect 成功
 			OutputDebug(L"[T->C] Connect OK.\n");
 
-			// TsWriter以降と接続～Run
+			// TsWrite以降と接続～Run
 			if (FAILED(LoadAndConnectMiscFilters())) {
 				// 失敗したら次のキャプチャデバイスへ
 				DisconnectAll(m_pCaptureDevice);
@@ -3188,7 +3188,7 @@ HRESULT CBonTuner::LoadAndConnectMiscFilters(void)
 {
 	HRESULT hr;
 
-	// TsWriterと接続
+	// TsWriteと接続
 	if (FAILED(hr = LoadAndConnectTsWriter())) {
 		return hr;
 	}
