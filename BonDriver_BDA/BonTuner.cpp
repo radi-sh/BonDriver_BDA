@@ -3627,7 +3627,7 @@ void CBonTuner::TS_BUFF::Purge(void)
 	::EnterCriticalSection(&cs);
 	while (!List.empty()) {
 		SAFE_DELETE(List.front());
-		List.pop_front();
+		List.pop();
 	}
 	TempOffset = 0;
 	::LeaveCriticalSection(&cs);
@@ -3639,9 +3639,9 @@ void CBonTuner::TS_BUFF::Add(TS_DATA *pItem)
 	while (List.size() >= MaxCount) {
 		// オーバーフローなら古いものを消す
 		SAFE_DELETE(List.front());
-		List.pop_front();
+		List.pop();
 	}
-	List.push_back(pItem);
+	List.push(pItem);
 	::LeaveCriticalSection(&cs);
 }
 
@@ -3677,9 +3677,9 @@ BOOL CBonTuner::TS_BUFF::AddData(BYTE *pbyData, DWORD dwSize)
 			while (List.size() >= MaxCount) {
 				// オーバーフローなら古いものを消す
 				SAFE_DELETE(List.front());
-				List.pop_front();
+				List.pop();
 			}
-			List.push_back(pItem);
+			List.push(pItem);
 			ret = TRUE;
 		}
 		::LeaveCriticalSection(&cs);
@@ -3693,7 +3693,7 @@ CBonTuner::TS_DATA * CBonTuner::TS_BUFF::Get(void)
 	::EnterCriticalSection(&cs);
 	if (!List.empty()) {
 		ts = List.front();
-		List.pop_front();
+		List.pop();
 	}
 	::LeaveCriticalSection(&cs);
 	return ts;

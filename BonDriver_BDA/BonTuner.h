@@ -10,6 +10,7 @@
 #include <list>
 #include <vector>
 #include <map>
+#include <queue>
 
 #include "IBonDriver2.h"
 #include "IBdaSpecials2.h"
@@ -700,7 +701,7 @@ protected:
 
 	class TS_BUFF {
 	private:
-		list<TS_DATA *> List;
+		queue<TS_DATA *> List;
 		BYTE *TempBuff;
 		DWORD TempOffset;
 		DWORD BuffSize;
