@@ -3184,6 +3184,16 @@ HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searc
 	}
 }
 
+void CBonTuner::UnloadCaptureDevice(void)
+{
+	HRESULT hr;
+
+	if (m_pIGraphBuilder && m_pCaptureDevice)
+		hr = m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
+
+	SAFE_RELEASE(m_pCaptureDevice);
+}
+
 HRESULT CBonTuner::LoadAndConnectMiscFilters(void)
 {
 	HRESULT hr;
@@ -3224,16 +3234,6 @@ HRESULT CBonTuner::LoadAndConnectMiscFilters(void)
 	// ¬Œ÷
 	OutputDebug(L"RunGraph OK.\n");
 	return S_OK;
-}
-
-void CBonTuner::UnloadCaptureDevice(void)
-{
-	HRESULT hr;
-
-	if (m_pIGraphBuilder && m_pCaptureDevice)
-		hr = m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-
-	SAFE_RELEASE(m_pCaptureDevice);
 }
 
 HRESULT CBonTuner::LoadAndConnectTsWriter(void)
