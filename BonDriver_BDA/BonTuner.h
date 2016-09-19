@@ -15,6 +15,8 @@
 #include "IBonDriver2.h"
 #include "IBdaSpecials2.h"
 
+#include "DSFilterEnum.h"
+
 #include "LockChannel.h"
 
 #include <iostream>
@@ -117,10 +119,10 @@ protected:
 	BOOL LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice);
 
 	// チューナ固有Dllのロード
-	HRESULT CheckAndInitTunerDependDll(void);
+	HRESULT CheckAndInitTunerDependDll(wstring tunerGUID, wstring tunerFriendlyName);
 
 	// チューナ固有Dllでのキャプチャデバイス確認
-	HRESULT CheckCapture(wstring displayName, wstring friendlyName);
+	HRESULT CheckCapture(wstring tunerGUID, wstring tunerFriendlyName, wstring captureGUID, wstring captureFriendlyName);
 		
 	// チューナ固有関数のロード
 	void LoadTunerDependCode(void);
@@ -143,12 +145,16 @@ protected:
 	HRESULT LoadNetworkProvider(void);
 	void UnloadNetworkProvider(void);
 
+	// チューナ・キャプチャデバイスの読込みリスト取得
+	HRESULT InitDSFilterEnum(void);
+
+	// チューナ・キャプチャデバイスを含めてすべてのフィルタグラフをロードしてRunを試みる
+	HRESULT LoadAndConnectDevice(void);
+
 	// TunerDevice
-	HRESULT LoadAndConnectTunerDevice(void);
 	void UnloadTunerDevice(void);
 	
 	// CaptureDevice
-	HRESULT LoadAndConnectCaptureDevice(wstring searchGuid, wstring searchFrienlyName);
 	void UnloadCaptureDevice(void);
 	
 	// TsWriter
@@ -837,9 +843,37 @@ protected:
 	// チューナ信号状態取得用インターフェース
 	IBDA_SignalStatistics *m_pIBDA_SignalStatistics;
 
-	// チューナーのGUIDとFriendlyName
-	wstring m_sTunerDisplayName;
-	wstring m_sTunerFriendlyName;
+	// DSフィルター列挙 CDSFilterEnum
+	CDSFilterEnum *m_pDSFilterEnumTuner;
+	CDSFilterEnum *m_pDSFilterEnumCapture;
+
+	// DSフィルターの情報
+	struct DSListData {
+		wstring GUID;
+		wstring FriendlyName;
+		ULONG Order;
+		DSListData(wstring _GUID, wstring _FriendlyName, ULONG _Order)
+			: GUID(_GUID),
+			FriendlyName(_FriendlyName),
+			Order(_Order)
+		{
+		};
+	};
+
+	// ロードすべきチューナ・キャプチャのリスト
+	struct TunerCaptureList {
+		DSListData Tuner;
+		vector<DSListData> CaptureList;
+		TunerCaptureList(wstring TunerGUID, wstring TunerFriendlyName, ULONG TunerOrder)
+			: Tuner(TunerGUID, TunerFriendlyName, TunerOrder)
+		{
+		};
+		TunerCaptureList(DSListData _Tuner)
+			: Tuner(_Tuner)
+		{
+		};
+	};
+	vector<TunerCaptureList> m_UsableTunerCaptureList;
 
 	// チューナーの使用するTuningSpaceの種類
 	enum enumTunerType {

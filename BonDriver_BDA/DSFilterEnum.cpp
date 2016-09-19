@@ -77,6 +77,35 @@ HRESULT CDSFilterEnum::getFilter(IBaseFilter** ppFilter)
 	return hr;
 }
 
+HRESULT CDSFilterEnum::getFilter(IBaseFilter** ppFilter, ULONG order)
+{
+	if ((!ppFilter) || (m_pIEnumMoniker == NULL))
+		return E_POINTER;
+
+	SAFE_RELEASE(m_pIMoniker);
+	*ppFilter = NULL;
+
+	HRESULT hr;
+		
+	m_pIEnumMoniker->Reset();
+
+	if (order) {
+		hr = m_pIEnumMoniker->Skip(order);
+		if (FAILED(hr)) {
+			OutputDebug(L"m_pIEnumMoniker->Skip method failed.\n");
+			return hr;
+		}
+	}
+
+	hr = m_pIEnumMoniker->Next(1, &m_pIMoniker, 0);
+	if (FAILED(hr)) {
+		OutputDebug(L"m_pIEnumMoniker->Next method failed.\n");
+		return hr;
+	}
+
+	return getFilter(ppFilter);
+}
+
 HRESULT CDSFilterEnum::getFriendlyName(wstring* pName)
 {
 	if (m_pIMoniker == NULL) {

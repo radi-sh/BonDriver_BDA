@@ -21,6 +21,7 @@ public:
 
 	HRESULT next(void);
 	HRESULT getFilter(IBaseFilter** ppFilter);
+	HRESULT getFilter(IBaseFilter** ppFilter, ULONG order);
 	HRESULT getFriendlyName(wstring* pName);
 	HRESULT getDisplayName(wstring* pName);
 
