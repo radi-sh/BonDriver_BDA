@@ -137,6 +137,8 @@ CBonTuner::CBonTuner()
 	m_nSignalLevelCalcType(0),
 	m_fStrengthCoefficient(1),
 	m_fQualityCoefficient(1),
+	m_fStrengthBias(0),
+	m_fQualityBias(0),
 	m_nSignalLockedJudgeType(1),
 	m_dwBuffSize(188 * 1024),
 	m_dwMaxBuffCount(512),
@@ -463,9 +465,9 @@ const float CBonTuner::_GetSignalLevel(void)
 	float s = 1.0F;
 	float q = 1.0F;
 	if (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12)
-		s = float(nStrength) / m_fStrengthCoefficient;
+		s = float(nStrength) / m_fStrengthCoefficient + m_fStrengthBias;
 	if (m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12)
-		q = float(nQuality) / m_fQualityCoefficient;
+		q = float(nQuality) / m_fQualityCoefficient + m_fQualityBias;
 	return s * q;
 }
 
@@ -1179,12 +1181,12 @@ void CBonTuner::ReadIniFile(void)
 	wstring sTempTuningSpaceName = buf;
 
 	// SignalLevel 算出方法
-	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値
-	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値
-	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient)
-	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値
-	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値
-	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient)
+	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
 	// 100 .. ビットレート値(Mibps)
 	m_nSignalLevelCalcType = ::GetPrivateProfileIntW(L"TUNER", L"SignalLevelCalcType", 0, m_szIniFilePath);
 
@@ -1199,6 +1201,14 @@ void CBonTuner::ReadIniFile(void)
 	m_fQualityCoefficient = (float)::_wtof(buf);
 	if (m_fQualityCoefficient == 0.0F)
 		m_fQualityCoefficient = 1.0F;
+
+	// Strength 値補正バイアス
+	::GetPrivateProfileStringW(L"TUNER", L"StrengthBias", L"0.0", buf, 256, m_szIniFilePath);
+	m_fStrengthBias = (float)::_wtof(buf);
+
+	// Quality 値補正バイアス
+	::GetPrivateProfileStringW(L"TUNER", L"QualityBias", L"0.0", buf, 256, m_szIniFilePath);
+	m_fQualityBias = (float)::_wtof(buf);
 
 	// チューニング状態の判断方法
 	// 0 .. 常にチューニングに成功している状態として判断する

@@ -495,12 +495,12 @@ protected:
 	unsigned int m_nReOpenWhenGiveUpReLock;
 
 	// SignalLevel 算出方法
-	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値
-	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値
-	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient)
-	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値
-	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値
-	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient)
+	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
 	// 100 .. ビットレート値(Mibps)
 	unsigned int m_nSignalLevelCalcType;
 
@@ -509,6 +509,12 @@ protected:
 
 	// Quality 値補正係数
 	float m_fQualityCoefficient;
+
+	// Strength 値補正バイアス
+	float m_fStrengthBias;
+
+	// Quality 値補正バイアス
+	float m_fQualityBias;
 
 	// チューニング状態の判断方法
 	// 0 .. 常にチューニングに成功している状態として判断する
