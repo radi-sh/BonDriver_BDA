@@ -147,7 +147,7 @@ protected:
 	void UnloadTunerDevice(void);
 	
 	// CaptureDevice
-	HRESULT CBonTuner::LoadAndConnectCaptureDevice(wstring searchGuid, wstring searchFrienlyName);
+	HRESULT LoadAndConnectCaptureDevice(wstring searchGuid, wstring searchFrienlyName);
 	void UnloadCaptureDevice(void);
 	
 	// TsWriter
@@ -163,7 +163,7 @@ protected:
 	void UnloadTif(void);
 
 	// TsWriter/Demultiplexer/TIFをLoad&ConnectしRunする
-	HRESULT CBonTuner::LoadAndConnectMiscFilters(void);
+	HRESULT LoadAndConnectMiscFilters(void);
 
 	// チューナ信号状態取得用インターフェース
 	HRESULT LoadTunerSignalStatistics(void);
