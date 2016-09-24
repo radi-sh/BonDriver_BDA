@@ -80,6 +80,6 @@ static inline void OutputDebug(LPCWSTR format, ...)
 
 	if (g_fpLog) {
 		fwprintf(g_fpLog, buffer);
+		fflush(g_fpLog);
 	}
-	fflush(g_fpLog);
 }
