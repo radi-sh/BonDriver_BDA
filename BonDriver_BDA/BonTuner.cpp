@@ -134,6 +134,7 @@ CBonTuner::CBonTuner()
 	m_nWatchDogSignalLocked(0),
 	m_nWatchDogBitRate(0),
 	m_nReOpenWhenGiveUpReLock(0),
+	m_bBackgroundChannelLock(FALSE),
 	m_nSignalLevelCalcType(0),
 	m_fStrengthCoefficient(1),
 	m_fQualityCoefficient(1),
@@ -913,6 +914,12 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 		// 1000ms毎処理
 		if (pCOMProc->CheckTick()) {
 
+			// SetChannel()失敗時のバックグランドCH切替開始
+			if (pSys->m_bBackgroundChannelLock && pSys->m_dwCurChannel == CBonTuner::CHANNEL_INVALID && pSys->m_dwTargetChannel != CBonTuner::CHANNEL_INVALID) {
+				OutputDebug(L"COMProcThread: Background retry.\n");
+				pCOMProc->SetReLockChannel();
+			}
+
 			// 異常検知
 			if (!pCOMProc->bDoReLockChannel && !pCOMProc->bDoReOpenTuner && pSys->m_dwCurChannel != CBonTuner::CHANNEL_INVALID) {
 
@@ -968,7 +975,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 						if (pCOMProc->CheckReLockFailCount(pSys->m_nReOpenWhenGiveUpReLock)) {
 							// CH切替動作試行回数を超えたのでOpenTuner再実行
 							OutputDebug(L"COMProcThread: ReOpenWhenGiveUpReLock count is up.\n");
-							pCOMProc->SetReOpenTuner(pSys->m_dwCurSpace, pSys->m_dwCurChannel);
+							pCOMProc->SetReOpenTuner(pSys->m_dwTargetSpace, pSys->m_dwTargetChannel);
 							pCOMProc->ResetReLockChannel();
 						}
 					}
@@ -1190,6 +1197,9 @@ void CBonTuner::ReadIniFile(void)
 
 	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
 	m_nReOpenWhenGiveUpReLock = ::GetPrivateProfileIntW(L"TUNER", L"ReOpenWhenGiveUpReLock", 0, m_szIniFilePath);
+
+	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
+	m_bBackgroundChannelLock = (BOOL)(::GetPrivateProfileIntW(L"TUNER", L"BackgroundChannelLock", 0, m_szIniFilePath));
 
 	// Tuning Space名（互換用）
 	::GetPrivateProfileStringW(L"TUNER", L"TuningSpaceName", L"スカパー", buf, 64, m_szIniFilePath);

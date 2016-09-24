@@ -494,6 +494,9 @@ protected:
 	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
 	unsigned int m_nReOpenWhenGiveUpReLock;
 
+	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
+	BOOL m_bBackgroundChannelLock;
+
 	// SignalLevel 算出方法
 	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
 	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
