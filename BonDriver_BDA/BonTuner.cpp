@@ -144,6 +144,7 @@ CBonTuner::CBonTuner()
 	m_dwMaxBuffCount(512),
 	m_nWaitTsCount(1),
 	m_nWaitTsSleep(100),
+	m_bAlwaysAnswerLocked(FALSE),
 	m_bReserveUnusedCh(FALSE),
 	m_szIniFilePath(L""),
 	m_hOnStreamEvent(NULL),
@@ -169,7 +170,9 @@ CBonTuner::CBonTuner()
 	m_nNetworkProvider(eNetworkProviderAuto),
 	m_nDefaultNetwork(1),
 	m_bOpened(FALSE),
+	m_dwTargetSpace(CBonTuner::SPACE_INVALID),
 	m_dwCurSpace(CBonTuner::SPACE_INVALID),
+	m_dwTargetChannel(CBonTuner::CHANNEL_INVALID),
 	m_dwCurChannel(CBonTuner::CHANNEL_INVALID),
 	m_nCurTone(CBonTuner::TONE_UNKNOWN),
 	m_hModuleTunerSpecials(NULL),
@@ -378,8 +381,8 @@ void CBonTuner::_CloseTuner(void)
 	// グラフ解放
 	CleanupGraph();
 
-	m_dwCurSpace = CBonTuner::SPACE_INVALID;
-	m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
+	m_dwTargetSpace = m_dwCurSpace = CBonTuner::SPACE_INVALID;
+	m_dwTargetChannel = m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
 	m_nCurTone = CBonTuner::TONE_UNKNOWN;
 
 	if (m_hSemaphore) {
@@ -451,8 +454,8 @@ const float CBonTuner::_GetSignalLevel(void)
 	int nQuality;
 	int nLock;
 
-	if (m_dwCurChannel == CBonTuner::CHANNEL_INVALID)
-		// チャンネル番号不明時は0を返す
+	if (m_dwTargetChannel == CBonTuner::CHANNEL_INVALID)
+		// SetChannel()が一度も呼ばれていない場合は0を返す
 		return 0;
 
 	GetSignalState(&nStrength, &nQuality, &nLock);
@@ -645,8 +648,8 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 	OutputDebug(L"SetChannel(%d, %d)\n", dwSpace, dwChannel);
 
-	m_dwCurSpace = CBonTuner::SPACE_INVALID;
-	m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
+	m_dwTargetSpace = m_dwCurSpace = CBonTuner::SPACE_INVALID;
+	m_dwTargetChannel = m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
 
 	map<unsigned int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
 	if (it == m_TuningData.Spaces.end()) {
@@ -691,6 +694,10 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	PurgeTsStream();
 	m_bRecvStarted = TRUE;
 
+	// SetChannel()を試みたチューニングスペース番号とチャンネル番号
+	m_dwTargetSpace = dwSpace;
+	m_dwTargetChannel = dwChannel;
+
 	if (bRet) {
 		OutputDebug(L"SetChannel success.\n");
 		m_dwCurSpace = dwSpace;
@@ -700,6 +707,8 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	// m_byCurTone = CBonTuner::TONE_UNKNOWN;
 
 	OutputDebug(L"SetChannel failed.\n");
+	if (m_bAlwaysAnswerLocked)
+		return TRUE;
 	return FALSE;
 }
 
@@ -730,6 +739,9 @@ const DWORD CBonTuner::GetCurSpace(void)
 
 const DWORD CBonTuner::_GetCurSpace(void)
 {
+	if (m_bAlwaysAnswerLocked)
+		return m_dwTargetSpace;
+
 	return m_dwCurSpace;
 }
 
@@ -760,6 +772,9 @@ const DWORD CBonTuner::GetCurChannel(void)
 
 const DWORD CBonTuner::_GetCurChannel(void)
 {
+	if (m_bAlwaysAnswerLocked)
+		return m_dwTargetChannel;
+
 	return m_dwCurChannel;
 }
 
@@ -1263,6 +1278,9 @@ void CBonTuner::ReadIniFile(void)
 	// WaitTsStream時ストリームデータバッファが貯まっていない場合に最低限待機する時間(msec)
 	// チューナのCPU負荷が高いときは100msec程度を指定すると効果がある場合もある
 	m_nWaitTsSleep = ::GetPrivateProfileIntW(L"BONDRIVER", L"WaitTsSleep", 100, m_szIniFilePath);
+
+	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
+	m_bAlwaysAnswerLocked = (BOOL)(::GetPrivateProfileIntW(L"BONDRIVER", L"AlwaysAnswerLocked", 0, m_szIniFilePath));
 
 	//
 	// Satellite セクション

@@ -538,6 +538,9 @@ protected:
 	// WaitTsStreamで最低限待機する時間
 	unsigned int m_nWaitTsSleep;
 
+	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
+	BOOL m_bAlwaysAnswerLocked;
+
 	////////////////////////////////////////
 	// チャンネルパラメータ
 	////////////////////////////////////////
@@ -912,11 +915,17 @@ protected:
 	// Tuner is opened
 	BOOL m_bOpened;
 
+	// SetChannel()を試みたチューニングスペース番号
+	DWORD m_dwTargetSpace;
+
 	// カレントチューニングスペース番号
 	DWORD m_dwCurSpace;
 
 	// チューニングスペース番号不明
 	static const DWORD SPACE_INVALID = 0xFFFFFFFF;
+
+	// SetChannel()を試みたチャンネル番号
+	DWORD m_dwTargetChannel;
 
 	// カレントチャンネル番号
 	DWORD m_dwCurChannel;
