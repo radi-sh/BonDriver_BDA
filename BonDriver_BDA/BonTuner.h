@@ -494,6 +494,9 @@ protected:
 	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
 	unsigned int m_nReOpenWhenGiveUpReLock;
 
+	// チューナの再オープンを試みる場合に別のチューナを優先して検索するかどうか
+	BOOL m_bTryAnotherTuner;
+
 	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
 	BOOL m_bBackgroundChannelLock;
 
@@ -885,7 +888,7 @@ protected:
 		{
 		};
 	};
-	vector<TunerCaptureList> m_UsableTunerCaptureList;
+	list<TunerCaptureList> m_UsableTunerCaptureList;
 
 	// チューナーの使用するTuningSpaceの種類
 	enum enumTunerType {

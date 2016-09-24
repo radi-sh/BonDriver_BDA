@@ -134,6 +134,7 @@ CBonTuner::CBonTuner()
 	m_nWatchDogSignalLocked(0),
 	m_nWatchDogBitRate(0),
 	m_nReOpenWhenGiveUpReLock(0),
+	m_bTryAnotherTuner(FALSE),
 	m_bBackgroundChannelLock(FALSE),
 	m_nSignalLevelCalcType(0),
 	m_fStrengthCoefficient(1),
@@ -281,7 +282,7 @@ const BOOL CBonTuner::_OpenTuner(void)
 			break;
 
 		// ロードすべきチューナ・キャプチャのリスト作成
-		if (FAILED(hr = InitDSFilterEnum()))
+		if (m_UsableTunerCaptureList.empty() && FAILED(hr = InitDSFilterEnum()))
 			break;
 
 		// チューナ・キャプチャ以後の構築と実行
@@ -1197,6 +1198,9 @@ void CBonTuner::ReadIniFile(void)
 
 	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
 	m_nReOpenWhenGiveUpReLock = ::GetPrivateProfileIntW(L"TUNER", L"ReOpenWhenGiveUpReLock", 0, m_szIniFilePath);
+
+	// チューナの再オープンを試みる場合に別のチューナを優先して検索するかどうか
+	m_bTryAnotherTuner = (BOOL)(::GetPrivateProfileIntW(L"TUNER", L"TryAnotherTuner", 0, m_szIniFilePath));
 
 	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
 	m_bBackgroundChannelLock = (BOOL)(::GetPrivateProfileIntW(L"TUNER", L"BackgroundChannelLock", 0, m_szIniFilePath));
@@ -3146,7 +3150,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		return E_POINTER;
 	}
 
-	for (vector<TunerCaptureList>::iterator it = m_UsableTunerCaptureList.begin(); it != m_UsableTunerCaptureList.end(); it++) {
+	for (list<TunerCaptureList>::iterator it = m_UsableTunerCaptureList.begin(); it != m_UsableTunerCaptureList.end(); it++) {
 		OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s,  GUID:%s\n", it->Tuner.FriendlyName.c_str(), it->Tuner.GUID.c_str());
 		// チューナデバイスループ
 		// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
@@ -3236,6 +3240,8 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 													else {
 														// すべて成功
 														LoadTunerDependCode();
+														if (m_bTryAnotherTuner)
+															m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
 														return S_OK;
 													} // すべて成功
 													DisconnectAll(m_pCaptureDevice);
@@ -3257,6 +3263,8 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 								else {
 									// 成功
 									LoadTunerDependCode();
+									if (m_bTryAnotherTuner)
+										m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
 									return S_OK;
 								} // 成功
 							} // キャプチャデバイスを使用しない
