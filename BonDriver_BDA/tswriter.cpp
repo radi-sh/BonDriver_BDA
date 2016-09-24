@@ -30,6 +30,7 @@ HRESULT CTsWriter::CheckInputType(const CMediaType * mtIn)
 
 void CTsWriter::SetCallBackRecv(RECV_PROC pRecv, void * pParam)
 {
+	CAutoLock lock_it(&m_Lock);
 	m_pRecv = pRecv;
 	m_pParam = pParam;
 }
@@ -39,9 +40,13 @@ HRESULT CTsWriter::Write(PBYTE pbData, LONG lDataLength)
 	if (lDataLength < 188) {
 		return S_OK;
 	}
-	if (m_pRecv != NULL) {
-		m_pRecv(m_pParam, pbData, lDataLength);
-	}
 
+	{
+		CAutoLock lock_it(&m_Lock);
+		if (m_pRecv != NULL) {
+			m_Lock.Unlock();
+			m_pRecv(m_pParam, pbData, lDataLength);
+		}
+	}
     return S_OK;
 }

@@ -28,5 +28,5 @@ public:
 protected:
 	RECV_PROC m_pRecv;
 	void * m_pParam;
-
+	CCritSec m_Lock;
 };
