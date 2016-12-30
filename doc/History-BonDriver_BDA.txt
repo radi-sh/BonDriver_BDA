@@ -109,3 +109,16 @@
 　詳細はBonDriver_BDA.sample.iniのCH設定の項目を参照してください
 ・iniファイルのBuffSizeに0を設定した場合に、上流より受取ったストリームデータサイズそのままで扱うようにした
 
+【2016-12-30】
+・開発環境をVisual Studio Community 2015 Update 3に変更
+・iniファイルでStrengthBias／QualityBiasを指定可能にした
+　SignalLevel算出時に一定の値を加減算します
+　詳細はBonDriver_BDA.sample.iniのSignalLevelCalcTypeの項目を参照してください
+・iniファイルでAlwaysAnswerLockedを指定できるようにした
+　TVTestでチャンネルスキャンを行った時のお知らせダイアログを抑制できます
+　詳細はBonDriver_BDA.sample.iniのAlwaysAnswerLockedの項目を参照してください
+・iniファイルでBackgroundChannelLockを指定できるようにした
+　詳細はBonDriver_BDA.sample.iniのBackgroundChannelLockの項目を参照してください
+・iniファイルでTryAnotherTunerを指定できるようにした
+　詳細はBonDriver_BDA.sample.iniのTryAnotherTunerの項目を参照してください
+
