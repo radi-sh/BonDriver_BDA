@@ -137,11 +137,20 @@ CBonTuner::CBonTuner()
 	m_bTryAnotherTuner(FALSE),
 	m_bBackgroundChannelLock(FALSE),
 	m_nSignalLevelCalcType(0),
+	m_bSignalLevelGetTypeSS(FALSE),
+	m_bSignalLevelGetTypeTuner(FALSE),
+	m_bSignalLevelGetTypeBR(FALSE),
+	m_bSignalLevelNeedStrength(FALSE),
+	m_bSignalLevelNeedQuality(FALSE),
+	m_bSignalLevelCalcTypeMul(FALSE),
+	m_bSignalLevelCalcTypeAdd(FALSE),
 	m_fStrengthCoefficient(1),
 	m_fQualityCoefficient(1),
 	m_fStrengthBias(0),
 	m_fQualityBias(0),
 	m_nSignalLockedJudgeType(1),
+	m_bSignalLockedJudgeTypeSS(FALSE),
+	m_bSignalLockedJudgeTypeTuner(FALSE),
 	m_dwBuffSize(188 * 1024),
 	m_dwMaxBuffCount(512),
 	m_nWaitTsCount(1),
@@ -291,7 +300,7 @@ const BOOL CBonTuner::_OpenTuner(void)
 
 		OutputDebug(L"Build graph Successfully.\n");
 
-		if (m_nSignalLockedJudgeType == 1 || m_nSignalLevelCalcType < 10) {
+		if (m_bSignalLockedJudgeTypeSS || m_bSignalLevelGetTypeSS) {
 			// チューナの信号状態取得用インターフェースの取得（失敗しても続行）
 			hr = LoadTunerSignalStatistics();
 		}
@@ -441,7 +450,7 @@ const float CBonTuner::_GetSignalLevel(void)
 	float f = 0.0F;
 
 	// ビットレートを返す場合
-	if (m_nSignalLevelCalcType == 100) {
+	if (m_bSignalLevelGetTypeBR) {
 		return m_BitRate.GetRate();
 	}
 
@@ -464,16 +473,19 @@ const float CBonTuner::_GetSignalLevel(void)
 	if (!nLock)
 		// Lock出来ていない場合は0を返す
 		return 0;
-	if (nStrength < 0 && (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12))
+	if (nStrength < 0 && m_bSignalLevelNeedStrength)
 		// Strengthは-1を返す場合がある
 		return (float)nStrength;
-	float s = 1.0F;
-	float q = 1.0F;
-	if (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12)
+	float s = 0.0F;
+	float q = 0.0F;
+	if (m_bSignalLevelNeedStrength)
 		s = float(nStrength) / m_fStrengthCoefficient + m_fStrengthBias;
-	if (m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12)
+	if (m_bSignalLevelNeedQuality)
 		q = float(nQuality) / m_fQualityCoefficient + m_fQualityBias;
-	return s * q;
+
+	if (m_bSignalLevelCalcTypeMul)
+		return s * q;
+	return s + q;
 }
 
 const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
@@ -1213,11 +1225,29 @@ void CBonTuner::ReadIniFile(void)
 	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
 	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
 	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+	//   3 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
 	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
 	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
 	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+	//  13 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
 	// 100 .. ビットレート値(Mibps)
 	m_nSignalLevelCalcType = ::GetPrivateProfileIntW(L"TUNER", L"SignalLevelCalcType", 0, m_szIniFilePath);
+	if (m_nSignalLevelCalcType >= 0 && m_nSignalLevelCalcType <= 9)
+		m_bSignalLevelGetTypeSS = TRUE;
+	if (m_nSignalLevelCalcType >= 10 && m_nSignalLevelCalcType <= 19)
+		m_bSignalLevelGetTypeTuner = TRUE;
+	if (m_nSignalLevelCalcType == 100)
+		m_bSignalLevelGetTypeBR = TRUE;
+	if (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 3 ||
+			m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12 || m_nSignalLevelCalcType == 13)
+		m_bSignalLevelNeedStrength = TRUE;
+	if (m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 3 ||
+			m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12 || m_nSignalLevelCalcType == 13)
+		m_bSignalLevelNeedQuality = TRUE;
+	if (m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 12)
+		m_bSignalLevelCalcTypeMul = TRUE;
+	if (m_nSignalLevelCalcType == 3 || m_nSignalLevelCalcType == 13)
+		m_bSignalLevelCalcTypeAdd = TRUE;
 
 	// Strength 値補正係数
 	::GetPrivateProfileStringW(L"TUNER", L"StrengthCoefficient", L"1.0", buf, 256, m_szIniFilePath);
@@ -1244,6 +1274,10 @@ void CBonTuner::ReadIniFile(void)
 	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
 	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
 	m_nSignalLockedJudgeType = ::GetPrivateProfileIntW(L"TUNER", L"SignalLockedJudgeType", 1, m_szIniFilePath);
+	if (m_nSignalLockedJudgeType == 1)
+		m_bSignalLockedJudgeTypeSS = TRUE;
+	if (m_nSignalLockedJudgeType == 2)
+		m_bSignalLockedJudgeTypeTuner = TRUE;
 
 	// チューナーの使用するTuningSpaceの種類
 	//    1 .. DVB-S/DVB-S2
@@ -1922,35 +1956,38 @@ void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 	BYTE byteVal;
 
 	if (m_pITuner) {
-		if (((m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12) && pnStrength) || 
-				((m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12) && pnQuality) ||
-				(m_nSignalLockedJudgeType == 2 && pnLock)) {
+		if ((m_bSignalLevelGetTypeTuner && ((m_bSignalLevelNeedStrength && pnStrength) || (m_bSignalLevelNeedQuality && pnQuality))) ||
+				(m_bSignalLockedJudgeTypeTuner && pnLock)) {
 			longVal = 0;
 			if (SUCCEEDED(hr = m_pITuner->get_SignalStrength(&longVal))) {
-				if ((m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12) && pnStrength)
-					*pnStrength = longVal > 0 ? (int)(0xffff - (longVal & 0xffff)) : (int)longVal;
-				if ((m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12) && pnQuality)
-					*pnQuality = longVal > 0 ? (int)min(max(longVal >> 16, 0), 100) : 0;
-				if (m_nSignalLockedJudgeType == 2 && pnLock)
-					*pnLock = longVal > 0 ? 1 : 0;
+				int strength = (int)(longVal & 0xffff);
+				int quality = (int)(longVal >> 16);
+				if (m_bSignalLevelNeedStrength && pnStrength)
+					*pnStrength = strength < 0 ? 0xffff - strength : strength;
+				if (m_bSignalLevelNeedQuality && pnQuality)
+					*pnQuality = min(max(quality, 0), 100);
+				if (m_bSignalLockedJudgeTypeTuner && pnLock)
+					*pnLock = strength > 0 ? 1 : 0;
 			}
 		}
 	}
 
 	if (m_pIBDA_SignalStatistics) {
-		if ((m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2) && pnStrength) {
-			longVal = 0;
-			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalStrength(&longVal)))
-				*pnStrength = (int)longVal;
+		if (m_bSignalLevelGetTypeSS) {
+			if (m_bSignalLevelNeedStrength && pnStrength) {
+				longVal = 0;
+				if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalStrength(&longVal)))
+					*pnStrength = (int)(longVal & 0xffff);
+			}
+
+			if (m_bSignalLevelNeedQuality && pnQuality) {
+				longVal = 0;
+				if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalQuality(&longVal)))
+					*pnQuality = (int)(min(max(longVal & 0xffff, 0), 100));
+			}
 		}
 
-		if ((m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2) && pnQuality) {
-			longVal = 0;
-			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalQuality(&longVal)))
-				*pnQuality = min(max(longVal, 0), 100);
-		}
-
-		if (m_nSignalLockedJudgeType == 1 && pnLock) {
+		if (m_bSignalLockedJudgeTypeSS && pnLock) {
 			byteVal = 0;
 			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalLocked(&byteVal)))
 				*pnLock = (int)byteVal;

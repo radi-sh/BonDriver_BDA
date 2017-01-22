@@ -504,11 +504,20 @@ protected:
 	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
 	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
 	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+	//   3 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
 	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
 	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
 	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+	//  13 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
 	// 100 .. ビットレート値(Mibps)
 	unsigned int m_nSignalLevelCalcType;
+	BOOL m_bSignalLevelGetTypeSS;		// SignalLevel 算出に IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLevelGetTypeTuner;	// SignalLevel 算出に ITuner を使用する
+	BOOL m_bSignalLevelGetTypeBR;		// SignalLevel 算出に ビットレート値を使用する
+	BOOL m_bSignalLevelNeedStrength;	// SignalLevel 算出に SignalStrength 値を使用する
+	BOOL m_bSignalLevelNeedQuality;		// SignalLevel 算出に SignalQuality 値を使用する
+	BOOL m_bSignalLevelCalcTypeMul;		// SignalLevel 算出に SignalStrength と SignalQuality の掛け算を使用する
+	BOOL m_bSignalLevelCalcTypeAdd;		// SignalLevel 算出に SignalStrength と SignalQuality の足し算を使用する
 
 	// Strength 値補正係数
 	float m_fStrengthCoefficient;
@@ -527,6 +536,8 @@ protected:
 	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
 	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
 	unsigned int m_nSignalLockedJudgeType;
+	BOOL m_bSignalLockedJudgeTypeSS;	// チューニング状態の判断に IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLockedJudgeTypeTuner;	// チューニング状態の判断に ITuner を使用する
 
 	////////////////////////////////////////
 	// BonDriver パラメータ関係
