@@ -122,3 +122,8 @@
 ・iniファイルでTryAnotherTunerを指定できるようにした
 　詳細はBonDriver_BDA.sample.iniのTryAnotherTunerの項目を参照してください
 
+【2017-01-22】
+・ini ファイルの SignalLevelCalcType に 3と13を追加
+・ITuner::get_SignalStrengthのStrength 値が正しく取得できない問題を修正
+・IBDA_SignalStatistics::get_SignalStrength で取得する値を 16 bit mask するようにした
+
