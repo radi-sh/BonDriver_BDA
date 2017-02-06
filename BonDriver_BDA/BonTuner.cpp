@@ -225,10 +225,6 @@ CBonTuner::~CBonTuner()
 	::DeleteCriticalSection(&m_csDecodedTSBuff);
 	::DeleteCriticalSection(&m_csTSBuff);
 
-	// DSフィルター列挙を削除
-	SAFE_DELETE(m_pDSFilterEnumTuner);
-	SAFE_DELETE(m_pDSFilterEnumCapture);
-
 	// インスタンスリストから自身を削除
 	::EnterCriticalSection(&st_LockInstanceList);
 	st_InstanceList.remove(this);
@@ -996,6 +992,11 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			} // 異常検知後チャンネルロック再実行
 		} // 1000ms毎処理
 	} // while (!terminate)
+
+	// DSフィルター列挙とチューナ・キャプチャのリストを削除
+	SAFE_DELETE(pSys->m_pDSFilterEnumTuner);
+	SAFE_DELETE(pSys->m_pDSFilterEnumCapture);
+	pSys->m_UsableTunerCaptureList.clear();
 
 	::CoUninitialize();
 	OutputDebug(L"COMProcThread: Thread terminated.\n");
