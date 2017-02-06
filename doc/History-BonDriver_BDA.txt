@@ -127,3 +127,5 @@
 ・ITuner::get_SignalStrengthのStrength 値が正しく取得できない問題を修正
 ・IBDA_SignalStatistics::get_SignalStrength で取得する値を 16 bit mask するようにした
 
+【2017-02-06】
+・一部の環境において、BonDriverの解放時にクラッシュしてしまう問題を修正

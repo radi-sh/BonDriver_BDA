@@ -16,7 +16,7 @@ Windows XP以降 (x86/x64)
 
   BDA互換なインターフェース以外の操作を必要とするチューナーの場合、対応するBDASpecialプラグインが必要となります。
 
-【対応しているBDASpecialプラグイン】(2017/01/22現在)
+【対応しているBDASpecialプラグイン】(2017/02/06現在)
 ・このBonDriver専用のBDASpecialプラグイン
   -PlexPX.dll（PX-Q3PE/PX-W3PE/PX-W3PE V2/PX-W3U3/PX-W3U3 V2/PX-W3U2/PX-S3U2/PX-S3U）
   -IT35.dll（PX-W3U4/PX-Q3U4）
