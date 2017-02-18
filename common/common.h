@@ -3,44 +3,6 @@
 #include <Windows.h>
 #include <stdio.h>
 
-#ifdef RtlMoveMemory
-#undef RtlMoveMemory
-#endif
-EXTERN_C NTSYSAPI VOID NTAPI
-RtlMoveMemory (LPVOID UNALIGNED Dst, LPCVOID UNALIGNED Src, SIZE_T Length);
-
-#ifdef RtlFillMemory
-#undef RtlFillMemory
-#endif
-EXTERN_C NTSYSAPI VOID NTAPI
-RtlFillMemory (LPVOID UNALIGNED Dst, SIZE_T Length, BYTE Pattern);
-
-#ifdef RtlZeroMemory
-#undef RtlZeroMemory
-#endif
-EXTERN_C NTSYSAPI VOID NTAPI
-RtlZeroMemory (LPVOID UNALIGNED Dst, SIZE_T Length);
-
-#ifdef CopyMemory
-#undef CopyMemory
-#endif
-#define CopyMemory(Destination,Source,Length) RtlMoveMemory((Destination),(Source),(Length))
-
-#ifdef MoveMemory
-#undef MoveMemory
-#endif
-#define MoveMemory(Destination,Source,Length) RtlMoveMemory((Destination),(Source),(Length))
-
-#ifdef FillMemory
-#undef FillMemory
-#endif
-#define FillMemory(Destination,Length,Fill) RtlFillMemory((Destination),(Length),(Fill))
-
-#ifdef ZeroMemory
-#undef ZeroMemory
-#endif
-#define ZeroMemory(Destination,Length) RtlZeroMemory((Destination),(Length))
-
 #define SAFE_RELEASE(p)      { if(p) { (p)->Release(); (p)=NULL; } }
 #define SAFE_DELETE(p)       { if(p) { delete (p);     (p)=NULL; } }
 #define SAFE_DELETE_ARRAY(p) { if(p) { delete[] (p);   (p)=NULL; } }
