@@ -14,6 +14,7 @@
 
 #pragma comment( lib, "Strmiids.lib" )
 
+FILE *g_fpLog = NULL;
 
 // Module handle (global)
 /////////////////////////////////////////////

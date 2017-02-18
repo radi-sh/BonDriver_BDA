@@ -24,6 +24,8 @@
 #pragma comment( lib, "Strmiids.lib" )
 #pragma comment( lib, "ksproxy.lib" )
 
+FILE *g_fpLog = NULL;
+
 // Module handle (global)
 /////////////////////////////////////////////
 
