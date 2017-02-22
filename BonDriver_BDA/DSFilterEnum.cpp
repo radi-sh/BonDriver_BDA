@@ -13,9 +13,9 @@
 // transform()
 #include <algorithm>
 
-CDSFilterEnum::CDSFilterEnum(CLSID clsid)
+CDSFilterEnum::CDSFilterEnum(CLSID clsid) 
+	: CDSFilterEnum(clsid, 0)
 {
-	CDSFilterEnum(clsid, 0);
 }
 
 CDSFilterEnum::CDSFilterEnum(CLSID clsid, DWORD dwFlags)
