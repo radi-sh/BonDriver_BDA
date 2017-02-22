@@ -6,8 +6,11 @@
 #include <Windows.h>
 #include <stdio.h>
 
+#include <string>
+
 #include "DVBWorldSpecials.h"
 
+#include <iostream>
 #include <dshow.h>
 
 #include <ks.h>
