@@ -520,7 +520,7 @@ const BOOL CBonTuner::GetTsStream(BYTE *pDst, DWORD *pdwSize, DWORD *pdwRemain)
 	BYTE *pSrc = NULL;
 	if (GetTsStream(&pSrc, pdwSize, pdwRemain)) {
 		if (*pdwSize)
-			::CopyMemory(pDst, pSrc, *pdwSize);
+			memcpy(pDst, pSrc, *pdwSize);
 		return TRUE;
 	}
 	return FALSE;

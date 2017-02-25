@@ -719,7 +719,7 @@ protected:
 		{
 			if (copy) {
 				pbyBuff = new BYTE[size];
-				::CopyMemory(pbyBuff, data, size);
+				memcpy(pbyBuff, data, size);
 			}
 			else {
 				pbyBuff = data;
