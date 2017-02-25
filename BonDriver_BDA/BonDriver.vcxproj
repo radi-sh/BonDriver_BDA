@@ -234,18 +234,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\common\DSFilterEnum.cpp" />
     <ClCompile Include="BonDriver.cpp" />
     <ClCompile Include="BonTuner.cpp" />
-    <ClCompile Include="DSFilterEnum.cpp" />
     <ClCompile Include="tswriter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\common.h" />
+    <ClInclude Include="..\common\DSFilterEnum.h" />
     <ClInclude Include="..\common\IBdaSpecials.h" />
     <ClInclude Include="..\common\IBdaSpecials2.h" />
     <ClInclude Include="..\common\LockChannel.h" />
     <ClInclude Include="BonTuner.h" />
-    <ClInclude Include="DSFilterEnum.h" />
     <ClInclude Include="IBonDriver.h" />
     <ClInclude Include="IBonDriver2.h" />
     <ClInclude Include="tswriter.h" />
