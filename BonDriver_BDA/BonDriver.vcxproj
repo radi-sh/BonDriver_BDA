@@ -245,6 +245,7 @@
     <ClInclude Include="..\common\IBdaSpecials.h" />
     <ClInclude Include="..\common\IBdaSpecials2.h" />
     <ClInclude Include="..\common\LockChannel.h" />
+    <ClInclude Include="..\common\WaitWithMsg.h" />
     <ClInclude Include="BonTuner.h" />
     <ClInclude Include="IBonDriver.h" />
     <ClInclude Include="IBonDriver2.h" />

@@ -26,6 +26,8 @@
 // bstr_t
 #include <comdef.h>
 
+#include "WaitWithMsg.h"
+
 #pragma comment(lib, "Strmiids.lib")
 #pragma comment(lib, "ksproxy.lib")
 
@@ -363,7 +365,7 @@ void CBonTuner::_CloseTuner(void)
 	// Decode処理専用スレッド終了
 	if (m_aDecodeProc.hThread) {
 		::SetEvent(m_aDecodeProc.hTerminateRequest);
-		::WaitForSingleObject(m_aDecodeProc.hThread, INFINITE);
+		WaitForSingleObjectWithMessageLoop(m_aDecodeProc.hThread, INFINITE);
 		::CloseHandle(m_aDecodeProc.hThread);
 		m_aDecodeProc.hThread = NULL;
 	}
@@ -702,7 +704,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	if (m_pIBdaSpecials2)
 		hr = m_pIBdaSpecials2->PostLockChannel(&m_LastTuningParam);
 
-	::Sleep(100);
+	SleepWithMessageLoop(100);
 	PurgeTsStream();
 	m_bRecvStarted = TRUE;
 
@@ -815,7 +817,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 	};
 
 	while (!terminate) {
-		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, 1000);
+		DWORD ret = WaitForMultipleObjectsWithMessageLoop(2, h, FALSE, 1000);
 		switch (ret)
 		{
 		case WAIT_OBJECT_0:
@@ -1035,7 +1037,7 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 
 	while (!terminate) {
 		DWORD remain = pSys->m_BitRate.CheckRate();
-		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, remain);
+		DWORD ret = WaitForMultipleObjectsWithMessageLoop(2, h, FALSE, remain);
 		switch (ret)
 		{
 		case WAIT_OBJECT_0:
@@ -2012,7 +2014,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		m_nCurTone = pTuningParam->Antenna->Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"TwiceLock 1st[Special2] SUCCESS.\n");
-			::Sleep(m_nLockTwiceDelay);
+			SleepWithMessageLoop(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials2->LockChannel(pTuningParam);
 		}
 		if (SUCCEEDED(hr)) {
@@ -2032,7 +2034,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		m_nCurTone = pTuningParam->Antenna->Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"TwiceLock 1st[Special] SUCCESS.\n");
-			::Sleep(m_nLockTwiceDelay);
+			SleepWithMessageLoop(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
 					(pTuningParam->Modulation->Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation->Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
 		}
@@ -2053,7 +2055,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			OutputDebug(L"Set22KHz[Special2] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
-				::Sleep(m_nToneWait); // 衛星切替待ち
+				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 			}
 		}
 		else {
@@ -2067,7 +2069,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			OutputDebug(L"Set22KHz[Special] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
-				::Sleep(m_nToneWait); // 衛星切替待ち
+				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 			}
 		}
 		else {
@@ -2244,7 +2246,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		OutputDebug(L"Pre tune request complete.\n");
 
 		m_nCurTone = pTuningParam->Antenna->Tone;
-		::Sleep(m_nToneWait); // 衛星切替待ち
+		SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 	}
 
 	if (bLockTwice) {
@@ -2255,7 +2257,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			return FALSE;
 		}
 		OutputDebug(L"1st Twice tune request complete.\n");
-		::Sleep(m_nLockTwiceDelay);
+		SleepWithMessageLoop(m_nLockTwiceDelay);
 	}
 
 	unsigned int nRetryRemain = m_nLockWaitRetry;
@@ -2270,12 +2272,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 
 		static const int LockRetryTime = 50;
 		unsigned int nWaitRemain = m_nLockWait;
-		::Sleep(m_nLockWaitDelay);
+		SleepWithMessageLoop(m_nLockWaitDelay);
 		GetSignalState(NULL, NULL, &nLock);
 		while (!nLock && nWaitRemain) {
 			DWORD dwSleepTime = (nWaitRemain > LockRetryTime) ? LockRetryTime : nWaitRemain;
 			OutputDebug(L"Waiting lock status after %d msec.\n", nWaitRemain);
-			::Sleep(dwSleepTime);
+			SleepWithMessageLoop(dwSleepTime);
 			nWaitRemain -= dwSleepTime;
 			GetSignalState(NULL, NULL, &nLock);
 		}
@@ -3203,7 +3205,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 
 		// 排他処理
 		m_hSemaphore = ::CreateSemaphoreW(NULL, 1, 1, semName.c_str());
-		DWORD result = ::WaitForSingleObject(m_hSemaphore, 0);
+		DWORD result = WaitForSingleObjectWithMessageLoop(m_hSemaphore, 0);
 		if (result != WAIT_OBJECT_0) {
 			OutputDebug(L"[P->T] Another is using.\n");
 			// 使用中なので次のチューナを探す
