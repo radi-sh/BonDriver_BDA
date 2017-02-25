@@ -7,6 +7,8 @@
 
 #include "BonTuner.h"
 
+using namespace std;
+
 // DllMain
 /////////////////////////////////////////////
 BOOL APIENTRY DllMain( HMODULE hModule,

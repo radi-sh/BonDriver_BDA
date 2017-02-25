@@ -39,6 +39,8 @@
 
 #pragma comment(lib, "winmm.lib")
 
+using namespace std;
+
 FILE *g_fpLog = NULL;
 
 //////////////////////////////////////////////////////////////////////

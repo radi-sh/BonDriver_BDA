@@ -29,8 +29,6 @@
 // transform()
 #include <algorithm>
 
-using namespace std;
-
 class CTsWriter;
 
 // CBonTuner class
@@ -86,7 +84,7 @@ public:
 	static HMODULE st_hModule;
 
 	// 作成されたCBontunerインスタンスの一覧
-	static list<CBonTuner*> st_InstanceList;
+	static std::list<CBonTuner*> st_InstanceList;
 
 	// st_InstanceList操作用
 	static CRITICAL_SECTION st_LockInstanceList;
@@ -119,10 +117,10 @@ protected:
 	BOOL LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice);
 
 	// チューナ固有Dllのロード
-	HRESULT CheckAndInitTunerDependDll(wstring tunerGUID, wstring tunerFriendlyName);
+	HRESULT CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstring tunerFriendlyName);
 
 	// チューナ固有Dllでのキャプチャデバイス確認
-	HRESULT CheckCapture(wstring tunerGUID, wstring tunerFriendlyName, wstring captureGUID, wstring captureFriendlyName);
+	HRESULT CheckCapture(std::wstring tunerGUID, std::wstring tunerFriendlyName, std::wstring captureGUID, std::wstring captureFriendlyName);
 		
 	// チューナ固有関数のロード
 	void LoadTunerDependCode(void);
@@ -422,10 +420,10 @@ protected:
 
 	// チューナ・キャプチャ検索に使用するGUID文字列とFriendlyName文字列の組合せ
 	struct TunerSearchData {
-		wstring TunerGUID;
-		wstring TunerFriendlyName;
-		wstring CaptureGUID;
-		wstring CaptureFriendlyName;
+		std::wstring TunerGUID;
+		std::wstring TunerFriendlyName;
+		std::wstring CaptureGUID;
+		std::wstring CaptureFriendlyName;
 		TunerSearchData(void)
 		{
 		};
@@ -435,23 +433,23 @@ protected:
 			CaptureGUID(captureGuid),
 			CaptureFriendlyName(captureFriendlyName)
 		{
-			::transform(TunerGUID.begin(), TunerGUID.end(), TunerGUID.begin(), towlower);
-			::transform(CaptureGUID.begin(), CaptureGUID.end(), CaptureGUID.begin(), towlower);
+			std::transform(TunerGUID.begin(), TunerGUID.end(), TunerGUID.begin(), towlower);
+			std::transform(CaptureGUID.begin(), CaptureGUID.end(), CaptureGUID.begin(), towlower);
 		};
 	};
 
 	// INI ファイルで指定するチューナパラメータ
 	struct TunerParam {
-		map<unsigned int, TunerSearchData*> Tuner;
+		std::map<unsigned int, TunerSearchData*> Tuner;
 												// TunerとCaptureのGUID/FriendlyName指定
 		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 #ifdef UNICODE
-		wstring sTunerName;						// GetTunerNameで返す名前
+		std::wstring sTunerName;						// GetTunerNameで返す名前
 #else
 		string sTunerName;						// GetTunerNameで返す名前
 #endif
-		wstring sDLLBaseName;					// 固有DLL
+		std::wstring sDLLBaseName;					// 固有DLL
 		TunerParam(void)
 			: bNotExistCaptureDevice(TRUE),
 			  bCheckDeviceInstancePath(TRUE)
@@ -459,7 +457,7 @@ protected:
 		};
 		~TunerParam(void)
 		{
-			for (map<unsigned int, TunerSearchData*>::iterator it = Tuner.begin(); it != Tuner.end(); it++) {
+			for (std::map<unsigned int, TunerSearchData*>::iterator it = Tuner.begin(); it != Tuner.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Tuner.clear();
@@ -565,7 +563,7 @@ protected:
 	// チャンネルデータ
 	struct ChData {
 #ifdef UNICODE
-		wstring sServiceName;
+		std::wstring sServiceName;
 #else
 		string sServiceName;
 #endif
@@ -606,11 +604,11 @@ protected:
 	// チューニング空間データ
 	struct TuningSpaceData {
 #ifdef UNICODE
-		wstring sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
+		std::wstring sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
 #else
 		string sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
 #endif
-		map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
+		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;				// チャンネル数
 		TuningSpaceData(void)
 			: dwNumChannel(0)
@@ -618,7 +616,7 @@ protected:
 		};
 		~TuningSpaceData(void)
 		{
-			for (map<unsigned int, ChData*>::iterator it = Channels.begin(); it != Channels.end(); it++) {
+			for (std::map<unsigned int, ChData*>::iterator it = Channels.begin(); it != Channels.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Channels.clear();
@@ -627,7 +625,7 @@ protected:
 
 	// チューニングスペース一覧
 	struct TuningData {
-		map<unsigned int, TuningSpaceData*> Spaces;	// チューニングスペース番号とデータ
+		std::map<unsigned int, TuningSpaceData*> Spaces;	// チューニングスペース番号とデータ
 		DWORD dwNumSpace;					// チューニングスペース数
 		TuningData(void)
 			: dwNumSpace(0)
@@ -635,7 +633,7 @@ protected:
 		};
 		~TuningData(void)
 		{
-			for (map<unsigned int, TuningSpaceData*>::iterator it = Spaces.begin(); it != Spaces.end(); it++) {
+			for (std::map<unsigned int, TuningSpaceData*>::iterator it = Spaces.begin(); it != Spaces.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Spaces.clear();
@@ -672,7 +670,7 @@ protected:
 	Satellite m_aSatellite[MAX_SATELLITE];
 
 	// チャンネル名の自動生成に使用する衛星の名称
-	wstring m_sSatelliteName[MAX_SATELLITE];
+	std::wstring m_sSatelliteName[MAX_SATELLITE];
 
 	////////////////////////////////////////
 	// 変調方式パラメータ
@@ -685,7 +683,7 @@ protected:
 	ModulationMethod m_aModulationType[MAX_MODULATION];
 
 	// チャンネル名の自動生成に使用する変調方式の名称
-	wstring m_sModulationName[MAX_MODULATION];
+	std::wstring m_sModulationName[MAX_MODULATION];
 
 	////////////////////////////////////////
 	// BonDriver 関連
@@ -733,7 +731,7 @@ protected:
 
 	class TS_BUFF {
 	private:
-		queue<TS_DATA *> List;
+		std::queue<TS_DATA *> List;
 		BYTE *TempBuff;
 		DWORD TempOffset;
 		DWORD BuffSize;
@@ -875,10 +873,10 @@ protected:
 
 	// DSフィルターの情報
 	struct DSListData {
-		wstring GUID;
-		wstring FriendlyName;
+		std::wstring GUID;
+		std::wstring FriendlyName;
 		ULONG Order;
-		DSListData(wstring _GUID, wstring _FriendlyName, ULONG _Order)
+		DSListData(std::wstring _GUID, std::wstring _FriendlyName, ULONG _Order)
 			: GUID(_GUID),
 			FriendlyName(_FriendlyName),
 			Order(_Order)
@@ -889,8 +887,8 @@ protected:
 	// ロードすべきチューナ・キャプチャのリスト
 	struct TunerCaptureList {
 		DSListData Tuner;
-		vector<DSListData> CaptureList;
-		TunerCaptureList(wstring TunerGUID, wstring TunerFriendlyName, ULONG TunerOrder)
+		std::vector<DSListData> CaptureList;
+		TunerCaptureList(std::wstring TunerGUID, std::wstring TunerFriendlyName, ULONG TunerOrder)
 			: Tuner(TunerGUID, TunerFriendlyName, TunerOrder)
 		{
 		};
@@ -899,7 +897,7 @@ protected:
 		{
 		};
 	};
-	list<TunerCaptureList> m_UsableTunerCaptureList;
+	std::list<TunerCaptureList> m_UsableTunerCaptureList;
 
 	// チューナーの使用するTuningSpaceの種類
 	enum enumTunerType {
@@ -969,8 +967,8 @@ protected:
 	// チューナ固有の関数が必要かどうかを自動判別するDB
 	// GUID をキーに DLL 名を得る
 	struct TUNER_SPECIAL_DLL {
-		wstring sTunerGUID;
-		wstring sDLLBaseName;
+		std::wstring sTunerGUID;
+		std::wstring sDLLBaseName;
 	};
 	static const TUNER_SPECIAL_DLL aTunerSpecialData[];
 
