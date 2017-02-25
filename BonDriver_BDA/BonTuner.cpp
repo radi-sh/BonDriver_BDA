@@ -3813,7 +3813,7 @@ BOOL CBonTuner::TS_BUFF::AddData(BYTE *pbyData, DWORD dwSize)
 		if (TempBuff) {
 			// iniファイルでBuffSizeが指定されている場合はそのサイズに合わせる
 			DWORD dwCopySize = (BuffSize > TempOffset + dwSize) ? dwSize : BuffSize - TempOffset;
-			::CopyMemory(TempBuff + TempOffset, pbyData, dwCopySize);
+			memcpy(TempBuff + TempOffset, pbyData, dwCopySize);
 			TempOffset += dwCopySize;
 			dwSize -= dwCopySize;
 			pbyData += dwCopySize;
