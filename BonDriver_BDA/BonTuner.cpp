@@ -1571,7 +1571,7 @@ void CBonTuner::ReadIniFile(void)
 		WCHAR sectionname[64];
 
 		::swprintf_s(sectionname, 64, L"TUNINGSPACE%02d", space);
-		result = ::GetPrivateProfileSection(sectionname, buf, 256, m_szIniFilePath);
+		result = ::GetPrivateProfileSectionW(sectionname, buf, 256, m_szIniFilePath);
 		if (result <= 0) {
 			// TuningSpaceXX‚ÌƒZƒNƒVƒ‡ƒ“‚ª‘¶Ý‚µ‚È‚¢ê‡
 			if (space != 0)
