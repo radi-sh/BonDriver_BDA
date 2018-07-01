@@ -1388,7 +1388,7 @@ void CBonTuner::ReadIniFile(void)
 		break;
 	}
 
-	// ‰q¯İ’è1`4‚Ìİ’è‚ğ“Ç
+	// ‰q¯İ’è1`9‚Ìİ’è‚ğ“Ç
 	for (unsigned int satellite = 1; satellite < MAX_SATELLITE; satellite++) {
 		WCHAR keyname[64];
 		::swprintf_s(keyname, 64, L"Satellite%01dName", satellite);
@@ -1508,7 +1508,7 @@ void CBonTuner::ReadIniFile(void)
 		break;
 	}
 
-	// •Ï’²•û®İ’è0`3‚Ì’l‚ğ“Ç
+	// •Ï’²•û®İ’è0`9‚Ì’l‚ğ“Ç
 	for (unsigned int modulation = 0; modulation < MAX_MODULATION; modulation++) {
 		WCHAR keyname[64];
 		// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p•Ï’²•û®–¼Ì

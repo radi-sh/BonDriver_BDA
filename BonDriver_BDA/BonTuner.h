@@ -661,7 +661,7 @@ protected:
 	static const WCHAR PolarisationChar[POLARISATION_SIZE];
 
 	// iniファイルで設定できる最大衛星数 + 1
-	static const unsigned int MAX_SATELLITE = 5;
+	static const unsigned int MAX_SATELLITE = 10;
 
 	// 衛星受信設定データ
 	struct Satellite {
@@ -677,7 +677,7 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルで設定できる最大変調方式数
-	static const unsigned int MAX_MODULATION = 4;
+	static const unsigned int MAX_MODULATION = 10;
 
 	// 変調方式設定データ
 	ModulationMethod m_aModulationType[MAX_MODULATION];
