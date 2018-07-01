@@ -1465,7 +1465,7 @@ void CBonTuner::ReadIniFile(void)
 		//SPHD
 		// 変調方式設定0（DVB-S）
 		m_sModulationName[0] = L"DVB-S";							// チャンネル名生成用変調方式名称
-		m_aModulationType[0].Modulation = BDA_MOD_NBC_QPSK;			// 変調タイプ
+		m_aModulationType[0].Modulation = BDA_MOD_QPSK;				// 変調タイプ
 		m_aModulationType[0].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
 		m_aModulationType[0].InnerFECRate = BDA_BCC_RATE_3_4;		// 内部FECレート
 		m_aModulationType[0].OuterFEC = BDA_FEC_RS_204_188;			// 外部前方誤り訂正タイプ
