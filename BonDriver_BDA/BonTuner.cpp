@@ -1604,7 +1604,7 @@ void CBonTuner::ReadIniFile(void)
 		::GetPrivateProfileStringW(sectionname, L"ChannelSettingsAuto", L"", buf, 256, m_szIniFilePath);
 		temp = buf;
 		if (temp == L"UHF") {
-			for (unsigned int ch = 0; ch < 50; ch++) {
+			for (unsigned int ch = 0; ch < 40; ch++) {
 				itCh = itSpace->second->Channels.find(ch);
 				if (itCh == itSpace->second->Channels.end()) {
 					ChData *chData = new ChData();
@@ -1623,7 +1623,7 @@ void CBonTuner::ReadIniFile(void)
 				chData->sServiceName = charBuf;
 #endif
 			}
-			itSpace->second->dwNumChannel = 50;
+			itSpace->second->dwNumChannel = 40;
 		}
 		else if (temp == L"CATV") {
 			for (unsigned int ch = 0; ch < 51; ch++) {
