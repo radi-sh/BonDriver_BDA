@@ -1614,7 +1614,7 @@ void CBonTuner::ReadIniFile(void)
 				itCh->second->Satellite = 0;
 				itCh->second->Polarisation = 0;
 				itCh->second->ModulationType = 0;
-				itCh->second->Frequency = 473000 + 6000 * ch;
+				itCh->second->Frequency = 473143 + 6000 * ch;
 				::swprintf_s(buf, 256, L"%02dch", ch + 13);
 #ifdef UNICODE
 				itCh->second->sServiceName = buf;
@@ -1638,13 +1638,13 @@ void CBonTuner::ReadIniFile(void)
 				itCh->second->ModulationType = 0;
 				long f;
 				if (ch <= 22 - 13) {
-					f = 111000 + 6000 * ch;
+					f = 111143 + 6000 * ch;
 					if (ch == 22 - 13) {
 						f += 2000;
 					}
 				}
 				else {
-					f = 225000 + 6000 * (ch - (23 - 13));
+					f = 225143 + 6000 * (ch - (23 - 13));
 					if (ch >= 24 - 13 && ch <= 27 - 13) {
 						f += 2000;
 					}
