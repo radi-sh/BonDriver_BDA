@@ -1645,9 +1645,6 @@ void CBonTuner::ReadIniFile(void)
 				}
 				else {
 					f = 225143 + 6000 * (ch - (23 - 13));
-					if (ch >= 24 - 13 && ch <= 27 - 13) {
-						f += 2000;
-					}
 				}
 				itCh->second->Frequency = f;
 				::swprintf_s(buf, 256, L"C%02dch", ch + 13);
