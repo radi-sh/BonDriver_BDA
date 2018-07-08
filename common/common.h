@@ -7,6 +7,8 @@
 #define SAFE_DELETE(p)       { if(p) { delete (p);     (p)=NULL; } }
 #define SAFE_DELETE_ARRAY(p) { if(p) { delete[] (p);   (p)=NULL; } }
 
+typedef unsigned __int64 QWORD;
+
 extern FILE *g_fpLog;
 
 static inline void SetDebugLog(WCHAR *szLogPath)
