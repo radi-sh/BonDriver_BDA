@@ -44,7 +44,6 @@ HRESULT CTsWriter::Write(PBYTE pbData, LONG lDataLength)
 	{
 		CAutoLock lock_it(&m_Lock);
 		if (m_pRecv != NULL) {
-			m_Lock.Unlock();
 			m_pRecv(m_pParam, pbData, lDataLength);
 		}
 	}

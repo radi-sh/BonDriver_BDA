@@ -6,14 +6,18 @@
 #include <Windows.h>
 #include <stdio.h>
 
+#include <string>
+
 #include "TBSSpecials.h"
 
+#include <iostream>
 #include <dshow.h>
 
 #include "common.h"
 
 #pragma comment( lib, "Strmiids.lib" )
 
+FILE *g_fpLog = NULL;
 
 // Module handle (global)
 /////////////////////////////////////////////

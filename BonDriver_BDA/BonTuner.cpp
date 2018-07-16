@@ -12,6 +12,7 @@
 #include "tswriter.h"
 
 #include <iostream>
+#include <regex>
 #include <DShow.h>
 
 // KSCATEGORY_...
@@ -26,6 +27,8 @@
 // bstr_t
 #include <comdef.h>
 
+#include "WaitWithMsg.h"
+
 #pragma comment(lib, "Strmiids.lib")
 #pragma comment(lib, "ksproxy.lib")
 
@@ -36,6 +39,10 @@
 #endif
 
 #pragma comment(lib, "winmm.lib")
+
+using namespace std;
+
+FILE *g_fpLog = NULL;
 
 //////////////////////////////////////////////////////////////////////
 // 定数等定義
@@ -361,7 +368,7 @@ void CBonTuner::_CloseTuner(void)
 	// Decode処理専用スレッド終了
 	if (m_aDecodeProc.hThread) {
 		::SetEvent(m_aDecodeProc.hTerminateRequest);
-		::WaitForSingleObject(m_aDecodeProc.hThread, INFINITE);
+		WaitForSingleObjectWithMessageLoop(m_aDecodeProc.hThread, INFINITE);
 		::CloseHandle(m_aDecodeProc.hThread);
 		m_aDecodeProc.hThread = NULL;
 	}
@@ -516,7 +523,7 @@ const BOOL CBonTuner::GetTsStream(BYTE *pDst, DWORD *pdwSize, DWORD *pdwRemain)
 	BYTE *pSrc = NULL;
 	if (GetTsStream(&pSrc, pdwSize, pdwRemain)) {
 		if (*pdwSize)
-			::CopyMemory(pDst, pSrc, *pdwSize);
+			memcpy(pDst, pSrc, *pdwSize);
 		return TRUE;
 	}
 	return FALSE;
@@ -700,7 +707,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	if (m_pIBdaSpecials2)
 		hr = m_pIBdaSpecials2->PostLockChannel(&m_LastTuningParam);
 
-	::Sleep(100);
+	SleepWithMessageLoop(100);
 	PurgeTsStream();
 	m_bRecvStarted = TRUE;
 
@@ -813,7 +820,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 	};
 
 	while (!terminate) {
-		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, 1000);
+		DWORD ret = WaitForMultipleObjectsWithMessageLoop(2, h, FALSE, 1000);
 		switch (ret)
 		{
 		case WAIT_OBJECT_0:
@@ -1033,7 +1040,7 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 
 	while (!terminate) {
 		DWORD remain = pSys->m_BitRate.CheckRate();
-		DWORD ret = ::WaitForMultipleObjects(2, h, FALSE, remain);
+		DWORD ret = WaitForMultipleObjectsWithMessageLoop(2, h, FALSE, remain);
 		switch (ret)
 		{
 		case WAIT_OBJECT_0:
@@ -1381,7 +1388,7 @@ void CBonTuner::ReadIniFile(void)
 		break;
 	}
 
-	// 衛星設定1～4の設定を読込
+	// 衛星設定1～9の設定を読込
 	for (unsigned int satellite = 1; satellite < MAX_SATELLITE; satellite++) {
 		WCHAR keyname[64];
 		::swprintf_s(keyname, 64, L"Satellite%01dName", satellite);
@@ -1458,7 +1465,7 @@ void CBonTuner::ReadIniFile(void)
 		//SPHD
 		// 変調方式設定0（DVB-S）
 		m_sModulationName[0] = L"DVB-S";							// チャンネル名生成用変調方式名称
-		m_aModulationType[0].Modulation = BDA_MOD_NBC_QPSK;			// 変調タイプ
+		m_aModulationType[0].Modulation = BDA_MOD_QPSK;				// 変調タイプ
 		m_aModulationType[0].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
 		m_aModulationType[0].InnerFECRate = BDA_BCC_RATE_3_4;		// 内部FECレート
 		m_aModulationType[0].OuterFEC = BDA_FEC_RS_204_188;			// 外部前方誤り訂正タイプ
@@ -1501,7 +1508,7 @@ void CBonTuner::ReadIniFile(void)
 		break;
 	}
 
-	// 変調方式設定0～3の値を読込
+	// 変調方式設定0～9の値を読込
 	for (unsigned int modulation = 0; modulation < MAX_MODULATION; modulation++) {
 		WCHAR keyname[64];
 		// チャンネル名生成用変調方式名称
@@ -1561,17 +1568,19 @@ void CBonTuner::ReadIniFile(void)
 	map<unsigned int, ChData*>::iterator itCh;
 	// チューニング空間00～99の設定を読込
 	for (DWORD space = 0; space < 100; space++)	{
-		DWORD result;
 		WCHAR sectionname[64];
+		DWORD keyscount;
+		WCHAR sectionkeys[64 * 1024];
 
 		::swprintf_s(sectionname, 64, L"TUNINGSPACE%02d", space);
-		result = ::GetPrivateProfileSection(sectionname, buf, 256, m_szIniFilePath);
-		if (result <= 0) {
+		keyscount = ::GetPrivateProfileStringW(sectionname, NULL, L"", sectionkeys, sizeof(sectionkeys) / sizeof(sectionkeys[0]), m_szIniFilePath);
+		if (keyscount <= 0) {
 			// TuningSpaceXXのセクションが存在しない場合
 			if (space != 0)
 				continue;
 			// TuningSpace00の時はChannelセクションも見る
 			::swprintf_s(sectionname, 64, L"CHANNEL");
+			keyscount = ::GetPrivateProfileStringW(sectionname, NULL, L"", sectionkeys, sizeof(sectionkeys) / sizeof(sectionkeys[0]), m_szIniFilePath);
 		}
 
 		// 既にチューニング空間データが存在する場合はその内容を書き換える
@@ -1595,7 +1604,7 @@ void CBonTuner::ReadIniFile(void)
 		::GetPrivateProfileStringW(sectionname, L"ChannelSettingsAuto", L"", buf, 256, m_szIniFilePath);
 		temp = buf;
 		if (temp == L"UHF") {
-			for (unsigned int ch = 0; ch < 50; ch++) {
+			for (unsigned int ch = 0; ch < 40; ch++) {
 				itCh = itSpace->second->Channels.find(ch);
 				if (itCh == itSpace->second->Channels.end()) {
 					ChData *chData = new ChData();
@@ -1605,7 +1614,7 @@ void CBonTuner::ReadIniFile(void)
 				itCh->second->Satellite = 0;
 				itCh->second->Polarisation = 0;
 				itCh->second->ModulationType = 0;
-				itCh->second->Frequency = 473000 + 6000 * ch;
+				itCh->second->Frequency = 473143 + 6000 * ch;
 				::swprintf_s(buf, 256, L"%02dch", ch + 13);
 #ifdef UNICODE
 				itCh->second->sServiceName = buf;
@@ -1614,7 +1623,7 @@ void CBonTuner::ReadIniFile(void)
 				chData->sServiceName = charBuf;
 #endif
 			}
-			itSpace->second->dwNumChannel = 50;
+			itSpace->second->dwNumChannel = 40;
 		}
 		else if (temp == L"CATV") {
 			for (unsigned int ch = 0; ch < 51; ch++) {
@@ -1629,16 +1638,13 @@ void CBonTuner::ReadIniFile(void)
 				itCh->second->ModulationType = 0;
 				long f;
 				if (ch <= 22 - 13) {
-					f = 111000 + 6000 * ch;
+					f = 111143 + 6000 * ch;
 					if (ch == 22 - 13) {
 						f += 2000;
 					}
 				}
 				else {
-					f = 225000 + 6000 * (ch - (23 - 13));
-					if (ch >= 24 - 13 && ch <= 27 - 13) {
-						f += 2000;
-					}
+					f = 225143 + 6000 * (ch - (23 - 13));
 				}
 				itCh->second->Frequency = f;
 				::swprintf_s(buf, 256, L"C%02dch", ch + 13);
@@ -1673,115 +1679,122 @@ void CBonTuner::ReadIniFile(void)
 		//      PhysicalChannel: ATSC / Digital CableのPhysical Channel
 		//      MajorChannel   : Digital CableのMajor Channel
 		//      SourceID       : Digital CableのSourceID
-		for (DWORD ch = 0; ch < 1000; ch++) {
-			WCHAR keyname[64];
-
-			::swprintf_s(keyname, 64, L"CH%03d", ch);
-			result = ::GetPrivateProfileStringW(sectionname, keyname, L"", buf, 256, m_szIniFilePath);
-			if (result <= 0)
-				continue;
-
-			// 設定行が有った
-			// ReserveUnusedChが指定されている場合はCH番号を上書きする
-			DWORD chNum = m_bReserveUnusedCh ? ch : (DWORD)(itSpace->second->Channels.size());
-			itCh = itSpace->second->Channels.find(chNum);
-			if (itCh == itSpace->second->Channels.end()) {
-				ChData *chData = new ChData();
-				itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(chNum, chData));
+		WCHAR * pkey = sectionkeys;
+		while (pkey < sectionkeys + keyscount) {
+			if (pkey[0] == L'\0') {
+				// キー名の一覧終わり
+				break;
 			}
+			wregex re(LR"(CH\d{3})", ::regex_constants::icase);
+			if (::wcslen(pkey) == 5 && ::regex_match(pkey, re) == true) {
+				if (::GetPrivateProfileStringW(sectionname, pkey, L"", buf, 256, m_szIniFilePath) > 0) {
+					// CH設定有り
+					DWORD ch = _wtoi(pkey + 2);
 
-			WCHAR szSatellite[256] = L"";
-			WCHAR szFrequency[256] = L"";
-			WCHAR szPolarisation[256] = L"";
-			WCHAR szModulationType[256] = L"";
-			WCHAR szServiceName[256] = L"";
-			WCHAR szSID[256] = L"";
-			WCHAR szTSID[256] = L"";
-			WCHAR szONID[256] = L"";
-			WCHAR szMajorChannel[256] = L"";
-			WCHAR szSourceID[256] = L"";
-			::swscanf_s(buf, L"%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,]", szSatellite, 256, szFrequency, 256,
-				szPolarisation, 256, szModulationType, 256, szServiceName, 256, szSID, 256, szTSID, 256, szONID, 256, szMajorChannel, 256, szSourceID, 256);
+					// ReserveUnusedChが指定されている場合はCH番号を上書きする
+					// 指定されていない場合は登録順にCH番号を振る
+					DWORD chNum = m_bReserveUnusedCh ? ch : (DWORD)(itSpace->second->Channels.size());
+					itCh = itSpace->second->Channels.find(chNum);
+					if (itCh == itSpace->second->Channels.end()) {
+						ChData *chData = new ChData();
+						itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(chNum, chData));
+					}
 
-			// 衛星番号
-			val = _wtoi(szSatellite);
-			if (val >= 0 && val < MAX_SATELLITE) {
-				itCh->second->Satellite = val;
-			}
-			else
-				OutputDebug(L"Format Error in readIniFile; Wrong Bird.\n");
+					WCHAR szSatellite[256] = L"";
+					WCHAR szFrequency[256] = L"";
+					WCHAR szPolarisation[256] = L"";
+					WCHAR szModulationType[256] = L"";
+					WCHAR szServiceName[256] = L"";
+					WCHAR szSID[256] = L"";
+					WCHAR szTSID[256] = L"";
+					WCHAR szONID[256] = L"";
+					WCHAR szMajorChannel[256] = L"";
+					WCHAR szSourceID[256] = L"";
+					::swscanf_s(buf, L"%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,]", szSatellite, 256, szFrequency, 256,
+						szPolarisation, 256, szModulationType, 256, szServiceName, 256, szSID, 256, szTSID, 256, szONID, 256, szMajorChannel, 256, szSourceID, 256);
 
-			// 周波数
-			WCHAR szMHz[256] = L"";
-			WCHAR szKHz[256] = L"";
-			::swscanf_s(szFrequency, L"%[^.].%[^.]", szMHz, 256, szKHz, 256);
-			val = _wtoi(szMHz) * 1000 + _wtoi(szKHz);
-			if ((val > 0) && (val <= 20000000)) {
-				itCh->second->Frequency = val;
-			}
-			else
-				OutputDebug(L"Format Error in readIniFile; Wrong Frequency.\n");
+					// 衛星番号
+					val = _wtoi(szSatellite);
+					if (val >= 0 && val < MAX_SATELLITE) {
+						itCh->second->Satellite = val;
+					}
+					else
+						OutputDebug(L"Format Error in readIniFile; Wrong Bird.\n");
 
-			// 偏波種類
-			if (szPolarisation[0] == L' ')
-				szPolarisation[0] = L'\0';
-			val = -1;
-			for (unsigned int i = 0; i < POLARISATION_SIZE; i++) {
-				if (szPolarisation[0] == PolarisationChar[i]) {
-					val = i;
-					break;
-				}
-			}
-			if (val != -1) {
-				itCh->second->Polarisation = val;
-			}
-			else
-				OutputDebug(L"Format Error in readIniFile; Wrong Polarization.\n");
+					// 周波数
+					WCHAR szMHz[256] = L"";
+					WCHAR szKHz[256] = L"";
+					::swscanf_s(szFrequency, L"%[^.].%[^.]", szMHz, 256, szKHz, 256);
+					val = _wtoi(szMHz) * 1000 + _wtoi(szKHz);
+					if ((val > 0) && (val <= 20000000)) {
+						itCh->second->Frequency = val;
+					}
+					else
+						OutputDebug(L"Format Error in readIniFile; Wrong Frequency.\n");
 
-			// 変調方式
-			val = _wtoi(szModulationType);
-			if (val >= 0 && val < MAX_MODULATION) {
-				itCh->second->ModulationType = val;
-			}
-			else
-				OutputDebug(L"Format Error in readIniFile; Wrong Method.\n");
+					// 偏波種類
+					if (szPolarisation[0] == L' ')
+						szPolarisation[0] = L'\0';
+					val = -1;
+					for (unsigned int i = 0; i < POLARISATION_SIZE; i++) {
+						if (szPolarisation[0] == PolarisationChar[i]) {
+							val = i;
+							break;
+						}
+					}
+					if (val != -1) {
+						itCh->second->Polarisation = val;
+					}
+					else
+						OutputDebug(L"Format Error in readIniFile; Wrong Polarization.\n");
 
-			// チャンネル名
-			if (szServiceName[0] == 0)
-				// iniファイルで指定した名称がなければ128.0E/12658H/DVB-S のような形式で作成する
-				MakeChannelName(szServiceName, 256, itCh->second);
+					// 変調方式
+					val = _wtoi(szModulationType);
+					if (val >= 0 && val < MAX_MODULATION) {
+						itCh->second->ModulationType = val;
+					}
+					else
+						OutputDebug(L"Format Error in readIniFile; Wrong Method.\n");
+
+					// チャンネル名
+					if (szServiceName[0] == 0)
+						// iniファイルで指定した名称がなければ128.0E/12658H/DVB-S のような形式で作成する
+						MakeChannelName(szServiceName, 256, itCh->second);
 
 #ifdef UNICODE
-			itCh->second->sServiceName = szServiceName;
+					itCh->second->sServiceName = szServiceName;
 #else
-			::wcstombs_s(NULL, charBuf, 512, szServiceName, _TRUNCATE);
-			chData->sServiceName = charBuf;
+					::wcstombs_s(NULL, charBuf, 512, szServiceName, _TRUNCATE);
+					chData->sServiceName = charBuf;
 #endif
 
-			// SID / PhysicalChannel
-			if (szSID[0] != 0) {
-				itCh->second->SID = wcstol(szSID, NULL, 0);
-			}
+					// SID / PhysicalChannel
+					if (szSID[0] != 0) {
+						itCh->second->SID = wcstol(szSID, NULL, 0);
+					}
 
-			// TSID / Channel
-			if (szTSID[0] != 0) {
-				itCh->second->TSID = wcstol(szTSID, NULL, 0);
-			}
+					// TSID / Channel
+					if (szTSID[0] != 0) {
+						itCh->second->TSID = wcstol(szTSID, NULL, 0);
+					}
 
-			// ONID / MinorChannel
-			if (szONID[0] != 0) {
-				itCh->second->ONID = wcstol(szONID, NULL, 0);
-			}
+					// ONID / MinorChannel
+					if (szONID[0] != 0) {
+						itCh->second->ONID = wcstol(szONID, NULL, 0);
+					}
 
-			// MajorChannel
-			if (szMajorChannel[0] != 0) {
-				itCh->second->MajorChannel = wcstol(szMajorChannel, NULL, 0);
-			}
+					// MajorChannel
+					if (szMajorChannel[0] != 0) {
+						itCh->second->MajorChannel = wcstol(szMajorChannel, NULL, 0);
+					}
 
-			// SourceID
-			if (szSourceID[0] != 0) {
-				itCh->second->SourceID = wcstol(szSourceID, NULL, 0);
+					// SourceID
+					if (szSourceID[0] != 0) {
+						itCh->second->SourceID = wcstol(szSourceID, NULL, 0);
+					}
+				}
 			}
+			pkey += ::wcslen(pkey) + 1;
 		}
 
 		// CH番号の最大値 + 1
@@ -2010,7 +2023,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		m_nCurTone = pTuningParam->Antenna->Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"TwiceLock 1st[Special2] SUCCESS.\n");
-			::Sleep(m_nLockTwiceDelay);
+			SleepWithMessageLoop(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials2->LockChannel(pTuningParam);
 		}
 		if (SUCCEEDED(hr)) {
@@ -2030,7 +2043,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		m_nCurTone = pTuningParam->Antenna->Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"TwiceLock 1st[Special] SUCCESS.\n");
-			::Sleep(m_nLockTwiceDelay);
+			SleepWithMessageLoop(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
 					(pTuningParam->Modulation->Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation->Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
 		}
@@ -2051,7 +2064,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			OutputDebug(L"Set22KHz[Special2] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
-				::Sleep(m_nToneWait); // 衛星切替待ち
+				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 			}
 		}
 		else {
@@ -2065,7 +2078,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			OutputDebug(L"Set22KHz[Special] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
-				::Sleep(m_nToneWait); // 衛星切替待ち
+				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 			}
 		}
 		else {
@@ -2242,7 +2255,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		OutputDebug(L"Pre tune request complete.\n");
 
 		m_nCurTone = pTuningParam->Antenna->Tone;
-		::Sleep(m_nToneWait); // 衛星切替待ち
+		SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 	}
 
 	if (bLockTwice) {
@@ -2253,7 +2266,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			return FALSE;
 		}
 		OutputDebug(L"1st Twice tune request complete.\n");
-		::Sleep(m_nLockTwiceDelay);
+		SleepWithMessageLoop(m_nLockTwiceDelay);
 	}
 
 	unsigned int nRetryRemain = m_nLockWaitRetry;
@@ -2268,12 +2281,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 
 		static const int LockRetryTime = 50;
 		unsigned int nWaitRemain = m_nLockWait;
-		::Sleep(m_nLockWaitDelay);
+		SleepWithMessageLoop(m_nLockWaitDelay);
 		GetSignalState(NULL, NULL, &nLock);
 		while (!nLock && nWaitRemain) {
 			DWORD dwSleepTime = (nWaitRemain > LockRetryTime) ? LockRetryTime : nWaitRemain;
 			OutputDebug(L"Waiting lock status after %d msec.\n", nWaitRemain);
-			::Sleep(dwSleepTime);
+			SleepWithMessageLoop(dwSleepTime);
 			nWaitRemain -= dwSleepTime;
 			GetSignalState(NULL, NULL, &nLock);
 		}
@@ -3201,7 +3214,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 
 		// 排他処理
 		m_hSemaphore = ::CreateSemaphoreW(NULL, 1, 1, semName.c_str());
-		DWORD result = ::WaitForSingleObject(m_hSemaphore, 0);
+		DWORD result = WaitForSingleObjectWithMessageLoop(m_hSemaphore, 0);
 		if (result != WAIT_OBJECT_0) {
 			OutputDebug(L"[P->T] Another is using.\n");
 			// 使用中なので次のチューナを探す
@@ -3807,7 +3820,7 @@ BOOL CBonTuner::TS_BUFF::AddData(BYTE *pbyData, DWORD dwSize)
 		if (TempBuff) {
 			// iniファイルでBuffSizeが指定されている場合はそのサイズに合わせる
 			DWORD dwCopySize = (BuffSize > TempOffset + dwSize) ? dwSize : BuffSize - TempOffset;
-			::CopyMemory(TempBuff + TempOffset, pbyData, dwCopySize);
+			memcpy(TempBuff + TempOffset, pbyData, dwCopySize);
 			TempOffset += dwCopySize;
 			dwSize -= dwCopySize;
 			pbyData += dwCopySize;

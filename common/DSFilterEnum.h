@@ -10,8 +10,6 @@
 
 #include <string>
 
-using namespace std;
-
 class CDSFilterEnum
 {
 public:
@@ -22,8 +20,8 @@ public:
 	HRESULT next(void);
 	HRESULT getFilter(IBaseFilter** ppFilter);
 	HRESULT getFilter(IBaseFilter** ppFilter, ULONG order);
-	HRESULT getFriendlyName(wstring* pName);
-	HRESULT getDisplayName(wstring* pName);
+	HRESULT getFriendlyName(std::wstring* pName);
+	HRESULT getDisplayName(std::wstring* pName);
 
 private:
 	IEnumMoniker* m_pIEnumMoniker;

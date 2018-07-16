@@ -6,8 +6,11 @@
 #include <Windows.h>
 #include <stdio.h>
 
+#include <string>
+
 #include "DVBWorldSpecials.h"
 
+#include <iostream>
 #include <dshow.h>
 
 #include <ks.h>
@@ -23,6 +26,8 @@
 
 #pragma comment( lib, "Strmiids.lib" )
 #pragma comment( lib, "ksproxy.lib" )
+
+FILE *g_fpLog = NULL;
 
 // Module handle (global)
 /////////////////////////////////////////////
