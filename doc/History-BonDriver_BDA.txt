@@ -129,3 +129,20 @@
 
 【2017-02-06】
 ・一部の環境において、BonDriverの解放時にクラッシュしてしまう問題を修正
+
+【2018-07-16】
+・プラットフォームツールセットをVisual Studio 2017 - Windows XPに変更
+・CoInitialize したスレッドでメッセージのディスパッチ処理を行うようにした
+・iniファイルからのCH設定読込速度を改善
+・TSバッファ排他処理の不具合を修正
+・スカパー!SDのModulationType0Modulationのデフォルト値を20(BDA_MOD_QPSK)に修正
+・iniファイルの衛星設定を最大9つまで設定できるように変更
+・iniファイルの変調方式設定を最大10個まで設定できるように変更
+・UHF/CATVの周波数を正確な中心周波数に修正
+・UHF 53ch～62chを削除
+・CATV C24ch～C27chの周波数を変更
+・BonDriver_BDA-UHF-sample.iniのチューニングスペース "CATV" をコメントアウト
+・BonDriver_BDA-UHF-sample.iniのコメント内容変更
+・BonDriver_BDA-BSCS-sample.iniのCH設定を最新のものに更新
+・BonDriver_BDA_SPHD-sample.iniのJCSAT3A-TP21を有効にした
+・BonDriver_BDA_SPHD-sample.iniのJCSAT4Aの表記をJCSAT4Bに修正

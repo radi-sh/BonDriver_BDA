@@ -16,7 +16,7 @@ Windows XPˆÈ~ (x86/x64)
 
   BDAŒÝŠ·‚ÈƒCƒ“ƒ^[ƒtƒF[ƒXˆÈŠO‚Ì‘€ì‚ð•K—v‚Æ‚·‚éƒ`ƒ…[ƒi[‚Ìê‡A‘Î‰ž‚·‚éBDASpecialƒvƒ‰ƒOƒCƒ“‚ª•K—v‚Æ‚È‚è‚Ü‚·B
 
-y‘Î‰ž‚µ‚Ä‚¢‚éBDASpecialƒvƒ‰ƒOƒCƒ“z(2017/02/06Œ»Ý)
+y‘Î‰ž‚µ‚Ä‚¢‚éBDASpecialƒvƒ‰ƒOƒCƒ“z(ƒŠƒŠ[ƒXŽžŒ»Ý)
 E‚±‚ÌBonDriverê—p‚ÌBDASpecialƒvƒ‰ƒOƒCƒ“
   -PlexPX.dlliPX-Q3PE/PX-W3PE/PX-W3PE V2/PX-W3U3/PX-W3U3 V2/PX-W3U2/PX-S3U2/PX-S3Uj
   -IT35.dlliPX-W3U4/PX-Q3U4j
@@ -36,8 +36,8 @@ Windows XPˆÈ~ (x86/x64)
 ’Êí”Å‚Å‚¤‚Ü‚­‚¢‚©‚È‚¢•û‚ÍAƒ‰ƒ“ƒ^ƒCƒ€“à‘ ”Å‚à‚¨ŽŽ‚µ‚­‚¾‚³‚¢B
 
 2. Visual C++ Ä”Ð•z‰Â”\ƒpƒbƒP[ƒW‚ÌƒCƒ“ƒXƒg[ƒ‹
-uVisual C++ 2015 Ä”Ð•z‰Â”\ƒpƒbƒP[ƒW Update 3v‚ð‰º‹LURL‚æ‚èƒ_ƒEƒ“ƒ[ƒh‚µAƒCƒ“ƒXƒg[ƒ‹‚µ‚Ä‚­‚¾‚³‚¢B
-https://www.microsoft.com/ja-jp/download/details.aspx?id=53587
+uVisual Studio 2017 ‚Ì Microsoft Visual C++ Ä”Ð•z‰Â”\ƒpƒbƒP[ƒWv‚ÌÅV”Å‚ð‰º‹LURL‚æ‚èƒ_ƒEƒ“ƒ[ƒh‚µAƒCƒ“ƒXƒg[ƒ‹‚µ‚Ä‚­‚¾‚³‚¢B
+https://visualstudio.microsoft.com/ja/downloads/?q=#other-ja
 x86/x64‚Ì2Ží—Þ‚ª‚ ‚è‚Ü‚·‚Ì‚Å’ˆÓ‚µ‚Ä‚­‚¾‚³‚¢B‚æ‚­‚í‚©‚ç‚È‚¢ê‡‚Í—¼•ûƒCƒ“ƒXƒg[ƒ‹‚µ‚Ä‚à‘åä•v‚Å‚·B
 
 “–‘R‚Å‚·‚ªAƒAƒvƒŠ‚Å•Ê‚Ìƒo[ƒWƒ‡ƒ“‚ÌVisual C++ Ä”Ð•z‰Â”\ƒpƒbƒP[ƒW‚ð•K—v‚Æ‚·‚éê‡‚Í‚»‚ê‚ÌƒCƒ“ƒXƒg[ƒ‹‚à•Ê“r•K—v‚Å‚·B
@@ -76,10 +76,10 @@ https://github.com/radi-sh/BonDriver_BDA/releases
 
 E•s‹ï‡•ñ“™
 ê—p‚ÌƒTƒ|[ƒgêŠ‚Í‚ ‚è‚Ü‚¹‚ñB
-‰º‹L2chƒXƒŒ‚É‘ž‚Þ‚Æ‚»‚Ì‚¤‚¿‰½‚©”½‰ž‚ª‚ ‚é‚©‚à‚µ‚ê‚Ü‚¹‚ñB
+‰º‹L5chƒXƒŒ‚É‘ž‚Þ‚Æ‚»‚Ì‚¤‚¿‰½‚©”½‰ž‚ª‚ ‚é‚©‚à‚µ‚ê‚Ü‚¹‚ñB
 (ƒŠƒŠ[ƒXŽžŒ»Ý)
-ƒXƒJƒp[! ƒvƒŒƒ~ƒAƒ€‚ðPC‚ÅŽ‹’® 18
-http://echo.2ch.net/test/read.cgi/avi/1472610075/
+ƒXƒJƒp[! ƒvƒŒƒ~ƒAƒ€‚ðPC‚ÅŽ‹’® 21
+http://mevius.5ch.net/test/read.cgi/avi/1525789119/
 ìŽÒ‚Í‘½–Z‚ðŒ¾‚¢–ó‚É‚ ‚Ü‚èƒXƒŒ‚ðŒ©‚Ä‚¢‚È‚¢ŒXŒü‚É—L‚è‚Ü‚·‚ª‚²—eŽÍ‚­‚¾‚³‚¢B
 
 y–ÆÓŽ–€z
@@ -88,7 +88,7 @@ BonDriver_BDA‚â•t‘®‚·‚é‚à‚ÌAƒhƒLƒ…ƒƒ“ƒg‚Ì‹LÚŽ–€‚È‚Ç‚É‹Nˆö‚µ‚Ä”­¶‚·‚é‘¹ŠQŽ–
 yŽÓŽ«‚Ý‚½‚¢‚È‚Ìz
 E‚±‚ÌBonDriver_BDA‚ÍuBon_SPHD_BDA_PATCH_2v‚ðŠî‚É‰ü•Ï‚µ‚½‚à‚Ì‚Å‚·B
 ETSƒpƒPƒbƒgˆ—Žü‚è‚ÍuBonDriver_HDUS_14.4v‚ðŽQl‚É‚³‚¹‚Ä‚¢‚½‚¾‚«‚Ü‚µ‚½B
-E‰ü•Ï“à—e‚Ì‚¢‚­‚Â‚©‚ÍA2ch‚ÌƒXƒJƒp[!ƒvƒŒƒ~ƒAƒ€‚ðPC‚ÅŽ‹’®ƒXƒŒ‚Ì‘ž‚Ý‚ðŽQl‚É‚³‚¹‚Ä‚¢‚½‚¾‚«‚Ü‚µ‚½B
-ECoInitializeˆ—ŠÖ˜A‚ÉŠÖ‚µ‚Ä‚ÍA2ch‚ÌBonDriver‹¤—Lƒc[ƒ‹‘‡ƒXƒŒ‚Ì‚²•Œ¾‚âŠÖŒWŒöŠJ•¨‚ðŽQl‚É‚³‚¹‚Ä‚¢‚½‚¾‚«‚Ü‚µ‚½B
+E‰ü•Ï“à—e‚Ì‚¢‚­‚Â‚©‚ÍA‹Œ2ch/5ch‚ÌƒXƒJƒp[!ƒvƒŒƒ~ƒAƒ€‚ðPC‚ÅŽ‹’®ƒXƒŒ‚Ì‘ž‚Ý‚ðŽQl‚É‚³‚¹‚Ä‚¢‚½‚¾‚«‚Ü‚µ‚½B
+ECoInitializeˆ—ŠÖ˜A‚ÉŠÖ‚µ‚Ä‚ÍA‹Œ2ch‚ÌBonDriver‹¤—Lƒc[ƒ‹‘‡ƒXƒŒ‚Ì‚²•Œ¾‚âŠÖŒWŒöŠJ•¨‚ðŽQl‚É‚³‚¹‚Ä‚¢‚½‚¾‚«‚Ü‚µ‚½B
 Eã‹L‚·‚×‚Ä‚ÌìŽÒ—lA‚»‚Ì‘¼ŽQl‚É‚³‚¹‚Ä‚¢‚½‚¾‚¢‚½DTVŠÖŒW‚ÌìŽÒ—lA‚²•Œ¾‚¢‚½‚¾‚¢‚½•ûA•s‹ï‡•ñEŽg—pƒŒƒ|[ƒg‚ð‚¢‚½‚¾‚¢‚½•ûA‘S‚Ä‚ÌŽg—p‚µ‚Ä‚¢‚½‚¾‚¢‚½•ûX‚É[‚­Š´ŽÓ‚¢‚½‚µ‚Ü‚·B
 
