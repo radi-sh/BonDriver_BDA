@@ -445,11 +445,11 @@ protected:
 		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
 #ifdef UNICODE
-		std::wstring sTunerName;						// GetTunerNameで返す名前
+		std::wstring sTunerName;				// GetTunerNameで返す名前
 #else
-		string sTunerName;						// GetTunerNameで返す名前
+		std::string sTunerName;					// GetTunerNameで返す名前
 #endif
-		std::wstring sDLLBaseName;					// 固有DLL
+		std::wstring sDLLBaseName;				// 固有DLL
 		TunerParam(void)
 			: bNotExistCaptureDevice(TRUE),
 			  bCheckDeviceInstancePath(TRUE)
@@ -563,9 +563,9 @@ protected:
 	// チャンネルデータ
 	struct ChData {
 #ifdef UNICODE
-		std::wstring sServiceName;
+		std::wstring sServiceName;		// EnumChannelNameで返すチャンネル名
 #else
-		string sServiceName;
+		std::string sServiceName;		// EnumChannelNameで返すチャンネル名
 #endif
 		unsigned int Satellite;			// 衛星受信設定番号
 		unsigned int Polarisation;		// 偏波種類番号 (0 .. 未指定, 1 .. H, 2 .. V, 3 .. L, 4 .. R)
@@ -604,9 +604,9 @@ protected:
 	// チューニング空間データ
 	struct TuningSpaceData {
 #ifdef UNICODE
-		std::wstring sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
+		std::wstring sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
 #else
-		string sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
+		std::string sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
 #endif
 		long FrequencyOffset;			// 周波数オフセット値
 		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
