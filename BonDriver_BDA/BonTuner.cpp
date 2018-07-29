@@ -684,8 +684,9 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 	m_bRecvStarted = FALSE;
 	PurgeTsStream();
+	TuningSpaceData * TuningSpace = it->second;
 	ChData * Ch = it2->second;
-	m_LastTuningParam.Frequency = Ch->Frequency;
+	m_LastTuningParam.Frequency = Ch->Frequency + TuningSpace->FrequencyOffset;
 	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];
 	m_LastTuningParam.Antenna = &m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];
 	m_LastTuningParam.Modulation = &m_aModulationType[Ch->ModulationType];
@@ -1649,6 +1650,9 @@ void CBonTuner::ReadIniFile(void)
 			}
 			itSpace->second->dwNumChannel = 51;
 		}
+
+		// 周波数オフセット値
+		itSpace->second->FrequencyOffset = (long)(::GetPrivateProfileIntW(sectionname, L"FrequencyOffset", 0, m_szIniFilePath));
 
 		// CH設定
 		//    チャンネル番号 = 衛星番号,周波数,偏波,変調方式[,チャンネル名[,SID/MinorChannel[,TSID/Channel[,ONID/PhysicalChannel[,MajorChannel[,SourceID]]]]]]

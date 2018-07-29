@@ -608,10 +608,12 @@ protected:
 #else
 		string sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
 #endif
+		long FrequencyOffset;			// 周波数オフセット値
 		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;				// チャンネル数
 		TuningSpaceData(void)
-			: dwNumChannel(0)
+			: FrequencyOffset(0),
+			  dwNumChannel(0)
 		{
 		};
 		~TuningSpaceData(void)
