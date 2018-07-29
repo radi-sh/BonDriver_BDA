@@ -5,12 +5,12 @@
 #include "LockChannel.h"
 #include "IBdaSpecials.h"
 
-class IBdaSpecials2a1 : public IBdaSpecials
+class IBdaSpecials2a2 : public IBdaSpecials
 {
 public:
 	virtual const HRESULT Set22KHz(long nTone) = 0;
 	virtual const HRESULT LockChannel(const TuningParam *pTuningParm) = 0;
-	virtual const HRESULT ReadIniFile(WCHAR *szIniFilePath) = 0;
+	virtual const HRESULT ReadIniFile(const WCHAR *szIniFilePath) = 0;
 	virtual const HRESULT IsDecodingNeeded(BOOL *pbAns) = 0;
 	virtual const HRESULT Decode(BYTE *pBuf, DWORD dwSize) = 0;
 	virtual const HRESULT GetSignalStrength(float *fVal) = 0;

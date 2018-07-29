@@ -196,7 +196,7 @@ const HRESULT CTBSSpecials::SetLNBPower(bool bActive)
 	return hr;
 }
 
-const HRESULT CTBSSpecials::ReadIniFile(WCHAR *szIniFilePath)
+const HRESULT CTBSSpecials::ReadIniFile(const WCHAR *szIniFilePath)
 {
 	return E_NOINTERFACE;
 }

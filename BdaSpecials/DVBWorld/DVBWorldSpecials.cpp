@@ -231,7 +231,7 @@ const HRESULT CDVBWorldSpecials::SetLNBPower(bool bActive)
 	return E_NOINTERFACE;
 }
 
-const HRESULT CDVBWorldSpecials::ReadIniFile(WCHAR *szIniFilePath)
+const HRESULT CDVBWorldSpecials::ReadIniFile(const WCHAR *szIniFilePath)
 {
 	return E_NOINTERFACE;
 }
