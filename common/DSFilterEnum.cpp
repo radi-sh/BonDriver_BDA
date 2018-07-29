@@ -13,8 +13,6 @@
 // transform()
 #include <algorithm>
 
-using namespace std;
-
 CDSFilterEnum::CDSFilterEnum(CLSID clsid)
 	: CDSFilterEnum(clsid, 0)
 {
@@ -28,7 +26,7 @@ CDSFilterEnum::CDSFilterEnum(CLSID clsid, DWORD dwFlags)
 	HRESULT hr = ::CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC, IID_ICreateDevEnum, reinterpret_cast<void**>(&m_pICreateDevEnum));
 
 	if (FAILED(hr)) {
-		wstring e(L"Error in CoCreateInstance.");
+		std::wstring e(L"Error in CoCreateInstance.");
 		throw e;
 		return; /* not reached */
 	}
@@ -38,7 +36,7 @@ CDSFilterEnum::CDSFilterEnum(CLSID clsid, DWORD dwFlags)
 	if ((FAILED (hr)) || (hr != S_OK)) {
 		// CreateClassEnumerator ‚ªì‚ê‚È‚¢ || Œ©‚Â‚©‚ç‚È‚¢
 		SAFE_RELEASE(m_pICreateDevEnum);
-		wstring e(L"Error in CreateClassEnumerator.");
+		std::wstring e(L"Error in CreateClassEnumerator.");
 		throw e;
 		return; /* not reached */
 	}
@@ -108,7 +106,7 @@ HRESULT CDSFilterEnum::getFilter(IBaseFilter** ppFilter, ULONG order)
 	return getFilter(ppFilter);
 }
 
-HRESULT CDSFilterEnum::getFriendlyName(wstring* pName)
+HRESULT CDSFilterEnum::getFriendlyName(std::wstring* pName)
 {
 	if (m_pIMoniker == NULL) {
 		return E_POINTER;
@@ -142,7 +140,7 @@ HRESULT CDSFilterEnum::getFriendlyName(wstring* pName)
 	return S_OK;
 }
 
-HRESULT CDSFilterEnum::getDisplayName(wstring* pName)
+HRESULT CDSFilterEnum::getDisplayName(std::wstring* pName)
 {
 	HRESULT hr;
 	if (m_pIMoniker == NULL) {
@@ -155,7 +153,7 @@ HRESULT CDSFilterEnum::getDisplayName(wstring* pName)
 	}
 
 	*pName = pwszName;
-	::transform(pName->begin(), pName->end(), pName->begin(), towlower);
+	std::transform(pName->begin(), pName->end(), pName->begin(), ::towlower);
 
 	return S_OK;
 }

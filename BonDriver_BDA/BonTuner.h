@@ -433,8 +433,8 @@ protected:
 			CaptureGUID(captureGuid),
 			CaptureFriendlyName(captureFriendlyName)
 		{
-			std::transform(TunerGUID.begin(), TunerGUID.end(), TunerGUID.begin(), towlower);
-			std::transform(CaptureGUID.begin(), CaptureGUID.end(), CaptureGUID.begin(), towlower);
+			std::transform(TunerGUID.begin(), TunerGUID.end(), TunerGUID.begin(), ::towlower);
+			std::transform(CaptureGUID.begin(), CaptureGUID.end(), CaptureGUID.begin(), ::towlower);
 		};
 	};
 
@@ -457,7 +457,7 @@ protected:
 		};
 		~TunerParam(void)
 		{
-			for (std::map<unsigned int, TunerSearchData*>::iterator it = Tuner.begin(); it != Tuner.end(); it++) {
+			for (auto it = Tuner.begin(); it != Tuner.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Tuner.clear();
@@ -618,7 +618,7 @@ protected:
 		};
 		~TuningSpaceData(void)
 		{
-			for (std::map<unsigned int, ChData*>::iterator it = Channels.begin(); it != Channels.end(); it++) {
+			for (auto it = Channels.begin(); it != Channels.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Channels.clear();
@@ -635,7 +635,7 @@ protected:
 		};
 		~TuningData(void)
 		{
-			for (std::map<unsigned int, TuningSpaceData*>::iterator it = Spaces.begin(); it != Spaces.end(); it++) {
+			for (auto it = Spaces.begin(); it != Spaces.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Spaces.clear();

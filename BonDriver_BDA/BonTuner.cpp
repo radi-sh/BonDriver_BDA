@@ -40,8 +40,6 @@
 
 #pragma comment(lib, "winmm.lib")
 
-using namespace std;
-
 FILE *g_fpLog = NULL;
 
 //////////////////////////////////////////////////////////////////////
@@ -65,7 +63,7 @@ static const WCHAR *FILTER_GRAPH_NAME_TIF = L"BDA MPEG2 Transport Information Fi
 HMODULE CBonTuner::st_hModule = NULL;
 
 // 作成されたCBontunerインスタンスの一覧
-list<CBonTuner*> CBonTuner::st_InstanceList;
+std::list<CBonTuner*> CBonTuner::st_InstanceList;
 
 // st_InstanceList操作用
 CRITICAL_SECTION CBonTuner::st_LockInstanceList;
@@ -353,8 +351,6 @@ void CBonTuner::CloseTuner(void)
 	return;
 }
 
-#pragma warning (push)
-#pragma warning (disable: 4702)
 void CBonTuner::_CloseTuner(void)
 {
 	m_bOpened = FALSE;
@@ -411,7 +407,6 @@ void CBonTuner::_CloseTuner(void)
 
 	return;
 }
-#pragma warning (pop)
 
 const BOOL CBonTuner::SetChannel(const BYTE byCh)
 {
@@ -600,7 +595,7 @@ const BOOL CBonTuner::_IsTunerOpening(void)
 LPCTSTR CBonTuner::EnumTuningSpace(const DWORD dwSpace)
 {
 	if (dwSpace < m_TuningData.dwNumSpace) {
-		map<unsigned int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
+		auto it = m_TuningData.Spaces.find(dwSpace);
 		if (it != m_TuningData.Spaces.end())
 			return it->second->sTuningSpaceName.c_str();
 		else
@@ -611,10 +606,10 @@ LPCTSTR CBonTuner::EnumTuningSpace(const DWORD dwSpace)
 
 LPCTSTR CBonTuner::EnumChannelName(const DWORD dwSpace, const DWORD dwChannel)
 {
-	map<unsigned int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
+	auto it = m_TuningData.Spaces.find(dwSpace);
 	if (it != m_TuningData.Spaces.end()) {
 		if (dwChannel < it->second->dwNumChannel) {
-			map<unsigned int, ChData*>::iterator it2 = it->second->Channels.find(dwChannel);
+			auto it2 = it->second->Channels.find(dwChannel);
 			if (it2 != it->second->Channels.end())
 				return it2->second->sServiceName.c_str();
 			else
@@ -660,7 +655,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_dwTargetSpace = m_dwCurSpace = CBonTuner::SPACE_INVALID;
 	m_dwTargetChannel = m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
 
-	map<unsigned int, TuningSpaceData*>::iterator it = m_TuningData.Spaces.find(dwSpace);
+	auto it = m_TuningData.Spaces.find(dwSpace);
 	if (it == m_TuningData.Spaces.end()) {
 		OutputDebug(L"    Invalid channel space.\n");
 		return FALSE;
@@ -671,7 +666,7 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 		return FALSE;
 	}
 
-	map<unsigned int, ChData*>::iterator it2 = it->second->Channels.find(dwChannel);
+	auto it2 = it->second->Channels.find(dwChannel);
 	if (it2 == it->second->Channels.end()) {
 		OutputDebug(L"    Reserved channel number.\n");
 		return FALSE;
@@ -1118,7 +1113,7 @@ void CBonTuner::ReadIniFile(void)
 	char charBuf[512];
 #endif
 	int val;
-	wstring strBuf;
+	std::wstring strBuf;
 
 	// DebugLogを記録するかどうか
 	if (::GetPrivateProfileIntW(L"BONDRIVER", L"DebugLog", 0, m_szIniFilePath)) {
@@ -1159,7 +1154,7 @@ void CBonTuner::ReadIniFile(void)
 				break;
 		}
 		TunerSearchData *sdata = new TunerSearchData(buf, buf2, buf3, buf4);
-		m_aTunerParam.Tuner.insert(pair<unsigned int, TunerSearchData*>(i, sdata));
+		m_aTunerParam.Tuner.insert(std::pair<unsigned int, TunerSearchData*>(i, sdata));
 	}
 
 	// TunerデバイスのみでCaptureデバイスが存在しない
@@ -1220,7 +1215,7 @@ void CBonTuner::ReadIniFile(void)
 
 	// Tuning Space名（互換用）
 	::GetPrivateProfileStringW(L"TUNER", L"TuningSpaceName", L"スカパー", buf, 64, m_szIniFilePath);
-	wstring sTempTuningSpaceName = buf;
+	std::wstring sTempTuningSpaceName = buf;
 
 	// SignalLevel 算出方法
 	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
@@ -1557,8 +1552,8 @@ void CBonTuner::ReadIniFile(void)
 	// 1 .. 使用されていない番号をそのまま空CHとして確保しておく
 	m_bReserveUnusedCh = (BOOL)(::GetPrivateProfileIntW(L"CHANNEL", L"ReserveUnusedCh", 0, m_szIniFilePath));
 
-	map<unsigned int, TuningSpaceData*>::iterator itSpace;
-	map<unsigned int, ChData*>::iterator itCh;
+	std::map<unsigned int, TuningSpaceData*>::iterator itSpace;
+	std::map<unsigned int, ChData*>::iterator itCh;
 	// チューニング空間00～99の設定を読込
 	for (DWORD space = 0; space < 100; space++)	{
 		WCHAR sectionname[64];
@@ -1581,11 +1576,11 @@ void CBonTuner::ReadIniFile(void)
 		itSpace = m_TuningData.Spaces.find(space);
 		if (itSpace == m_TuningData.Spaces.end()) {
 			TuningSpaceData *tuningSpaceData = new TuningSpaceData();
-			itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<unsigned int, TuningSpaceData*>(space, tuningSpaceData));
+			itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), std::pair<unsigned int, TuningSpaceData*>(space, tuningSpaceData));
 		}
 
 		// Tuning Space名
-		wstring temp;
+		std::wstring temp;
 		if (space == 0)
 			temp = sTempTuningSpaceName;
 		else
@@ -1601,7 +1596,7 @@ void CBonTuner::ReadIniFile(void)
 				itCh = itSpace->second->Channels.find(ch);
 				if (itCh == itSpace->second->Channels.end()) {
 					ChData *chData = new ChData();
-					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(ch, chData));
+					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(ch, chData));
 				}
 
 				itCh->second->Satellite = 0;
@@ -1623,7 +1618,7 @@ void CBonTuner::ReadIniFile(void)
 				itCh = itSpace->second->Channels.find(ch);
 				if (itCh == itSpace->second->Channels.end()) {
 					ChData *chData = new ChData();
-					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(ch, chData));
+					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(ch, chData));
 				}
 
 				itCh->second->Satellite = 0;
@@ -1681,8 +1676,8 @@ void CBonTuner::ReadIniFile(void)
 				// キー名の一覧終わり
 				break;
 			}
-			wregex re(LR"(CH\d{3})", ::regex_constants::icase);
-			if (::wcslen(pkey) == 5 && ::regex_match(pkey, re) == true) {
+			std::wregex re(LR"(CH\d{3})", std::regex_constants::icase);
+			if (::wcslen(pkey) == 5 && std::regex_match(pkey, re) == true) {
 				if (::GetPrivateProfileStringW(sectionname, pkey, L"", buf, 256, m_szIniFilePath) > 0) {
 					// CH設定有り
 					DWORD ch = _wtoi(pkey + 2);
@@ -1693,7 +1688,7 @@ void CBonTuner::ReadIniFile(void)
 					itCh = itSpace->second->Channels.find(chNum);
 					if (itCh == itSpace->second->Channels.end()) {
 						ChData *chData = new ChData();
-						itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), pair<unsigned int, ChData*>(chNum, chData));
+						itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(chNum, chData));
 					}
 
 					WCHAR szSatellite[256] = L"";
@@ -1878,7 +1873,7 @@ void CBonTuner::ReadIniFile(void)
 		// ここには来ないはずだけど一応
 		// 空のTuningSpaceDataをチューニング空間番号0に挿入
 		TuningSpaceData *tuningSpaceData = new TuningSpaceData;
-		itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), pair<unsigned int, TuningSpaceData*>(0, tuningSpaceData));
+		itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), std::pair<unsigned int, TuningSpaceData*>(0, tuningSpaceData));
 	}
 
 	if (!itSpace->second->Channels.size()) {
@@ -1900,7 +1895,7 @@ void CBonTuner::ReadIniFile(void)
 			::wcstombs_s(NULL, charBuf, 512, buf, _TRUNCATE);
 			chData->sServiceName = charBuf;
 #endif
-			itSpace->second->Channels.insert(pair<unsigned int, ChData*>(0, chData));
+			itSpace->second->Channels.insert(std::pair<unsigned int, ChData*>(0, chData));
 			//   124.0E 12.613GHz H DVB-S2
 			chData = new ChData();
 			chData->Satellite = 2;
@@ -1914,7 +1909,7 @@ void CBonTuner::ReadIniFile(void)
 			::wcstombs_s(NULL, charBuf, 512, buf, _TRUNCATE);
 			chData->sServiceName = charBuf;
 #endif
-			itSpace->second->Channels.insert(pair<unsigned int, ChData*>(1, chData));
+			itSpace->second->Channels.insert(std::pair<unsigned int, ChData*>(1, chData));
 			//   128.0E 12.733GHz H DVB-S2
 			chData = new ChData();
 			chData->Satellite = 1;
@@ -1928,7 +1923,7 @@ void CBonTuner::ReadIniFile(void)
 			::wcstombs_s(NULL, charBuf, 512, buf, _TRUNCATE);
 			chData->sServiceName = charBuf;
 #endif
-			itSpace->second->Channels.insert(pair<unsigned int, ChData*>(2, chData));
+			itSpace->second->Channels.insert(std::pair<unsigned int, ChData*>(2, chData));
 			itSpace->second->dwNumChannel = 3;
 		}
 	}
@@ -2297,7 +2292,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 }
 
 // チューナ固有Dllのロード
-HRESULT CBonTuner::CheckAndInitTunerDependDll(wstring tunerGUID, wstring tunerFriendlyName)
+HRESULT CBonTuner::CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstring tunerFriendlyName)
 {
 	if (m_aTunerParam.sDLLBaseName == L"") {
 		// チューナ固有関数を使わない場合
@@ -2308,7 +2303,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(wstring tunerGUID, wstring tunerFr
 		// INI ファイルで "AUTO" 指定の場合
 		BOOL found = FALSE;
 		for (unsigned int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
-			if ((aTunerSpecialData[i].sTunerGUID != L"") && (tunerGUID.find(aTunerSpecialData[i].sTunerGUID)) != wstring::npos) {
+			if ((aTunerSpecialData[i].sTunerGUID != L"") && (tunerGUID.find(aTunerSpecialData[i].sTunerGUID)) != std::wstring::npos) {
 				// この時のチューナ依存コードをチューナパラメータに変数にセットする
 				m_aTunerParam.sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;
 				break;
@@ -2355,7 +2350,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(wstring tunerGUID, wstring tunerFr
 }
 
 // チューナ固有Dllでのキャプチャデバイス確認
-HRESULT CBonTuner::CheckCapture(wstring tunerGUID, wstring tunerFriendlyName, wstring captureGUID, wstring captureFriendlyName)
+HRESULT CBonTuner::CheckCapture(std::wstring tunerGUID, std::wstring tunerFriendlyName, std::wstring captureGUID, std::wstring captureFriendlyName)
 {
 	if (m_hModuleTunerSpecials == NULL) {
 		return S_OK;
@@ -3022,8 +3017,8 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 	HRESULT hr;
 
 	// システムに存在するチューナ・キャプチャのリスト
-	vector<DSListData> TunerList;
-	vector<DSListData> CaptureList;
+	std::vector<DSListData> TunerList;
+	std::vector<DSListData> CaptureList;
 
 	ULONG order;
 
@@ -3040,8 +3035,8 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 
 	order = 0;
 	while (SUCCEEDED(hr = m_pDSFilterEnumTuner->next()) && hr == S_OK) {
-		wstring sDisplayName;
-		wstring sFriendlyName;
+		std::wstring sDisplayName;
+		std::wstring sFriendlyName;
 
 		// チューナの DisplayName, FriendlyName を得る
 		m_pDSFilterEnumTuner->getDisplayName(&sDisplayName);
@@ -3063,8 +3058,8 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 
 	order = 0;
 	while (SUCCEEDED(hr = m_pDSFilterEnumCapture->next()) && hr == S_OK) {
-		wstring sDisplayName;
-		wstring sFriendlyName;
+		std::wstring sDisplayName;
+		std::wstring sFriendlyName;
 
 		// チューナの DisplayName, FriendlyName を得る
 		m_pDSFilterEnumCapture->getDisplayName(&sDisplayName);
@@ -3081,14 +3076,14 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 	m_UsableTunerCaptureList.clear();
 
 	for (unsigned int i = 0; i < m_aTunerParam.Tuner.size(); i++) {
-		for (vector<DSListData>::iterator it = TunerList.begin(); it != TunerList.end(); it++) {
+		for (auto it = TunerList.begin(); it != TunerList.end(); it++) {
 			// DisplayName に GUID が含まれるか検査して、NOだったら次のチューナへ
-			if (m_aTunerParam.Tuner[i]->TunerGUID.compare(L"") != 0 && it->GUID.find(m_aTunerParam.Tuner[i]->TunerGUID) == wstring::npos) {
+			if (m_aTunerParam.Tuner[i]->TunerGUID.compare(L"") != 0 && it->GUID.find(m_aTunerParam.Tuner[i]->TunerGUID) == std::wstring::npos) {
 				continue;
 			}
 
 			// FriendlyName が含まれるか検査して、NOだったら次のチューナへ
-			if (m_aTunerParam.Tuner[i]->TunerFriendlyName.compare(L"") != 0 && it->FriendlyName.find(m_aTunerParam.Tuner[i]->TunerFriendlyName) == wstring::npos) {
+			if (m_aTunerParam.Tuner[i]->TunerFriendlyName.compare(L"") != 0 && it->FriendlyName.find(m_aTunerParam.Tuner[i]->TunerFriendlyName) == std::wstring::npos) {
 				continue;
 			}
 
@@ -3096,15 +3091,15 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 			OutputDebug(L"[InitDSFilterEnum] Found tuner device=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
 			if (!m_aTunerParam.bNotExistCaptureDevice) {
 				// Captureデバイスを使用する
-				vector<DSListData> TempCaptureList;
-				for (vector<DSListData>::iterator it2 = CaptureList.begin(); it2 != CaptureList.end(); it2++) {
+				std::vector<DSListData> TempCaptureList;
+				for (auto it2 = CaptureList.begin(); it2 != CaptureList.end(); it2++) {
 					// DisplayName に GUID が含まれるか検査して、NOだったら次のキャプチャへ
-					if (m_aTunerParam.Tuner[i]->CaptureGUID.compare(L"") != 0 && it2->GUID.find(m_aTunerParam.Tuner[i]->CaptureGUID) == wstring::npos) {
+					if (m_aTunerParam.Tuner[i]->CaptureGUID.compare(L"") != 0 && it2->GUID.find(m_aTunerParam.Tuner[i]->CaptureGUID) == std::wstring::npos) {
 						continue;
 					}
 
 					// FriendlyName が含まれるか検査して、NOだったら次のキャプチャへ
-					if (m_aTunerParam.Tuner[i]->CaptureFriendlyName.compare(L"") != 0 && it2->FriendlyName.find(m_aTunerParam.Tuner[i]->CaptureFriendlyName) == wstring::npos) {
+					if (m_aTunerParam.Tuner[i]->CaptureFriendlyName.compare(L"") != 0 && it2->FriendlyName.find(m_aTunerParam.Tuner[i]->CaptureFriendlyName) == std::wstring::npos) {
 						continue;
 					}
 
@@ -3126,16 +3121,16 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 				if (m_aTunerParam.bCheckDeviceInstancePath) {
 					// チューナデバイスとキャプチャデバイスのデバイスインスタンスパスが一致しているか確認
 					OutputDebug(L"[InitDSFilterEnum]   Checking device instance path.\n");
-					wstring::size_type n, last;
+					std::wstring::size_type n, last;
 					n = last = 0;
-					while ((n = it->GUID.find(L'#', n)) != wstring::npos) {
+					while ((n = it->GUID.find(L'#', n)) != std::wstring::npos) {
 						last = n;
 						n++;
 					}
 					if (last != 0) {
-						wstring path = it->GUID.substr(0, last);
-						for (vector<DSListData>::iterator it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
-							if (it2->GUID.find(path) != wstring::npos) {
+						std::wstring path = it->GUID.substr(0, last);
+						for (auto it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
+							if (it2->GUID.find(path) != std::wstring::npos) {
 								// デバイスパスが一致するものをListに追加
 								OutputDebug(L"[InitDSFilterEnum]     Adding matched tuner and capture device.\n");
 								OutputDebug(L"[InitDSFilterEnum]       tuner=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
@@ -3152,7 +3147,7 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 					if (m_aTunerParam.bCheckDeviceInstancePath) {
 						OutputDebug(L"[InitDSFilterEnum]     No matched devices.\n");
 					}
-					for (vector<DSListData>::iterator it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
+					for (auto it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
 						// すべてListに追加
 						OutputDebug(L"[InitDSFilterEnum]   Adding tuner and capture device.\n");
 						OutputDebug(L"[InitDSFilterEnum]     tuner=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
@@ -3197,13 +3192,13 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		return E_POINTER;
 	}
 
-	for (list<TunerCaptureList>::iterator it = m_UsableTunerCaptureList.begin(); it != m_UsableTunerCaptureList.end(); it++) {
+	for (auto it = m_UsableTunerCaptureList.begin(); it != m_UsableTunerCaptureList.end(); it++) {
 		OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s,  GUID:%s\n", it->Tuner.FriendlyName.c_str(), it->Tuner.GUID.c_str());
 		// チューナデバイスループ
 		// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
-		wstring::size_type n = 0;
-		wstring semName = it->Tuner.GUID;
-		while ((n = semName.find(L'\\', n)) != wstring::npos) {
+		std::wstring::size_type n = 0;
+		std::wstring semName = it->Tuner.GUID;
+		while ((n = semName.find(L'\\', n)) != std::wstring::npos) {
 			semName.replace(n, 1, 1, L'/');
 		}
 		semName = L"Global\\" + semName;
@@ -3248,7 +3243,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 							// 固有Dll処理OK
 							if (!m_aTunerParam.bNotExistCaptureDevice) {
 								// キャプチャデバイスを使用する
-								for (vector<DSListData>::iterator it2 = it->CaptureList.begin(); it2 != it->CaptureList.end(); it2++) {
+								for (auto it2 = it->CaptureList.begin(); it2 != it->CaptureList.end(); it2++) {
 									OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
 									// キャプチャデバイスループ
 									// チューナ固有Dllでの確認処理があれば呼び出す
@@ -3517,7 +3512,7 @@ HRESULT CBonTuner::LoadAndConnectTif(void)
 			return E_POINTER;
 	}
 
-	wstring friendlyName;
+	std::wstring friendlyName;
 
 	try {
 		CDSFilterEnum dsfEnum(KSCATEGORY_BDA_TRANSPORT_INFORMATION, CDEF_DEVMON_FILTER);
@@ -3525,7 +3520,7 @@ HRESULT CBonTuner::LoadAndConnectTif(void)
 			// MPEG-2 Sections and Tables Filter に接続してしまうと RunGraph に失敗してしまうので
 			// BDA MPEG2 Transport Information Filter 以外はスキップ
 			dsfEnum.getFriendlyName(&friendlyName);
-			if (friendlyName.find(FILTER_GRAPH_NAME_TIF) == wstring::npos)
+			if (friendlyName.find(FILTER_GRAPH_NAME_TIF) == std::wstring::npos)
 				continue;
 
 			// フィルタを取得
