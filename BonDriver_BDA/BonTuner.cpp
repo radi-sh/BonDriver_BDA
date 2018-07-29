@@ -604,11 +604,7 @@ LPCTSTR CBonTuner::EnumTuningSpace(const DWORD dwSpace)
 		if (it != m_TuningData.Spaces.end())
 			return it->second->sTuningSpaceName.c_str();
 		else
-#ifdef UNICODE
 			return _T("-");
-#else
-			return "-";
-#endif
 	}
 	return NULL;
 }
@@ -622,11 +618,7 @@ LPCTSTR CBonTuner::EnumChannelName(const DWORD dwSpace, const DWORD dwChannel)
 			if (it2 != it->second->Channels.end())
 				return it2->second->sServiceName.c_str();
 			else
-#ifdef UNICODE
 				return _T("----");
-#else
-				return "----";
-#endif
 		}
 	}
 	return NULL;
