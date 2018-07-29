@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <iostream>
 #include <dshow.h>
 
 #include <string>

@@ -3,6 +3,9 @@
 //------------------------------------------------------------------------------
 #pragma once
 
+#include <Windows.h>
+#include <string>
+
 #include <initguid.h>
 
 #include "IBdaSpecials2.h"

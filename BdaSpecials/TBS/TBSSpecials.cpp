@@ -3,17 +3,14 @@
 //   Implementation of CTBSSpecials class
 //------------------------------------------------------------------------------
 
-#include <Windows.h>
-#include <stdio.h>
-
-#include <string>
+#include "common.h"
 
 #include "TBSSpecials.h"
 
-#include <iostream>
-#include <dshow.h>
+#include <Windows.h>
+#include <string>
 
-#include "common.h"
+#include <dshow.h>
 
 #pragma comment( lib, "Strmiids.lib" )
 

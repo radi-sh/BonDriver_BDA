@@ -18,6 +18,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		case DLL_PROCESS_ATTACH:
 			// モジュールハンドル保存
 			CBonTuner::st_hModule = hModule;
+			CBonTuner::Init();
 
 			::InitializeCriticalSection(&CBonTuner::st_LockInstanceList);
 

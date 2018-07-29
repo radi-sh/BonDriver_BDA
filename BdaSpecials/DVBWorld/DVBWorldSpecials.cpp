@@ -3,14 +3,13 @@
 //   Implementation of CDVBWorldSpecials class
 //------------------------------------------------------------------------------
 
-#include <Windows.h>
-#include <stdio.h>
-
-#include <string>
+#include "common.h"
 
 #include "DVBWorldSpecials.h"
 
-#include <iostream>
+#include <Windows.h>
+#include <string>
+
 #include <dshow.h>
 
 #include <ks.h>
@@ -21,8 +20,6 @@
 #include <bdatypes.h>
 #define __STREAMS__
 #include <ksproxy.h>
-
-#include "common.h"
 
 #pragma comment( lib, "Strmiids.lib" )
 #pragma comment( lib, "ksproxy.lib" )

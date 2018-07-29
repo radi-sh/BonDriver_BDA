@@ -4,30 +4,19 @@
 //------------------------------------------------------------------------------
 #pragma once
 
-#include <Windows.h>
-#include <stdio.h>
+#include "common.h"
 
+#include <Windows.h>
+#include <string>
 #include <list>
 #include <vector>
 #include <map>
 #include <queue>
 
-#include "IBonDriver2.h"
 #include "IBdaSpecials2.h"
-
-#include "DSFilterEnum.h"
-
+#include "IBonDriver2.h"
 #include "LockChannel.h"
-
-#include <iostream>
-#include <dshow.h>
-
-#include <tuner.h>
-
-#include "common.h"
-
-// transform()
-#include <algorithm>
+#include "DSFilterEnum.h"
 
 class CTsWriter;
 
@@ -76,6 +65,13 @@ public:
 
 	void Release(void);
 	
+	////////////////////////////////////////
+	// 静的メンバ関数
+	////////////////////////////////////////
+
+	// 必要な静的変数初期化
+	static void Init(void);
+
 	////////////////////////////////////////
 	// 静的メンバ変数
 	////////////////////////////////////////
@@ -427,14 +423,12 @@ protected:
 		TunerSearchData(void)
 		{
 		};
-		TunerSearchData(WCHAR* tunerGuid, WCHAR* tunerFriendlyName, WCHAR* captureGuid, WCHAR* captureFriendlyName)
-			: TunerGUID(tunerGuid),
-			TunerFriendlyName(tunerFriendlyName),
-			CaptureGUID(captureGuid),
-			CaptureFriendlyName(captureFriendlyName)
+		TunerSearchData(std::wstring tunerGuid, std::wstring tunerFriendlyName, std::wstring captureGuid, std::wstring captureFriendlyName)
+			: TunerFriendlyName(tunerFriendlyName),
+			  CaptureFriendlyName(captureFriendlyName)
 		{
-			std::transform(TunerGUID.begin(), TunerGUID.end(), TunerGUID.begin(), ::towlower);
-			std::transform(CaptureGUID.begin(), CaptureGUID.end(), CaptureGUID.begin(), ::towlower);
+			TunerGUID = common::WStringToLowerCase(tunerGuid);
+			CaptureGUID = common::WStringToLowerCase(captureGuid);
 		};
 	};
 
@@ -444,11 +438,7 @@ protected:
 												// TunerとCaptureのGUID/FriendlyName指定
 		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-#ifdef UNICODE
-		std::wstring sTunerName;				// GetTunerNameで返す名前
-#else
-		std::string sTunerName;					// GetTunerNameで返す名前
-#endif
+		std::basic_string<TCHAR> sTunerName;	// GetTunerNameで返す名前
 		std::wstring sDLLBaseName;				// 固有DLL
 		TunerParam(void)
 			: bNotExistCaptureDevice(TRUE),
@@ -562,11 +552,7 @@ protected:
 
 	// チャンネルデータ
 	struct ChData {
-#ifdef UNICODE
-		std::wstring sServiceName;		// EnumChannelNameで返すチャンネル名
-#else
-		std::string sServiceName;		// EnumChannelNameで返すチャンネル名
-#endif
+		std::basic_string<TCHAR> sServiceName;	// EnumChannelNameで返すチャンネル名
 		unsigned int Satellite;			// 衛星受信設定番号
 		unsigned int Polarisation;		// 偏波種類番号 (0 .. 未指定, 1 .. H, 2 .. V, 3 .. L, 4 .. R)
 		unsigned int ModulationType;	// 変調方式設定番号
@@ -603,11 +589,7 @@ protected:
 
 	// チューニング空間データ
 	struct TuningSpaceData {
-#ifdef UNICODE
-		std::wstring sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
-#else
-		std::string sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
-#endif
+		std::basic_string<TCHAR> sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
 		long FrequencyOffset;			// 周波数オフセット値
 		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;				// チャンネル数
@@ -662,6 +644,9 @@ protected:
 	// 偏波種類毎のiniファイルでの記号
 	static const WCHAR PolarisationChar[POLARISATION_SIZE];
 
+	// 偏波種類毎のiniファイルでの記号 逆引き用
+	static std::multimap<WCHAR, int> PolarisationCharMap;
+
 	// iniファイルで設定できる最大衛星数 + 1
 	static const unsigned int MAX_SATELLITE = 10;
 
@@ -692,7 +677,7 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルのPath
-	WCHAR m_szIniFilePath[_MAX_PATH + 1];
+	std::wstring m_sIniFilePath;
 
 	// TSバッファ操作用
 	CRITICAL_SECTION m_csTSBuff;
@@ -975,16 +960,16 @@ protected:
 	static const TUNER_SPECIAL_DLL aTunerSpecialData[];
 
 	// チャンネル名自動生成 inline 関数
-	inline int MakeChannelName(WCHAR* pszName, size_t size, CBonTuner::ChData* pChData)
+	inline std::basic_string<TCHAR> MakeChannelName(CBonTuner::ChData* pChData)
 	{
+		std::basic_string<TCHAR> format;
 		long m = pChData->Frequency / 1000;
 		long k = pChData->Frequency % 1000;
 		if (k == 0)
-			return ::swprintf_s(pszName, size, L"%s/%05ld%c/%s", m_sSatelliteName[pChData->Satellite].c_str(), m, PolarisationChar[pChData->Polarisation], m_sModulationName[pChData->ModulationType].c_str());
-		else {
-			return ::swprintf_s(pszName, size, L"%s/%05ld.%03ld%c/%s", m_sSatelliteName[pChData->Satellite].c_str(), m, k, PolarisationChar[pChData->Polarisation], m_sModulationName[pChData->ModulationType].c_str());
-
-		}
+			format = _T("%s/%05ld%c/%s");
+		else
+			format = _T("%s/%05ld.%03ld%c/%s");
+		return common::TStringPrintf(format.c_str(), m_sSatelliteName[pChData->Satellite].c_str(), m, PolarisationChar[pChData->Polarisation], m_sModulationName[pChData->ModulationType].c_str());
 	}
 };
 

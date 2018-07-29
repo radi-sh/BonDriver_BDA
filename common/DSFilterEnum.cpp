@@ -3,15 +3,11 @@
 //   Implementation of CDSFilterEnum class
 //------------------------------------------------------------------------------
 
-#include "DSFilterEnum.h"
-
 #include "common.h"
 
-#include <iostream>
-#include <DShow.h>
+#include "DSFilterEnum.h"
 
-// transform()
-#include <algorithm>
+#include <DShow.h>
 
 CDSFilterEnum::CDSFilterEnum(CLSID clsid)
 	: CDSFilterEnum(clsid, 0)
@@ -152,8 +148,7 @@ HRESULT CDSFilterEnum::getDisplayName(std::wstring* pName)
 		return hr;
 	}
 
-	*pName = pwszName;
-	std::transform(pName->begin(), pName->end(), pName->begin(), ::towlower);
+	*pName = common::WStringToLowerCase(pwszName);
 
 	return S_OK;
 }
