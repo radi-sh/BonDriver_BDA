@@ -1687,7 +1687,7 @@ void CBonTuner::ReadIniFile(void)
 			if (std::regex_match(key, re) == true) {
 				if (data.length() != 0) {
 					// CHÝ’è—L‚è
-					DWORD ch = common::WStringToLong(key.substr(2));
+					DWORD ch = common::WStringDecimalToLong(key.substr(2));
 
 					// ReserveUnusedCh‚ªŽw’è‚³‚ê‚Ä‚¢‚éê‡‚ÍCH”Ô†‚ðã‘‚«‚·‚é
 					// Žw’è‚³‚ê‚Ä‚¢‚È‚¢ê‡‚Í“o˜^‡‚ÉCH”Ô†‚ðU‚é
@@ -1713,7 +1713,7 @@ void CBonTuner::ReadIniFile(void)
 					// Žü”g”
 					WCHAR buf2[2][256] = { L"", L"" };
 					::swscanf_s(buf[1], L"%[^.].%[^.]", buf2[0], 256, buf2[1], 256);
-					val = common::WStringToLong(buf2[0]) * 1000 + common::WStringToLong(buf2[1]);
+					val = common::WStringDecimalToLong(buf2[0]) * 1000 + common::WStringDecimalToLong(buf2[1]);
 					if ((val > 0) && (val <= 20000000)) {
 						itCh->second->Frequency = val;
 					}
