@@ -269,12 +269,9 @@ protected:
 		
 		~COMProc(void)
 		{
-			::CloseHandle(hReqEvent);
-			hReqEvent = NULL;
-			::CloseHandle(hEndEvent);
-			hEndEvent = NULL;
-			::CloseHandle(hTerminateRequest);
-			hTerminateRequest = NULL;
+			SAFE_CLOSE_HANDLE(hReqEvent);
+			SAFE_CLOSE_HANDLE(hEndEvent);
+			SAFE_CLOSE_HANDLE(hTerminateRequest);
 			::DeleteCriticalSection(&csLock);
 		};
 		
@@ -401,8 +398,7 @@ protected:
 		};
 		~DecodeProc(void)
 		{
-			::CloseHandle(hTerminateRequest);
-			hTerminateRequest = NULL;
+			SAFE_CLOSE_HANDLE(hTerminateRequest);
 		};
 	};
 	DecodeProc m_aDecodeProc;

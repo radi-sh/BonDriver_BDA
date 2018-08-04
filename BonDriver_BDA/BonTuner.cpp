@@ -233,8 +233,7 @@ CBonTuner::~CBonTuner()
 	if (m_aCOMProc.hThread) {
 		::SetEvent(m_aCOMProc.hTerminateRequest);
 		::WaitForSingleObject(m_aCOMProc.hThread, INFINITE);
-		::CloseHandle(m_aCOMProc.hThread);
-		m_aCOMProc.hThread = NULL;
+		SAFE_CLOSE_HANDLE(m_aCOMProc.hThread);
 	}
 
 	::DeleteCriticalSection(&m_csDecodedTSBuff);
@@ -375,21 +374,14 @@ void CBonTuner::_CloseTuner(void)
 	if (m_aDecodeProc.hThread) {
 		::SetEvent(m_aDecodeProc.hTerminateRequest);
 		WaitForSingleObjectWithMessageLoop(m_aDecodeProc.hThread, INFINITE);
-		::CloseHandle(m_aDecodeProc.hThread);
-		m_aDecodeProc.hThread = NULL;
+		SAFE_CLOSE_HANDLE(m_aDecodeProc.hThread);
 	}
 
 	// Decodeイベント開放
-	if (m_hOnDecodeEvent) {
-		::CloseHandle(m_hOnDecodeEvent);
-		m_hOnDecodeEvent = NULL;
-	}
+	SAFE_CLOSE_HANDLE(m_hOnDecodeEvent);
 
 	// TS受信イベント解放
-	if (m_hOnStreamEvent) {
-		::CloseHandle(m_hOnStreamEvent);
-		m_hOnStreamEvent = NULL;
-	}
+	SAFE_CLOSE_HANDLE(m_hOnStreamEvent);
 
 	// バッファ解放
 	PurgeTsStream();
@@ -408,8 +400,7 @@ void CBonTuner::_CloseTuner(void)
 	if (m_hSemaphore) {
 		try {
 			::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-			::CloseHandle(m_hSemaphore);
-			m_hSemaphore = NULL;
+			SAFE_CLOSE_HANDLE(m_hSemaphore);
 		} catch (...) {
 			OutputDebug(L"Exception in ReleaseSemaphore.\n");
 		}
@@ -3251,8 +3242,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 			} // フィルタ取得成功
 			::ReleaseSemaphore(m_hSemaphore, 1, NULL);
 		} // 排他処理OK
-		::CloseHandle(m_hSemaphore);
-		m_hSemaphore = NULL;
+		SAFE_CLOSE_HANDLE(m_hSemaphore);
 	} // チューナデバイスループ
 
 	// 動作する組み合わせが見つからなかった
