@@ -1642,7 +1642,7 @@ void CBonTuner::ReadIniFile(void)
 			if (std::regex_match(key, re) == true) {
 				if (data.length() != 0) {
 					// CHİ’è—L‚è
-					DWORD ch = common::WStringToLong(key);
+					DWORD ch = common::WStringToLong(key.substr(2));
 
 					// ReserveUnusedCh‚ªw’è‚³‚ê‚Ä‚¢‚éê‡‚ÍCH”Ô†‚ğã‘‚«‚·‚é
 					// w’è‚³‚ê‚Ä‚¢‚È‚¢ê‡‚Í“o˜^‡‚ÉCH”Ô†‚ğU‚é
