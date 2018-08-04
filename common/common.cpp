@@ -78,6 +78,11 @@ namespace common {
 		return ::wcstol(Src.c_str(), NULL, 0);
 	}
 
+	int WStringDecimalToLong(std::wstring Src)
+	{
+		return ::wcstol(Src.c_str(), NULL, 10);
+	}
+
 	double WstringToDouble(std::wstring Src)
 	{
 		return ::wcstod(Src.c_str(), NULL);

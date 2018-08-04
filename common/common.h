@@ -60,6 +60,7 @@ namespace common
 	std::wstring WStringToUpperCase(std::wstring Src);
 	std::wstring WStringToLowerCase(std::wstring Src);
 	int WStringToLong(std::wstring Src);
+	int WStringDecimalToLong(std::wstring Src);
 	double WstringToDouble(std::wstring Src);
 	std::wstring GetModuleName(HMODULE hModule);
 }
