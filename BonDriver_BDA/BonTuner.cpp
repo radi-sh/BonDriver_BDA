@@ -9,6 +9,7 @@
 #include <Windows.h>
 #include <string>
 #include <regex>
+#include <algorithm>
 
 #include <DShow.h>
 
@@ -3043,23 +3044,15 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 				if (m_aTunerParam.bCheckDeviceInstancePath) {
 					// チューナデバイスとキャプチャデバイスのデバイスインスタンスパスが一致しているか確認
 					OutputDebug(L"[InitDSFilterEnum]   Checking device instance path.\n");
-					std::wstring::size_type n, last;
-					n = last = 0;
-					while ((n = it->GUID.find(L'#', n)) != std::wstring::npos) {
-						last = n;
-						n++;
-					}
-					if (last != 0) {
-						std::wstring path = it->GUID.substr(0, last);
-						for (auto it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
-							if (it2->GUID.find(path) != std::wstring::npos) {
-								// デバイスパスが一致するものをListに追加
-								OutputDebug(L"[InitDSFilterEnum]     Adding matched tuner and capture device.\n");
-								OutputDebug(L"[InitDSFilterEnum]       tuner=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
-								OutputDebug(L"[InitDSFilterEnum]       capture=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
-								m_UsableTunerCaptureList.back().CaptureList.emplace_back(*it2);
-								count++;
-							}
+					std::wstring dip = CDSFilterEnum::getDeviceInstancePathrFromDisplayName(it->GUID);
+					for (auto it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
+						if (CDSFilterEnum::getDeviceInstancePathrFromDisplayName(it2->GUID) == dip) {
+							// デバイスパスが一致するものをListに追加
+							OutputDebug(L"[InitDSFilterEnum]     Adding matched tuner and capture device.\n");
+							OutputDebug(L"[InitDSFilterEnum]       tuner=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
+							OutputDebug(L"[InitDSFilterEnum]       capture=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
+							m_UsableTunerCaptureList.back().CaptureList.emplace_back(*it2);
+							count++;
 						}
 					}
 				}
@@ -3118,11 +3111,8 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s,  GUID:%s\n", it->Tuner.FriendlyName.c_str(), it->Tuner.GUID.c_str());
 		// チューナデバイスループ
 		// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
-		std::wstring::size_type n = 0;
 		std::wstring semName = it->Tuner.GUID;
-		while ((n = semName.find(L'\\', n)) != std::wstring::npos) {
-			semName.replace(n, 1, 1, L'/');
-		}
+		std::replace(semName.begin(), semName.end(), L'\\', L'/');
 		semName = L"Global\\" + semName;
 
 		// 排他処理

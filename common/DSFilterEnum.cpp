@@ -7,6 +7,8 @@
 
 #include "DSFilterEnum.h"
 
+#include <algorithm>
+
 #include <DShow.h>
 
 CDSFilterEnum::CDSFilterEnum(CLSID clsid)
@@ -151,4 +153,14 @@ HRESULT CDSFilterEnum::getDisplayName(std::wstring* pName)
 	*pName = common::WStringToLowerCase(pwszName);
 
 	return S_OK;
+}
+
+std::wstring CDSFilterEnum::getDeviceInstancePathrFromDisplayName(std::wstring displayName)
+{
+	std::wstring::size_type start = displayName.find(L"\\\\\?\\") + 4;
+	std::wstring::size_type len = displayName.find_last_of(L"#") - start;
+	std::wstring dip = common::WStringToUpperCase(displayName.substr(start, len));
+	std::replace(dip.begin(), dip.end(), L'#', L'\\');
+
+	return std::wstring(dip);
 }

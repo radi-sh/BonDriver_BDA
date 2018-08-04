@@ -22,6 +22,8 @@ public:
 	HRESULT getFriendlyName(std::wstring* pName);
 	HRESULT getDisplayName(std::wstring* pName);
 
+	static std::wstring getDeviceInstancePathrFromDisplayName(std::wstring Name);
+
 private:
 	IEnumMoniker* m_pIEnumMoniker;
 	ICreateDevEnum* m_pICreateDevEnum;
