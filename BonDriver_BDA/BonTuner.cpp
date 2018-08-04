@@ -172,12 +172,17 @@ CBonTuner::CBonTuner()
 	m_nWaitTsCount(1),
 	m_nWaitTsSleep(100),
 	m_bAlwaysAnswerLocked(FALSE),
+	m_nThreadPriorityCOM(THREAD_PRIORITY_ERROR_RETURN),
+	m_nThreadPriorityDecode(THREAD_PRIORITY_ERROR_RETURN),
+	m_nThreadPriorityStream(THREAD_PRIORITY_ERROR_RETURN),
 	m_bReserveUnusedCh(FALSE),
 	m_sIniFilePath(L""),
 	m_hOnStreamEvent(NULL),
 	m_hOnDecodeEvent(NULL),
 	m_LastBuff(NULL),
 	m_bRecvStarted(FALSE),
+	m_hStreamThread(NULL),
+	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
 	m_pITuningSpace(NULL),
 	m_pITuner(NULL),
@@ -216,6 +221,9 @@ CBonTuner::CBonTuner()
 	::InitializeCriticalSection(&m_csTSBuff);
 	::InitializeCriticalSection(&m_csDecodedTSBuff);
 
+	HANDLE h = ::GetCurrentProcess();
+	::DuplicateHandle(h, h, h, &m_hProcess, 0, FALSE, DUPLICATE_SAME_ACCESS);
+
 	ReadIniFile();
 
 	m_TsBuff.SetSize(m_dwBuffSize, m_dwMaxBuffCount);
@@ -223,6 +231,11 @@ CBonTuner::CBonTuner()
 
 	// COM処理専用スレッド起動
 	m_aCOMProc.hThread = ::CreateThread(NULL, 0, CBonTuner::COMProcThread, this, 0, NULL);
+
+	// スレッドプライオリティ
+	if (m_aCOMProc.hThread != NULL && m_nThreadPriorityCOM != THREAD_PRIORITY_ERROR_RETURN) {
+		::SetThreadPriority(m_aCOMProc.hThread, m_nThreadPriorityCOM);
+	}
 }
 
 CBonTuner::~CBonTuner()
@@ -236,6 +249,9 @@ CBonTuner::~CBonTuner()
 		::WaitForSingleObject(m_aCOMProc.hThread, INFINITE);
 		SAFE_CLOSE_HANDLE(m_aCOMProc.hThread);
 	}
+
+	SAFE_CLOSE_HANDLE(m_hStreamThread);
+	SAFE_CLOSE_HANDLE(m_hProcess);
 
 	::DeleteCriticalSection(&m_csDecodedTSBuff);
 	::DeleteCriticalSection(&m_csTSBuff);
@@ -324,6 +340,11 @@ const BOOL CBonTuner::_OpenTuner(void)
 
 		// Decode処理専用スレッド起動
 		m_aDecodeProc.hThread = ::CreateThread(NULL, 0, CBonTuner::DecodeProcThread, this, 0, NULL);
+
+		// スレッドプライオリティ
+		if (m_aDecodeProc.hThread != NULL && m_nThreadPriorityDecode != THREAD_PRIORITY_ERROR_RETURN) {
+			::SetThreadPriority(m_aDecodeProc.hThread, m_nThreadPriorityDecode);
+		}
 
 		// コールバック関数セット
 		StartRecv();
@@ -916,6 +937,16 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 		if (terminate)
 			break;
 
+		// ストリームスレッドプライオリティの変更
+		if (pSys->m_bIsSetStreamThread) {
+			if (pSys->m_nThreadPriorityStream != THREAD_PRIORITY_ERROR_RETURN) {
+				OutputDebug(L"COMProcThread: Current stream Thread priority = %d.\n", ::GetThreadPriority(pSys->m_hStreamThread));
+				::SetThreadPriority(pSys->m_hStreamThread, pSys->m_nThreadPriorityStream);
+				OutputDebug(L"COMProcThread: After changed stream Thread priority = %d.\n", ::GetThreadPriority(pSys->m_hStreamThread));
+			}
+			pSys->m_bIsSetStreamThread = FALSE;
+		}
+
 		// 異常検知＆リカバリー
 		// 1000ms毎処理
 		if (pCOMProc->CheckTick()) {
@@ -1074,6 +1105,11 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, DWORD dwSize)
 {
 	CBonTuner* pSys = (CBonTuner*)pParam;
+
+	if (pSys->m_hStreamThread == NULL) {
+		::DuplicateHandle(pSys->m_hProcess, GetCurrentThread(), GetCurrentProcess(), &(pSys->m_hStreamThread), 0, FALSE, 2);
+		pSys->m_bIsSetStreamThread = TRUE;
+	}
 
 	pSys->m_BitRate.AddRate(dwSize);
 
@@ -1308,6 +1344,15 @@ void CBonTuner::ReadIniFile(void)
 
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
 	m_bAlwaysAnswerLocked = (BOOL)IniFileAccess.ReadKeyISectionData(L"AlwaysAnswerLocked", 0);
+
+	// COMProcThreadのスレッドプライオリティ
+	m_nThreadPriorityCOM = IniFileAccess.ReadKeyISectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN);
+
+	// DecodeProcThreadのスレッドプライオリティ
+	m_nThreadPriorityDecode = IniFileAccess.ReadKeyISectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN);
+
+	// ストリームスレッドプライオリティ
+	m_nThreadPriorityStream = IniFileAccess.ReadKeyISectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN);
 
 	//
 	// Satellite セクション
@@ -2406,6 +2451,9 @@ HRESULT CBonTuner::RunGraph(void)
 	if (!m_pIMediaControl)
 		return E_POINTER;
 
+	SAFE_CLOSE_HANDLE(m_hStreamThread);
+	m_bIsSetStreamThread = FALSE;
+
 	if (FAILED(hr =  m_pIMediaControl->Run())) {
 		m_pIMediaControl->Stop();
 		OutputDebug(L"Failed to Run Graph.\n");
@@ -2419,6 +2467,9 @@ void CBonTuner::StopGraph(void)
 {
 	HRESULT hr;
 	if (m_pIMediaControl) {
+		SAFE_CLOSE_HANDLE(m_hStreamThread);
+		m_bIsSetStreamThread = FALSE;
+
 		if (SUCCEEDED(hr = m_pIMediaControl->Pause())) {
 			OutputDebug(L"IMediaControl::Pause Success.\n");
 		} else {

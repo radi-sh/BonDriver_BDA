@@ -542,6 +542,15 @@ protected:
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
 	BOOL m_bAlwaysAnswerLocked;
 
+	// COMProcThreadのスレッドプライオリティ
+	int m_nThreadPriorityCOM;
+
+	// DecodeProcThreadのスレッドプライオリティ
+	int m_nThreadPriorityDecode;
+
+	// ストリームスレッドプライオリティ
+	int m_nThreadPriorityStream;
+
 	////////////////////////////////////////
 	// チャンネルパラメータ
 	////////////////////////////////////////
@@ -742,6 +751,15 @@ protected:
 
 	// データ受信中
 	BOOL m_bRecvStarted;
+
+	// プロセスハンドル
+	HANDLE m_hProcess;
+
+	// ストリームスレッドのハンドル
+	HANDLE m_hStreamThread;
+
+	// ストリームスレッドハンドル通知フラグ
+	BOOL m_bIsSetStreamThread;
 
 	// ビットレート計算用
 	class BitRate {
