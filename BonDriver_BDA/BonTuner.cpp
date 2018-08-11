@@ -2414,7 +2414,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstri
 		return S_OK;
 	}
 
-	if (m_aTunerParam.sDLLBaseName == L"AUTO") {
+	if (common::WStringToUpperCase(m_aTunerParam.sDLLBaseName) == L"AUTO") {
 		// INI ファイルで "AUTO" 指定の場合
 		BOOL found = FALSE;
 		for (unsigned int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
