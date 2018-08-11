@@ -1345,9 +1345,9 @@ void CBonTuner::ReadIniFile(void)
 
 	// チューナ固有関数を使用するかどうか。
 	//   以下を INI ファイルで指定可能
-	//     "" ... 使用しない; "AUTO" ... AUTO(default)
+	//     "" ... 使用しない(default); "AUTO" ... AUTO
 	//     "DLLName" ... チューナ固有関数の入ったDLL名を直接指定
-	m_aTunerParam.sDLLBaseName = IniFileAccess.ReadKeySSectionData(L"UseSpecial", L"AUTO");
+	m_aTunerParam.sDLLBaseName = IniFileAccess.ReadKeySSectionData(L"UseSpecial", L"");
 
 	// Tone信号切替時のWait時間
 	m_nToneWait = IniFileAccess.ReadKeyISectionData(L"ToneSignalWait", 100);
