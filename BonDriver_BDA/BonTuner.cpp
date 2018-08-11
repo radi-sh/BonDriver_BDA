@@ -1242,7 +1242,7 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int> mapNetworkProvider = {
-		{ L"LEGACY", 0 },
+		{ L"AUTO", 0 },
 		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[0]), 1 },
 		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[1]), 2 },
 		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[2]), 3 },
