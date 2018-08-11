@@ -48,13 +48,13 @@ FILE *g_fpLog = NULL;
 //////////////////////////////////////////////////////////////////////
 
 // TS Writerの名称:AddFilter時に名前を登録するだけなので何でもよい
-static const WCHAR *FILTER_GRAPH_NAME_TSWRITER	= L"TS Writer";
+static const WCHAR * const FILTER_GRAPH_NAME_TSWRITER	= L"TS Writer";
 
 // MPEG2 Demultiplexerの名称:AddFilter時に名前を登録するだけなので何でもよい
-static const WCHAR *FILTER_GRAPH_NAME_DEMUX = L"MPEG2 Demultiplexer";
+static const WCHAR * const FILTER_GRAPH_NAME_DEMUX = L"MPEG2 Demultiplexer";
 
 // MPEG2 TIFの名称:CLSIDだけでは特定できないのでこの名前と一致するものを使用する
-static const WCHAR *FILTER_GRAPH_NAME_TIF = L"BDA MPEG2 Transport Information Filter";
+static const WCHAR * const FILTER_GRAPH_NAME_TIF = L"BDA MPEG2 Transport Information Filter";
 
 // Network Provider
 static const WCHAR * const FILTER_GRAPH_NAME_NETWORK_PROVIDER[] = {
