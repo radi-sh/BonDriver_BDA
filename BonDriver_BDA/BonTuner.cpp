@@ -56,6 +56,15 @@ static const WCHAR *FILTER_GRAPH_NAME_DEMUX = L"MPEG2 Demultiplexer";
 // MPEG2 TIFの名称:CLSIDだけでは特定できないのでこの名前と一致するものを使用する
 static const WCHAR *FILTER_GRAPH_NAME_TIF = L"BDA MPEG2 Transport Information Filter";
 
+// Network Provider
+static const WCHAR * const FILTER_GRAPH_NAME_NETWORK_PROVIDER[] = {
+	L"Microsoft Network Provider",
+	L"Microsoft DVB-S Network Provider",
+	L"Microsoft DVB-T Network Provider",
+	L"Microsoft DVB-C Network Provider",
+	L"Microsoft ATSC Network Provider",
+};
+
 //////////////////////////////////////////////////////////////////////
 // 静的メンバ変数
 //////////////////////////////////////////////////////////////////////
@@ -1138,6 +1147,144 @@ void CBonTuner::StopRecv(void)
 
 void CBonTuner::ReadIniFile(void)
 {
+	static const std::map<const std::wstring, const int> mapThreadPriority = {
+		{ L"", THREAD_PRIORITY_ERROR_RETURN },
+		{ L"THREAD_PRIORITY_IDLE", THREAD_PRIORITY_IDLE },
+		{ L"THREAD_PRIORITY_LOWEST", THREAD_PRIORITY_LOWEST },
+		{ L"THREAD_PRIORITY_BELOW_NORMAL", THREAD_PRIORITY_BELOW_NORMAL },
+		{ L"THREAD_PRIORITY_NORMAL", THREAD_PRIORITY_NORMAL },
+		{ L"THREAD_PRIORITY_ABOVE_NORMAL", THREAD_PRIORITY_ABOVE_NORMAL },
+		{ L"THREAD_PRIORITY_HIGHEST", THREAD_PRIORITY_HIGHEST },
+		{ L"THREAD_PRIORITY_TIME_CRITICAL", THREAD_PRIORITY_TIME_CRITICAL },
+	};
+
+	static const std::map<const std::wstring, const int> mapModulationType = {
+		{ L"BDA_MOD_NOT_SET", BDA_MOD_NOT_SET },
+		{ L"BDA_MOD_NOT_DEFINED", BDA_MOD_NOT_DEFINED },
+		{ L"BDA_MOD_16QAM", BDA_MOD_16QAM },
+		{ L"BDA_MOD_32QAM", BDA_MOD_32QAM },
+		{ L"BDA_MOD_64QAM", BDA_MOD_64QAM },
+		{ L"BDA_MOD_80QAM", BDA_MOD_80QAM },
+		{ L"BDA_MOD_96QAM", BDA_MOD_96QAM },
+		{ L"BDA_MOD_112QAM", BDA_MOD_112QAM },
+		{ L"BDA_MOD_128QAM", BDA_MOD_128QAM },
+		{ L"BDA_MOD_160QAM", BDA_MOD_160QAM },
+		{ L"BDA_MOD_192QAM", BDA_MOD_192QAM },
+		{ L"BDA_MOD_224QAM", BDA_MOD_224QAM },
+		{ L"BDA_MOD_256QAM", BDA_MOD_256QAM },
+		{ L"BDA_MOD_320QAM", BDA_MOD_320QAM },
+		{ L"BDA_MOD_384QAM", BDA_MOD_384QAM },
+		{ L"BDA_MOD_448QAM", BDA_MOD_448QAM },
+		{ L"BDA_MOD_512QAM", BDA_MOD_512QAM },
+		{ L"BDA_MOD_640QAM", BDA_MOD_640QAM },
+		{ L"BDA_MOD_768QAM", BDA_MOD_768QAM },
+		{ L"BDA_MOD_896QAM", BDA_MOD_896QAM },
+		{ L"BDA_MOD_1024QAM", BDA_MOD_1024QAM },
+		{ L"BDA_MOD_QPSK", BDA_MOD_QPSK },
+		{ L"BDA_MOD_BPSK", BDA_MOD_BPSK },
+		{ L"BDA_MOD_OQPSK", BDA_MOD_OQPSK },
+		{ L"BDA_MOD_8VSB", BDA_MOD_8VSB },
+		{ L"BDA_MOD_16VSB", BDA_MOD_16VSB },
+		{ L"BDA_MOD_ANALOG_AMPLITUDE", BDA_MOD_ANALOG_AMPLITUDE },
+		{ L"BDA_MOD_ANALOG_FREQUENCY", BDA_MOD_ANALOG_FREQUENCY },
+		{ L"BDA_MOD_8PSK", BDA_MOD_8PSK },
+		{ L"BDA_MOD_RF", BDA_MOD_RF },
+		{ L"BDA_MOD_16APSK", BDA_MOD_16APSK },
+		{ L"BDA_MOD_32APSK", BDA_MOD_32APSK },
+		{ L"BDA_MOD_NBC_QPSK", BDA_MOD_NBC_QPSK },
+		{ L"BDA_MOD_NBC_8PSK", BDA_MOD_NBC_8PSK },
+		{ L"BDA_MOD_DIRECTV", BDA_MOD_DIRECTV },
+		{ L"BDA_MOD_ISDB_T_TMCC", BDA_MOD_ISDB_T_TMCC },
+		{ L"BDA_MOD_ISDB_S_TMCC", BDA_MOD_ISDB_S_TMCC },
+	};
+
+	static const std::map<const std::wstring, const int> mapFECMethod = {
+		{ L"BDA_FEC_METHOD_NOT_SET", BDA_FEC_METHOD_NOT_SET },
+		{ L"BDA_FEC_METHOD_NOT_DEFINED", BDA_FEC_METHOD_NOT_DEFINED },
+		{ L"BDA_FEC_VITERBI", BDA_FEC_VITERBI },
+		{ L"BDA_FEC_RS_204_188", BDA_FEC_RS_204_188 },
+		{ L"BDA_FEC_LDPC", BDA_FEC_LDPC },
+		{ L"BDA_FEC_BCH", BDA_FEC_BCH },
+		{ L"BDA_FEC_RS_147_130", BDA_FEC_RS_147_130 },
+	};
+
+	static const std::map<const std::wstring, const int> mapBinaryConvolutionCodeRate = {
+		{ L"BDA_BCC_RATE_NOT_SET", BDA_BCC_RATE_NOT_SET },
+		{ L"BDA_BCC_RATE_NOT_DEFINED", BDA_BCC_RATE_NOT_DEFINED },
+		{ L"BDA_BCC_RATE_1_2", BDA_BCC_RATE_1_2 },
+		{ L"BDA_BCC_RATE_2_3", BDA_BCC_RATE_2_3 },
+		{ L"BDA_BCC_RATE_3_4", BDA_BCC_RATE_3_4 },
+		{ L"BDA_BCC_RATE_3_5", BDA_BCC_RATE_3_5 },
+		{ L"BDA_BCC_RATE_4_5", BDA_BCC_RATE_4_5 },
+		{ L"BDA_BCC_RATE_5_6", BDA_BCC_RATE_5_6 },
+		{ L"BDA_BCC_RATE_5_11", BDA_BCC_RATE_5_11 },
+		{ L"BDA_BCC_RATE_7_8", BDA_BCC_RATE_7_8 },
+		{ L"BDA_BCC_RATE_1_4", BDA_BCC_RATE_1_4 },
+		{ L"BDA_BCC_RATE_1_3", BDA_BCC_RATE_1_3 },
+		{ L"BDA_BCC_RATE_2_5", BDA_BCC_RATE_2_5 },
+		{ L"BDA_BCC_RATE_6_7", BDA_BCC_RATE_6_7 },
+		{ L"BDA_BCC_RATE_8_9", BDA_BCC_RATE_8_9 },
+		{ L"BDA_BCC_RATE_9_10", BDA_BCC_RATE_9_10 },
+	};
+
+	static const std::map<const std::wstring, const int> mapTuningSpaceType = {
+		{ L"DVB-S/DVB-S2",   1 },
+		{ L"DVB-S2",         1 },
+		{ L"DVB-S",          1 },
+		{ L"DVB-T",          2 },
+		{ L"DVB-C",          3 },
+		{ L"DVB-T2",         4 },
+		{ L"ISDB-S",        11 },
+		{ L"ISDB-T",        12 },
+		{ L"ATSC",          21 },
+		{ L"ATSC CABLE",    22 },
+		{ L"DIGITAL CABLE", 23 },
+	};
+
+	static const std::map<const std::wstring, const int> mapNetworkProvider = {
+		{ L"LEGACY", 0 },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[0]), 1 },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[1]), 2 },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[2]), 3 },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[3]), 4 },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[4]), 5 },
+	};
+
+	static const std::map<const std::wstring, const int> mapDefaultNetwork = {
+		{ L"SPHD",     1 },
+		{ L"BS/CS110", 2 },
+		{ L"BS",       2 },
+		{ L"CS110",    2 },
+		{ L"UHF/CATV", 3 },
+		{ L"UHF",      3 },
+		{ L"CATV",     3 },
+	};
+
+	static const std::map<const std::wstring, const int> mapSignalLevelCalcType = {
+		{ L"SSSTRENGTH",     0 },
+		{ L"SSQUALITY",      1 },
+		{ L"SSMUL",          2 },
+		{ L"SSADD",          3 },
+		{ L"TUNERSTRENGTH", 10 },
+		{ L"TUNERQUALITY",  11 },
+		{ L"TUNERMUL",      12 },
+		{ L"TUNERADD",      13 },
+		{ L"BITRATE",      100 },
+	};
+
+	static const std::map<const std::wstring, const int> mapSignalLockedJudgeType = {
+		{ L"ALWAYS",        0 },
+		{ L"SSLOCKED",      1 },
+		{ L"TUNERSTRENGTH", 2 },
+	};
+
+	static const std::map<const std::wstring, const int> mapDiSEqC = {
+		{ L"PORT-A", 1 },
+		{ L"PORT-B", 2 },
+		{ L"PORT-C", 3 },
+		{ L"PORT-D", 4 },
+	};
+	
 	// INIファイルのファイル名取得
 	std::wstring tempPath = common::GetModuleName(st_hModule);
 	m_sIniFilePath = tempPath + L"ini";
@@ -1146,7 +1293,7 @@ void CBonTuner::ReadIniFile(void)
 	int val;
 
 	// DebugLogを記録するかどうか
-	if (IniFileAccess.ReadKeyI(L"BONDRIVER", L"DebugLog", 0)) {
+	if (IniFileAccess.ReadKeyB(L"BONDRIVER", L"DebugLog", 0)) {
 		SetDebugLog(tempPath + L"log");
 	}
 
@@ -1187,10 +1334,10 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// TunerデバイスのみでCaptureデバイスが存在しない
-	m_aTunerParam.bNotExistCaptureDevice = (BOOL)IniFileAccess.ReadKeyISectionData(L"NotExistCaptureDevice", 0);
+	m_aTunerParam.bNotExistCaptureDevice = IniFileAccess.ReadKeyBSectionData(L"NotExistCaptureDevice", 0);
 
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-	m_aTunerParam.bCheckDeviceInstancePath = (BOOL)IniFileAccess.ReadKeyISectionData(L"CheckDeviceInstancePath", 1);
+	m_aTunerParam.bCheckDeviceInstancePath = IniFileAccess.ReadKeyBSectionData(L"CheckDeviceInstancePath", 1);
 
 	// Tuner名: GetTunerNameで返すチューナ名 ... 指定されなければデフォルト名が
 	//   使われる。この場合、複数チューナを名前で区別する事はできない
@@ -1215,7 +1362,7 @@ void CBonTuner::ReadIniFile(void)
 	m_nLockWaitRetry = IniFileAccess.ReadKeyISectionData(L"ChannelLockWaitRetry", 0);
 
 	// CH切替動作を強制的に2度行うかどうか
-	m_bLockTwice = (BOOL)IniFileAccess.ReadKeyISectionData(L"ChannelLockTwice", 0);
+	m_bLockTwice = IniFileAccess.ReadKeyBSectionData(L"ChannelLockTwice", 0);
 
 	// CH切替動作を強制的に2度行う場合のDelay時間
 	m_nLockTwiceDelay = IniFileAccess.ReadKeyISectionData(L"ChannelLockTwiceDelay", 100);
@@ -1230,10 +1377,10 @@ void CBonTuner::ReadIniFile(void)
 	m_nReOpenWhenGiveUpReLock = IniFileAccess.ReadKeyISectionData(L"ReOpenWhenGiveUpReLock", 0);
 
 	// チューナの再オープンを試みる場合に別のチューナを優先して検索するかどうか
-	m_bTryAnotherTuner = (BOOL)IniFileAccess.ReadKeyISectionData(L"TryAnotherTuner", 0);
+	m_bTryAnotherTuner = IniFileAccess.ReadKeyBSectionData(L"TryAnotherTuner", 0);
 
 	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
-	m_bBackgroundChannelLock = (BOOL)IniFileAccess.ReadKeyISectionData(L"BackgroundChannelLock", 0);
+	m_bBackgroundChannelLock = IniFileAccess.ReadKeyBSectionData(L"BackgroundChannelLock", 0);
 
 	// Tuning Space名（互換用）
 	std::wstring sTempTuningSpaceName = IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", L"スカパー");
@@ -1248,7 +1395,7 @@ void CBonTuner::ReadIniFile(void)
 	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
 	//  13 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
 	// 100 .. ビットレート値(Mibps)
-	m_nSignalLevelCalcType = IniFileAccess.ReadKeyISectionData(L"SignalLevelCalcType", 0);
+	m_nSignalLevelCalcType = IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", 0, mapSignalLevelCalcType);
 	if (m_nSignalLevelCalcType >= 0 && m_nSignalLevelCalcType <= 9)
 		m_bSignalLevelGetTypeSS = TRUE;
 	if (m_nSignalLevelCalcType >= 10 && m_nSignalLevelCalcType <= 19)
@@ -1286,7 +1433,7 @@ void CBonTuner::ReadIniFile(void)
 	// 0 .. 常にチューニングに成功している状態として判断する
 	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
 	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
-	m_nSignalLockedJudgeType = IniFileAccess.ReadKeyISectionData(L"SignalLockedJudgeType", 1);
+	m_nSignalLockedJudgeType = IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", 1, mapSignalLockedJudgeType);
 	if (m_nSignalLockedJudgeType == 1)
 		m_bSignalLockedJudgeTypeSS = TRUE;
 	if (m_nSignalLockedJudgeType == 2)
@@ -1302,7 +1449,7 @@ void CBonTuner::ReadIniFile(void)
 	//   21 .. ATSC
 	//   22 .. ATSC Cable
 	//   23 .. Digital Cable
-	m_nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyISectionData(L"DVBSystemType", 1);
+	m_nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(L"DVBSystemType", 1, mapTuningSpaceType);
 
 	// チューナーに使用するNetworkProvider
 	//    0 .. 自動
@@ -1311,13 +1458,13 @@ void CBonTuner::ReadIniFile(void)
 	//    3 .. Microsoft DVB-T Network Provider
 	//    4 .. Microsoft DVB-C Network Provider
 	//    5 .. Microsoft ATSC Network Provider
-	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyISectionData(L"NetworkProvider", 0);
+	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", 0, mapNetworkProvider);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	//    1 .. SPHD
 	//    2 .. BS/CS110
 	//    3 .. UHF/CATV
-	m_nDefaultNetwork = IniFileAccess.ReadKeyISectionData(L"DefaultNetwork", 1);
+	m_nDefaultNetwork = IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", 1, mapDefaultNetwork);
 
 	//
 	// BonDriver セクション
@@ -1343,16 +1490,16 @@ void CBonTuner::ReadIniFile(void)
 	m_nWaitTsSleep = IniFileAccess.ReadKeyISectionData(L"WaitTsSleep", 100);
 
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
-	m_bAlwaysAnswerLocked = (BOOL)IniFileAccess.ReadKeyISectionData(L"AlwaysAnswerLocked", 0);
+	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", 0);
 
 	// COMProcThreadのスレッドプライオリティ
-	m_nThreadPriorityCOM = IniFileAccess.ReadKeyISectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN);
+	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
 
 	// DecodeProcThreadのスレッドプライオリティ
-	m_nThreadPriorityDecode = IniFileAccess.ReadKeyISectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN);
+	m_nThreadPriorityDecode = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
 
 	// ストリームスレッドプライオリティ
-	m_nThreadPriorityStream = IniFileAccess.ReadKeyISectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN);
+	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
 
 	//
 	// Satellite セクション
@@ -1452,21 +1599,21 @@ void CBonTuner::ReadIniFile(void)
 			// 全偏波共通での設定があれば読み込む
 			key = prefix1 + L"ToneSignal";
 			m_aSatellite[satellite].Polarisation[polarisation].Tone
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].Tone);
+				= (long)IniFileAccess.ReadKeyBSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].Tone);
 			// 個別設定があれば上書きで読み込む
 			key = prefix2 + L"ToneSignal";
 			m_aSatellite[satellite].Polarisation[polarisation].Tone
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].Tone);
+				= (long)IniFileAccess.ReadKeyBSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].Tone);
 
 			// DiSEqC
 			// 全偏波共通での設定があれば読み込む
 			key = prefix1 + L"DiSEqC";
 			m_aSatellite[satellite].Polarisation[polarisation].DiSEqC
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].DiSEqC);
+				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, mapDiSEqC);
 			// 個別設定があれば上書きで読み込む
 			key = prefix2 + L"DiSEqC";
 			m_aSatellite[satellite].Polarisation[polarisation].DiSEqC
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].DiSEqC);
+				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, mapDiSEqC);
 		}
 	}
 
@@ -1538,27 +1685,27 @@ void CBonTuner::ReadIniFile(void)
 		// 変調タイプ
 		key = prefix + L"Modulation";
 		m_aModulationType[modulation].Modulation
-			= (ModulationType)IniFileAccess.ReadKeyISectionData(key, m_aModulationType[modulation].Modulation);
+			= (ModulationType)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].Modulation, mapModulationType);
 
 		// 内部前方誤り訂正タイプ
 		key = prefix + L"InnerFEC";
 		m_aModulationType[modulation].InnerFEC
-			= (FECMethod)IniFileAccess.ReadKeyISectionData(key, m_aModulationType[modulation].InnerFEC);
+			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].InnerFEC, mapFECMethod);
 
 		// 内部FECレート
 		key = prefix + L"InnerFECRate";
 		m_aModulationType[modulation].InnerFECRate
-			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyISectionData(key, m_aModulationType[modulation].InnerFECRate);
+			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].InnerFECRate, mapBinaryConvolutionCodeRate);
 
 		// 外部前方誤り訂正タイプ
 		key = prefix + L"OuterFEC";
 		m_aModulationType[modulation].OuterFEC
-			= (FECMethod)IniFileAccess.ReadKeyISectionData(key, m_aModulationType[modulation].OuterFEC);
+			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].OuterFEC, mapFECMethod);
 
 		// 外部FECレート
 		key = prefix + L"OuterFECRate";
 		m_aModulationType[modulation].OuterFECRate
-			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyISectionData(key, m_aModulationType[modulation].OuterFECRate);
+			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].OuterFECRate, mapBinaryConvolutionCodeRate);
 
 		// シンボルレート
 		key = prefix + L"SymbolRate";
@@ -1579,7 +1726,7 @@ void CBonTuner::ReadIniFile(void)
 	// 使用されていないCH番号があっても前詰せず確保しておくかどうか
 	// 0 .. 使用されてない番号があった場合前詰し連続させる
 	// 1 .. 使用されていない番号をそのまま空CHとして確保しておく
-	m_bReserveUnusedCh = (BOOL)IniFileAccess.ReadKeyI(L"CHANNEL", L"ReserveUnusedCh", 0);
+	m_bReserveUnusedCh = IniFileAccess.ReadKeyB(L"CHANNEL", L"ReserveUnusedCh", 0);
 
 	std::map<unsigned int, TuningSpaceData*>::iterator itSpace;
 	std::map<unsigned int, ChData*>::iterator itCh;
@@ -2890,14 +3037,6 @@ HRESULT CBonTuner::InitTuningSpace(void)
 
 HRESULT CBonTuner::LoadNetworkProvider(void)
 {
-	static const WCHAR * const FILTER_GRAPH_NAME_NETWORK_PROVIDER[] = {
-		L"Microsoft Network Provider",
-		L"Microsoft DVB-S Network Provider",
-		L"Microsoft DVB-T Network Provider",
-		L"Microsoft DVB-C Network Provider",
-		L"Microsoft ATSC Network Provider",
-	};
-
 	const WCHAR *strName = NULL;
 	CLSID clsidNetworkProvider = CLSID_NULL;
 

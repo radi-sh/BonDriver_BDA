@@ -2,6 +2,15 @@
 
 #include "CIniFileAccess.h"
 
+static const std::map<const std::wstring, const int> mapBool = {
+	{ L"NO",    0 },
+	{ L"YES",   1 },
+	{ L"FALSE", 0 },
+	{ L"TRUE",  1 },
+	{ L"OFF",   0 },
+	{ L"ON",    1 },
+};
+
 CIniFileAccess::CIniFileAccess()
 {
 	CIniFileAccess(L"");
@@ -36,6 +45,32 @@ int CIniFileAccess::ReadKeyI(const std::wstring KeyName, int default)
 
 int CIniFileAccess::ReadKeyI(const std::wstring SectionName, const std::wstring KeyName, int default)
 {
+	return ::GetPrivateProfileIntW(SectionName.c_str(), KeyName.c_str(), default, m_IniFilePath.c_str());
+}
+
+BOOL CIniFileAccess::ReadKeyB(const std::wstring KeyName, BOOL default)
+{
+	return ReadKeyB(m_SectionName, KeyName, default);
+}
+
+BOOL CIniFileAccess::ReadKeyB(const std::wstring SectionName, const std::wstring KeyName, BOOL default)
+{
+	return ReadKeyIValueMap(SectionName, KeyName, default, mapBool);
+}
+
+int CIniFileAccess::ReadKeyIValueMap(const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap)
+{
+	return CIniFileAccess::ReadKeyIValueMap(m_SectionName, KeyName, default, ValueMap);
+}
+
+int CIniFileAccess::ReadKeyIValueMap(const std::wstring SectionName, const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap)
+{
+	WCHAR buf[_MAX_PATH + 1];
+	::GetPrivateProfileStringW(SectionName.c_str(), KeyName.c_str(), L"", buf, sizeof(buf) / sizeof(buf[0]), m_IniFilePath.c_str());
+	auto it = ValueMap.find(common::WStringToUpperCase(buf));
+	if (it != ValueMap.end())
+		return it->second;
+
 	return ::GetPrivateProfileIntW(SectionName.c_str(), KeyName.c_str(), default, m_IniFilePath.c_str());
 }
 
@@ -164,6 +199,24 @@ int CIniFileAccess::ReadKeyISectionData(const std::wstring KeyName, int default)
 	std::wstring s = ReadKeySSectionData(KeyName, L"");
 	if (s.length() == 0)
 		return default;
+	return common::WStringToLong(s);
+}
+
+BOOL CIniFileAccess::ReadKeyBSectionData(const std::wstring KeyName, BOOL default)
+{
+	return ReadKeyIValueMapSectionData(KeyName, default, mapBool);
+}
+
+int CIniFileAccess::ReadKeyIValueMapSectionData(const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap)
+{
+	std::wstring s = ReadKeySSectionData(KeyName, L"");
+	if (s.length() == 0)
+		return default;
+
+	auto it = ValueMap.find(common::WStringToUpperCase(s));
+	if (it != ValueMap.end())
+		return it->second;
+
 	return common::WStringToLong(s);
 }
 
