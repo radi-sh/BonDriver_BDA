@@ -208,7 +208,7 @@ CBonTuner::CBonTuner()
 	m_pDSFilterEnumTuner(NULL),
 	m_pDSFilterEnumCapture(NULL),
 	m_nDVBSystemType(eTunerTypeDVBS),
-	m_nNetworkProvider(eNetworkProviderAuto),
+	m_nNetworkProvider(eNetworkProviderGeneric),
 	m_nDefaultNetwork(1),
 	m_bOpened(FALSE),
 	m_dwTargetSpace(CBonTuner::SPACE_INVALID),
@@ -1458,7 +1458,7 @@ void CBonTuner::ReadIniFile(void)
 	//    3 .. Microsoft DVB-T Network Provider
 	//    4 .. Microsoft DVB-C Network Provider
 	//    5 .. Microsoft ATSC Network Provider
-	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", 0, mapNetworkProvider);
+	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", 1, mapNetworkProvider);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	//    1 .. SPHD
