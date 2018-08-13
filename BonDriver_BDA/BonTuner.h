@@ -925,7 +925,7 @@ protected:
 	};
 	enumNetworkProvider m_nNetworkProvider;
 
-	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV
+	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV, 4 .. Dual Mode
 	DWORD m_nDefaultNetwork;
 
 	// Tuner is opened
