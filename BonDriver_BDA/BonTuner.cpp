@@ -1258,6 +1258,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"UHF/CATV", 3 },
 		{ L"UHF",      3 },
 		{ L"CATV",     3 },
+		{ L"DUAL",     4 },
 	};
 
 	static const std::map<const std::wstring, const int> mapSignalLevelCalcType = {
@@ -1464,6 +1465,7 @@ void CBonTuner::ReadIniFile(void)
 	//    1 .. SPHD
 	//    2 .. BS/CS110
 	//    3 .. UHF/CATV
+	//    4 .. Dual Mode
 	m_nDefaultNetwork = IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", 1, mapDefaultNetwork);
 
 	//
@@ -1537,6 +1539,7 @@ void CBonTuner::ReadIniFile(void)
 		break;
 
 	case 2:
+	case 4:
 		// BS/CS110
 		// 衛星設定1
 		m_sSatelliteName[1] = L"BS/CS110";						// チャンネル名生成用衛星名称
@@ -1626,6 +1629,7 @@ void CBonTuner::ReadIniFile(void)
 	// 変調方式別パラメータ（0～3の順なので注意）
 
 	// デフォルト値設定
+	int modNum = 0;
 	switch (m_nDefaultNetwork) {
 	case 1:
 		//SPHD
@@ -1648,19 +1652,22 @@ void CBonTuner::ReadIniFile(void)
 		m_aModulationType[1].SymbolRate = 23303;					// シンボルレート
 		break;
 
+	case 4:
+		modNum = 1;
 	case 2:
 		// BS/CS110
 		// 変調方式設定0
-		m_sModulationName[0] = L"ISDB-S";							// チャンネル名生成用変調方式名称
-		m_aModulationType[0].Modulation = BDA_MOD_ISDB_S_TMCC;		// 変調タイプ
-		m_aModulationType[0].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
-		m_aModulationType[0].InnerFECRate = BDA_BCC_RATE_2_3;		// 内部FECレート
-		m_aModulationType[0].OuterFEC = BDA_FEC_RS_204_188;			// 外部前方誤り訂正タイプ
-		m_aModulationType[0].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
-		m_aModulationType[0].SymbolRate = 28860;					// シンボルレート
-		break;
+		m_sModulationName[modNum] = L"ISDB-S";							// チャンネル名生成用変調方式名称
+		m_aModulationType[modNum].Modulation = BDA_MOD_ISDB_S_TMCC;		// 変調タイプ
+		m_aModulationType[modNum].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
+		m_aModulationType[modNum].InnerFECRate = BDA_BCC_RATE_2_3;		// 内部FECレート
+		m_aModulationType[modNum].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+		m_aModulationType[modNum].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
+		m_aModulationType[modNum].SymbolRate = 28860;					// シンボルレート
+		if (m_nDefaultNetwork == 2)
+			break;
 
-	case 3:
+	case 3: // case 4も
 		// UHF/CATV
 		// 変調方式設定0
 		m_sModulationName[0] = L"ISDB-T";							// チャンネル名生成用変調方式名称
