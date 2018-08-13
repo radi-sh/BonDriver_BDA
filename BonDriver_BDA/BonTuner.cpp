@@ -2799,7 +2799,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		return hr;
 	}
 	if (!m_pITuningSpace) {
-		OutputDebug(L"Failed to get DVBSTuningSpace\n");
+		OutputDebug(L"Failed to get ITuningSpace\n");
 		return E_FAIL;
 	}
 
@@ -2808,15 +2808,19 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		OutputDebug(L"put_NetworkType failed\n");
 		return hr;
 	}
+	OutputDebug(L"%s is created.\n", (wchar_t *)bstrFriendlyName);
 	m_pITuningSpace->put_FrequencyMapping(L"");
 	m_pITuningSpace->put_UniqueName(bstrUniqueName);
 	m_pITuningSpace->put_FriendlyName(bstrFriendlyName);
+	OutputDebug(L"  ITuningSpace is initialized.\n");
+
 
 	// IDVBTuningSpace“Á—L
 	{
 		CComQIPtr<IDVBTuningSpace> pIDVBTuningSpace(m_pITuningSpace);
 		if (pIDVBTuningSpace) {
 			pIDVBTuningSpace->put_SystemType(dvbSystemType);
+			OutputDebug(L"  IDVBTuningSpace is initialized.\n");
 		}
 	}
 
@@ -2825,6 +2829,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		CComQIPtr<IDVBTuningSpace2> pIDVBTuningSpace2(m_pITuningSpace);
 		if (pIDVBTuningSpace2) {
 			pIDVBTuningSpace2->put_NetworkID(networkID);
+			OutputDebug(L"  IDVBTuningSpace2 is initialized.\n");
 		}
 	}
 
@@ -2836,6 +2841,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
 			pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
 			pIDVBSTuningSpace->put_SpectralInversion(BDA_SPECTRAL_INVERSION_NOT_SET);
+			OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
 		}
 	}
 
@@ -2847,6 +2853,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			pIAnalogTVTuningSpace->put_MinChannel(minChannel);
 			pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
 			pIAnalogTVTuningSpace->put_CountryCode(0);
+			OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
 		}
 	}
 
@@ -2858,6 +2865,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			pIATSCTuningSpace->put_MaxPhysicalChannel(maxPhysicalChannel);
 			pIATSCTuningSpace->put_MinMinorChannel(minMinorChannel);
 			pIATSCTuningSpace->put_MaxMinorChannel(maxMinorChannel);
+			OutputDebug(L"  IATSCTuningSpace is initialized.\n");
 		}
 	}
 
@@ -2869,6 +2877,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			pIDigitalCableTuningSpace->put_MaxMajorChannel(maxMajorChannel);
 			pIDigitalCableTuningSpace->put_MinSourceID(minSourceID);
 			pIDigitalCableTuningSpace->put_MaxSourceID(maxSourceID);
+			OutputDebug(L"  IDigitalCableTuningSpace is initialized.\n");
 		}
 	}
 
@@ -2893,6 +2902,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	pILocator->put_OuterFEC(BDA_FEC_METHOD_NOT_SET);
 	pILocator->put_OuterFECRate(BDA_BCC_RATE_NOT_SET);
 	pILocator->put_Modulation(modulationType);
+	OutputDebug(L"  ILocator is initialized.\n");
 
 	// IDVBSLocator“Á—L
 	{
@@ -2903,6 +2913,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			pIDVBSLocator->put_Elevation(-1);
 			pIDVBSLocator->put_Azimuth(-1);
 			pIDVBSLocator->put_SignalPolarisation(BDA_POLARISATION_NOT_SET);
+			OutputDebug(L"  IDVBSLocator is initialized.\n");
 		}
 	}
 
@@ -2917,6 +2928,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
 			pIDVBSLocator2->put_SignalPilot(BDA_PILOT_NOT_SET);
 			pIDVBSLocator2->put_SignalRollOff(BDA_ROLL_OFF_NOT_SET);
+			OutputDebug(L"  IDVBSLocator2 is initialized.\n");
 		}
 	}
 
@@ -2931,6 +2943,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			pIDVBTLocator->put_LPInnerFECRate(BDA_BCC_RATE_NOT_SET);
 			pIDVBTLocator->put_Mode(BDA_XMIT_MODE_NOT_SET);
 			pIDVBTLocator->put_OtherFrequencyInUse(VARIANT_FALSE);
+			OutputDebug(L"  IDVBTLocator is initialized.\n");
 		}
 	}
 
@@ -2939,6 +2952,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
 		if (pIDVBTLocator2) {
 			pIDVBTLocator2->put_PhysicalLayerPipeId(-1);
+			OutputDebug(L"  IDVBTLocator2 is initialized.\n");
 		}
 	}
 
@@ -2948,6 +2962,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		if (pIATSCLocator) {
 			pIATSCLocator->put_PhysicalChannel(-1);
 			pIATSCLocator->put_TSID(-1);
+			OutputDebug(L"  IATSCLocator is initialized.\n");
 		}
 	}
 
@@ -2956,6 +2971,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
 		if (pIATSCLocator2) {
 			pIATSCLocator2->put_ProgramNumber(-1);
+			OutputDebug(L"  IATSCLocator2 is initialized.\n");
 		}
 	}
 
@@ -3095,6 +3111,7 @@ HRESULT CBonTuner::LoadNetworkProvider(void)
 
 	HRESULT hr;
 
+	OutputDebug(L"Loading %s.\n", strName);
 	if (FAILED(hr = ::CoCreateInstance(clsidNetworkProvider, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void **)(&m_pNetworkProvider)))) {
 		OutputDebug(L"Fail to create network-provider.\n");
 		return hr;
