@@ -3182,24 +3182,24 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 		m_pDSFilterEnumCapture = new CDSFilterEnum(KSCATEGORY_BDA_RECEIVER_COMPONENT, CDEF_DEVMON_PNP_DEVICE);
 	}
 	catch (...) {
-		OutputDebug(L"[InitDSFilterEnum] Fail to construct CDSFilterEnum(KSCATEGORY_BDA_RECEIVER_COMPONENT).\n");
-		return E_FAIL;
+		OutputDebug(L"[InitDSFilterEnum] Fail to construct CDSFilterEnum(KSCATEGORY_BDA_RECEIVER_COMPONENT). Continue processing...\n");
 	}
 
-	order = 0;
-	while (SUCCEEDED(hr = m_pDSFilterEnumCapture->next()) && hr == S_OK) {
-		std::wstring sDisplayName;
-		std::wstring sFriendlyName;
+	if (m_pDSFilterEnumCapture) {
+		order = 0;
+		while (SUCCEEDED(hr = m_pDSFilterEnumCapture->next()) && hr == S_OK) {
+			std::wstring sDisplayName;
+			std::wstring sFriendlyName;
 
-		// チューナの DisplayName, FriendlyName を得る
-		m_pDSFilterEnumCapture->getDisplayName(&sDisplayName);
-		m_pDSFilterEnumCapture->getFriendlyName(&sFriendlyName);
+			// チューナの DisplayName, FriendlyName を得る
+			m_pDSFilterEnumCapture->getDisplayName(&sDisplayName);
+			m_pDSFilterEnumCapture->getFriendlyName(&sFriendlyName);
 
-		// 一覧に追加
+			// 一覧に追加
+			CaptureList.emplace_back(sDisplayName, sFriendlyName, order);
 
-		CaptureList.emplace_back(sDisplayName, sFriendlyName, order);
-
-		order++;
+			order++;
+		}
 	}
 
 	unsigned int total = 0;
@@ -3309,7 +3309,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		return E_POINTER;
 	}
 
-	if (!m_pDSFilterEnumTuner || !m_pDSFilterEnumCapture) {
+	if (!m_pDSFilterEnumTuner || (!m_pDSFilterEnumCapture && !m_aTunerParam.bNotExistCaptureDevice)) {
 		OutputDebug(L"[P->T] DSFilterEnum NOT SET.\n");
 		return E_POINTER;
 	}
@@ -3373,7 +3373,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 									else {
 										// 固有Dllの確認OK
 										// キャプチャデバイスのフィルタを取得
-										if (FAILED(hr = m_pDSFilterEnumCapture->getFilter(&m_pCaptureDevice, it2->Order))) {
+										if (!m_pDSFilterEnumCapture || FAILED(hr = m_pDSFilterEnumCapture->getFilter(&m_pCaptureDevice, it2->Order))) {
 											OutputDebug(L"[T->C] Error in Get Filter\n");
 										}
 										else {
