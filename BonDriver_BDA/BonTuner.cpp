@@ -2087,14 +2087,14 @@ void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 				(m_bSignalLockedJudgeTypeTuner && pnLock)) {
 			longVal = 0;
 			if (SUCCEEDED(hr = m_pITuner->get_SignalStrength(&longVal))) {
-				int strength = (int)(longVal & 0xffff);
-				int quality = (int)(longVal >> 16);
+				__int16 strength = (__int16)(longVal & 0xffffL);
+				__int16 quality = (__int16)(longVal >> 16);
 				if (m_bSignalLevelNeedStrength && pnStrength)
-					*pnStrength = strength < 0 ? 0xffff - strength : strength;
+					*pnStrength = (int)(strength < 0xffffi16 ? 0xffffi16 - strength : strength);
 				if (m_bSignalLevelNeedQuality && pnQuality)
-					*pnQuality = min(max(quality, 0), 100);
+					*pnQuality = min(max((int)quality, 0), 100);
 				if (m_bSignalLockedJudgeTypeTuner && pnLock)
-					*pnLock = strength > 0 ? 1 : 0;
+					*pnLock = strength != 0i16 ? 1 : 0;
 			}
 		}
 	}
