@@ -504,16 +504,16 @@ protected:
 	BOOL m_bSignalLevelCalcTypeAdd;		// SignalLevel 算出に SignalStrength と SignalQuality の足し算を使用する
 
 	// Strength 値補正係数
-	float m_fStrengthCoefficient;
+	double m_fStrengthCoefficient;
 
 	// Quality 値補正係数
-	float m_fQualityCoefficient;
+	double m_fQualityCoefficient;
 
 	// Strength 値補正バイアス
-	float m_fStrengthBias;
+	double m_fStrengthBias;
 
 	// Quality 値補正バイアス
-	float m_fQualityBias;
+	double m_fQualityBias;
 
 	// チューニング状態の判断方法
 	// 0 .. 常にチューニングに成功している状態として判断する
@@ -767,7 +767,7 @@ protected:
 		DWORD Rate1sec;					// 1秒間のレート加算用 (bytes/sec)
 		DWORD RateLast[5];				// 直近5秒間のレート (bytes/sec)
 		DWORD DataCount;				// 直近5秒間のデータ個数 (0～5)
-		float Rate;						// 平均ビットレート (Mibps)
+		double Rate;					// 平均ビットレート (Mibps)
 		DWORD LastTick;					// 前回のTickCount値
 		CRITICAL_SECTION csRate1Sec;	// nRate1sec 排他用
 		CRITICAL_SECTION csRateLast;	// nRateLast 排他用
@@ -777,7 +777,7 @@ protected:
 			: Rate1sec(0),
 			  RateLast(),
 			  DataCount(0),
-			  Rate(0.0F)
+			  Rate(0.0)
 		{
 			::InitializeCriticalSection(&csRate1Sec);
 			::InitializeCriticalSection(&csRateLast);
@@ -815,7 +815,7 @@ protected:
 				if (DataCount < 5)
 					DataCount++;
 				if (DataCount)
-					Rate = ((float)total / (float)DataCount) / 131072.0F;
+					Rate = ((double)total / (double)DataCount) / 131072.0;
 				LastTick = Tick;
 				::LeaveCriticalSection(&csRateLast);
 			}
@@ -832,13 +832,13 @@ protected:
 				RateLast[i] = 0;
 			}
 			DataCount = 0;
-			Rate = 0.0F;
+			Rate = 0.0;
 			LastTick = ::GetTickCount();
 			::LeaveCriticalSection(&csRate1Sec);
 			::LeaveCriticalSection(&csRateLast);
 		}
 
-		inline float GetRate(void)
+		inline double GetRate(void)
 		{
 			return Rate;
 		}

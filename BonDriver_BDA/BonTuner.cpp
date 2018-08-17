@@ -481,7 +481,7 @@ const float CBonTuner::_GetSignalLevel(void)
 
 	// ビットレートを返す場合
 	if (m_bSignalLevelGetTypeBR) {
-		return m_BitRate.GetRate();
+		return (float)m_BitRate.GetRate();
 	}
 
 	// IBdaSpecials2固有関数があれば丸投げ
@@ -506,16 +506,16 @@ const float CBonTuner::_GetSignalLevel(void)
 	if (nStrength < 0 && m_bSignalLevelNeedStrength)
 		// Strengthは-1を返す場合がある
 		return (float)nStrength;
-	float s = 0.0F;
-	float q = 0.0F;
+	double s = 0.0;
+	double q = 0.0;
 	if (m_bSignalLevelNeedStrength)
-		s = float(nStrength) / m_fStrengthCoefficient + m_fStrengthBias;
+		s = (double)nStrength / m_fStrengthCoefficient + m_fStrengthBias;
 	if (m_bSignalLevelNeedQuality)
-		q = float(nQuality) / m_fQualityCoefficient + m_fQualityBias;
+		q = (double)nQuality / m_fQualityCoefficient + m_fQualityBias;
 
 	if (m_bSignalLevelCalcTypeMul)
-		return s * q;
-	return s + q;
+		return (float)(s * q);
+	return (float)(s + q);
 }
 
 const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
@@ -982,7 +982,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 
 				// BitRate確認
 				if (pSys->m_nWatchDogBitRate != 0) {
-					if (pCOMProc->CheckBitRateErr((pSys->m_BitRate.GetRate() > 0.0F), pSys->m_nWatchDogBitRate * 1000)) {
+					if (pCOMProc->CheckBitRateErr((pSys->m_BitRate.GetRate() > 0.0), pSys->m_nWatchDogBitRate * 1000)) {
 						// チャンネルロック再実行
 						OutputDebug(L"COMProcThread: WatchDogBitRate time is up.\n");
 						pCOMProc->SetReLockChannel();
@@ -1415,20 +1415,20 @@ void CBonTuner::ReadIniFile(void)
 		m_bSignalLevelCalcTypeAdd = TRUE;
 
 	// Strength 値補正係数
-	m_fStrengthCoefficient = (float)IniFileAccess.ReadKeyFSectionData(L"StrengthCoefficient", 1.0);
-	if (m_fStrengthCoefficient == 0.0F)
-		m_fStrengthCoefficient = 1.0F;
+	m_fStrengthCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthCoefficient", 1.0);
+	if (m_fStrengthCoefficient == 0.0)
+		m_fStrengthCoefficient = 1.0;
 
 	// Quality 値補正係数
-	m_fQualityCoefficient = (float)IniFileAccess.ReadKeyFSectionData(L"QualityCoefficient", 1.0);
-	if (m_fQualityCoefficient == 0.0F)
-		m_fQualityCoefficient = 1.0F;
+	m_fQualityCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"QualityCoefficient", 1.0);
+	if (m_fQualityCoefficient == 0.0)
+		m_fQualityCoefficient = 1.0;
 
 	// Strength 値補正バイアス
-	m_fStrengthBias = (float)IniFileAccess.ReadKeyFSectionData(L"StrengthBias", 0.0);
+	m_fStrengthBias = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthBias", 0.0);
 
 	// Quality 値補正バイアス
-	m_fQualityBias = (float)IniFileAccess.ReadKeyFSectionData(L"QualityBias", 0.0);
+	m_fQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", 0.0);
 
 	// チューニング状態の判断方法
 	// 0 .. 常にチューニングに成功している状態として判断する
