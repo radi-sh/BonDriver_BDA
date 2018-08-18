@@ -7,8 +7,6 @@
 
 #include "BonTuner.h"
 
-using namespace std;
-
 // DllMain
 /////////////////////////////////////////////
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -20,6 +18,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		case DLL_PROCESS_ATTACH:
 			// モジュールハンドル保存
 			CBonTuner::st_hModule = hModule;
+			CBonTuner::Init();
 
 			::InitializeCriticalSection(&CBonTuner::st_LockInstanceList);
 
@@ -27,7 +26,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	
 		case DLL_PROCESS_DETACH:
 			// 未解放のインスタンスが残っていれば解放
-			list<CBonTuner*>::iterator it;
+			std::list<CBonTuner*>::iterator it;
 			while ((it = CBonTuner::st_InstanceList.begin()) != CBonTuner::st_InstanceList.end()) {
 				SAFE_RELEASE(*it);
 			}

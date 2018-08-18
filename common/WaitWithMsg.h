@@ -7,13 +7,13 @@ static DWORD WaitForMultipleObjectsWithMessageLoop(DWORD nCount, LPHANDLE pHandl
 
 	while (1)
 	{
-		dwRet = MsgWaitForMultipleObjects(nCount, pHandles, fWaitAll, dwMilliseconds, QS_ALLINPUT);
+		dwRet = ::MsgWaitForMultipleObjects(nCount, pHandles, fWaitAll, dwMilliseconds, QS_ALLINPUT);
 
 		if (dwRet == WAIT_OBJECT_0 + nCount) {
 			// メッセージのディスパッチ
-			while (PeekMessage(&msg, NULL, NULL, NULL, PM_REMOVE)) {
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
+			while (::PeekMessage(&msg, NULL, WM_NULL, WM_NULL, PM_REMOVE)) {
+				::TranslateMessage(&msg);
+				::DispatchMessage(&msg);
 			}
 		}
 		else {

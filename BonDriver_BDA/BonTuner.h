@@ -4,30 +4,19 @@
 //------------------------------------------------------------------------------
 #pragma once
 
-#include <Windows.h>
-#include <stdio.h>
+#include "common.h"
 
+#include <Windows.h>
+#include <string>
 #include <list>
 #include <vector>
 #include <map>
 #include <queue>
 
-#include "IBonDriver2.h"
 #include "IBdaSpecials2.h"
-
-#include "DSFilterEnum.h"
-
+#include "IBonDriver2.h"
 #include "LockChannel.h"
-
-#include <iostream>
-#include <dshow.h>
-
-#include <tuner.h>
-
-#include "common.h"
-
-// transform()
-#include <algorithm>
+#include "DSFilterEnum.h"
 
 class CTsWriter;
 
@@ -76,6 +65,13 @@ public:
 
 	void Release(void);
 	
+	////////////////////////////////////////
+	// 静的メンバ関数
+	////////////////////////////////////////
+
+	// 必要な静的変数初期化
+	static void Init(void);
+
 	////////////////////////////////////////
 	// 静的メンバ変数
 	////////////////////////////////////////
@@ -273,12 +269,9 @@ protected:
 		
 		~COMProc(void)
 		{
-			::CloseHandle(hReqEvent);
-			hReqEvent = NULL;
-			::CloseHandle(hEndEvent);
-			hEndEvent = NULL;
-			::CloseHandle(hTerminateRequest);
-			hTerminateRequest = NULL;
+			SAFE_CLOSE_HANDLE(hReqEvent);
+			SAFE_CLOSE_HANDLE(hEndEvent);
+			SAFE_CLOSE_HANDLE(hTerminateRequest);
 			::DeleteCriticalSection(&csLock);
 		};
 		
@@ -405,8 +398,7 @@ protected:
 		};
 		~DecodeProc(void)
 		{
-			::CloseHandle(hTerminateRequest);
-			hTerminateRequest = NULL;
+			SAFE_CLOSE_HANDLE(hTerminateRequest);
 		};
 	};
 	DecodeProc m_aDecodeProc;
@@ -427,14 +419,12 @@ protected:
 		TunerSearchData(void)
 		{
 		};
-		TunerSearchData(WCHAR* tunerGuid, WCHAR* tunerFriendlyName, WCHAR* captureGuid, WCHAR* captureFriendlyName)
-			: TunerGUID(tunerGuid),
-			TunerFriendlyName(tunerFriendlyName),
-			CaptureGUID(captureGuid),
-			CaptureFriendlyName(captureFriendlyName)
+		TunerSearchData(std::wstring tunerGuid, std::wstring tunerFriendlyName, std::wstring captureGuid, std::wstring captureFriendlyName)
+			: TunerFriendlyName(tunerFriendlyName),
+			  CaptureFriendlyName(captureFriendlyName)
 		{
-			std::transform(TunerGUID.begin(), TunerGUID.end(), TunerGUID.begin(), towlower);
-			std::transform(CaptureGUID.begin(), CaptureGUID.end(), CaptureGUID.begin(), towlower);
+			TunerGUID = common::WStringToLowerCase(tunerGuid);
+			CaptureGUID = common::WStringToLowerCase(captureGuid);
 		};
 	};
 
@@ -444,12 +434,8 @@ protected:
 												// TunerとCaptureのGUID/FriendlyName指定
 		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-#ifdef UNICODE
-		std::wstring sTunerName;						// GetTunerNameで返す名前
-#else
-		string sTunerName;						// GetTunerNameで返す名前
-#endif
-		std::wstring sDLLBaseName;					// 固有DLL
+		std::basic_string<TCHAR> sTunerName;	// GetTunerNameで返す名前
+		std::wstring sDLLBaseName;				// 固有DLL
 		TunerParam(void)
 			: bNotExistCaptureDevice(TRUE),
 			  bCheckDeviceInstancePath(TRUE)
@@ -457,7 +443,7 @@ protected:
 		};
 		~TunerParam(void)
 		{
-			for (std::map<unsigned int, TunerSearchData*>::iterator it = Tuner.begin(); it != Tuner.end(); it++) {
+			for (auto it = Tuner.begin(); it != Tuner.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Tuner.clear();
@@ -518,16 +504,16 @@ protected:
 	BOOL m_bSignalLevelCalcTypeAdd;		// SignalLevel 算出に SignalStrength と SignalQuality の足し算を使用する
 
 	// Strength 値補正係数
-	float m_fStrengthCoefficient;
+	double m_fStrengthCoefficient;
 
 	// Quality 値補正係数
-	float m_fQualityCoefficient;
+	double m_fQualityCoefficient;
 
 	// Strength 値補正バイアス
-	float m_fStrengthBias;
+	double m_fStrengthBias;
 
 	// Quality 値補正バイアス
-	float m_fQualityBias;
+	double m_fQualityBias;
 
 	// チューニング状態の判断方法
 	// 0 .. 常にチューニングに成功している状態として判断する
@@ -556,17 +542,22 @@ protected:
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
 	BOOL m_bAlwaysAnswerLocked;
 
+	// COMProcThreadのスレッドプライオリティ
+	int m_nThreadPriorityCOM;
+
+	// DecodeProcThreadのスレッドプライオリティ
+	int m_nThreadPriorityDecode;
+
+	// ストリームスレッドプライオリティ
+	int m_nThreadPriorityStream;
+
 	////////////////////////////////////////
 	// チャンネルパラメータ
 	////////////////////////////////////////
 
 	// チャンネルデータ
 	struct ChData {
-#ifdef UNICODE
-		std::wstring sServiceName;
-#else
-		string sServiceName;
-#endif
+		std::basic_string<TCHAR> sServiceName;	// EnumChannelNameで返すチャンネル名
 		unsigned int Satellite;			// 衛星受信設定番号
 		unsigned int Polarisation;		// 偏波種類番号 (0 .. 未指定, 1 .. H, 2 .. V, 3 .. L, 4 .. R)
 		unsigned int ModulationType;	// 変調方式設定番号
@@ -603,20 +594,18 @@ protected:
 
 	// チューニング空間データ
 	struct TuningSpaceData {
-#ifdef UNICODE
-		std::wstring sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
-#else
-		string sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
-#endif
+		std::basic_string<TCHAR> sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
+		long FrequencyOffset;			// 周波数オフセット値
 		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;				// チャンネル数
 		TuningSpaceData(void)
-			: dwNumChannel(0)
+			: FrequencyOffset(0),
+			  dwNumChannel(0)
 		{
 		};
 		~TuningSpaceData(void)
 		{
-			for (std::map<unsigned int, ChData*>::iterator it = Channels.begin(); it != Channels.end(); it++) {
+			for (auto it = Channels.begin(); it != Channels.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Channels.clear();
@@ -633,7 +622,7 @@ protected:
 		};
 		~TuningData(void)
 		{
-			for (std::map<unsigned int, TuningSpaceData*>::iterator it = Spaces.begin(); it != Spaces.end(); it++) {
+			for (auto it = Spaces.begin(); it != Spaces.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Spaces.clear();
@@ -659,6 +648,9 @@ protected:
 
 	// 偏波種類毎のiniファイルでの記号
 	static const WCHAR PolarisationChar[POLARISATION_SIZE];
+
+	// 偏波種類毎のiniファイルでの記号 逆引き用
+	static std::multimap<WCHAR, int> PolarisationCharMap;
 
 	// iniファイルで設定できる最大衛星数 + 1
 	static const unsigned int MAX_SATELLITE = 10;
@@ -690,7 +682,7 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルのPath
-	WCHAR m_szIniFilePath[_MAX_PATH + 1];
+	std::wstring m_sIniFilePath;
 
 	// TSバッファ操作用
 	CRITICAL_SECTION m_csTSBuff;
@@ -760,13 +752,22 @@ protected:
 	// データ受信中
 	BOOL m_bRecvStarted;
 
+	// プロセスハンドル
+	HANDLE m_hProcess;
+
+	// ストリームスレッドのハンドル
+	HANDLE m_hStreamThread;
+
+	// ストリームスレッドハンドル通知フラグ
+	BOOL m_bIsSetStreamThread;
+
 	// ビットレート計算用
 	class BitRate {
 	private:
 		DWORD Rate1sec;					// 1秒間のレート加算用 (bytes/sec)
 		DWORD RateLast[5];				// 直近5秒間のレート (bytes/sec)
 		DWORD DataCount;				// 直近5秒間のデータ個数 (0～5)
-		float Rate;						// 平均ビットレート (Mibps)
+		double Rate;					// 平均ビットレート (Mibps)
 		DWORD LastTick;					// 前回のTickCount値
 		CRITICAL_SECTION csRate1Sec;	// nRate1sec 排他用
 		CRITICAL_SECTION csRateLast;	// nRateLast 排他用
@@ -776,7 +777,7 @@ protected:
 			: Rate1sec(0),
 			  RateLast(),
 			  DataCount(0),
-			  Rate(0.0F)
+			  Rate(0.0)
 		{
 			::InitializeCriticalSection(&csRate1Sec);
 			::InitializeCriticalSection(&csRateLast);
@@ -814,7 +815,7 @@ protected:
 				if (DataCount < 5)
 					DataCount++;
 				if (DataCount)
-					Rate = ((float)total / (float)DataCount) / 131072.0F;
+					Rate = ((double)total / (double)DataCount) / 131072.0;
 				LastTick = Tick;
 				::LeaveCriticalSection(&csRateLast);
 			}
@@ -831,13 +832,13 @@ protected:
 				RateLast[i] = 0;
 			}
 			DataCount = 0;
-			Rate = 0.0F;
+			Rate = 0.0;
 			LastTick = ::GetTickCount();
 			::LeaveCriticalSection(&csRate1Sec);
 			::LeaveCriticalSection(&csRateLast);
 		}
 
-		inline float GetRate(void)
+		inline double GetRate(void)
 		{
 			return Rate;
 		}
@@ -924,7 +925,7 @@ protected:
 	};
 	enumNetworkProvider m_nNetworkProvider;
 
-	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV
+	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV, 4 .. Dual Mode
 	DWORD m_nDefaultNetwork;
 
 	// Tuner is opened
@@ -962,7 +963,7 @@ protected:
 
 	// チューナ固有関数 IBdaSpecials
 	IBdaSpecials *m_pIBdaSpecials;
-	IBdaSpecials2a1 *m_pIBdaSpecials2;
+	IBdaSpecials2a2 *m_pIBdaSpecials2;
 
 	// チューナ固有の関数が必要かどうかを自動判別するDB
 	// GUID をキーに DLL 名を得る
@@ -973,16 +974,16 @@ protected:
 	static const TUNER_SPECIAL_DLL aTunerSpecialData[];
 
 	// チャンネル名自動生成 inline 関数
-	inline int MakeChannelName(WCHAR* pszName, size_t size, CBonTuner::ChData* pChData)
+	inline std::basic_string<TCHAR> MakeChannelName(CBonTuner::ChData* pChData)
 	{
+		std::basic_string<TCHAR> format;
 		long m = pChData->Frequency / 1000;
 		long k = pChData->Frequency % 1000;
 		if (k == 0)
-			return ::swprintf_s(pszName, size, L"%s/%05ld%c/%s", m_sSatelliteName[pChData->Satellite].c_str(), m, PolarisationChar[pChData->Polarisation], m_sModulationName[pChData->ModulationType].c_str());
-		else {
-			return ::swprintf_s(pszName, size, L"%s/%05ld.%03ld%c/%s", m_sSatelliteName[pChData->Satellite].c_str(), m, k, PolarisationChar[pChData->Polarisation], m_sModulationName[pChData->ModulationType].c_str());
-
-		}
+			format = _T("%s/%05ld%c/%s");
+		else
+			format = _T("%s/%05ld.%03ld%c/%s");
+		return common::TStringPrintf(format.c_str(), m_sSatelliteName[pChData->Satellite].c_str(), m, PolarisationChar[pChData->Polarisation], m_sModulationName[pChData->ModulationType].c_str());
 	}
 };
 

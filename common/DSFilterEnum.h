@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <iostream>
 #include <dshow.h>
 
 #include <string>
@@ -22,6 +21,8 @@ public:
 	HRESULT getFilter(IBaseFilter** ppFilter, ULONG order);
 	HRESULT getFriendlyName(std::wstring* pName);
 	HRESULT getDisplayName(std::wstring* pName);
+
+	static std::wstring getDeviceInstancePathrFromDisplayName(std::wstring Name);
 
 private:
 	IEnumMoniker* m_pIEnumMoniker;

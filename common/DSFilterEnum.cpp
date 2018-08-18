@@ -3,17 +3,13 @@
 //   Implementation of CDSFilterEnum class
 //------------------------------------------------------------------------------
 
-#include "DSFilterEnum.h"
-
 #include "common.h"
 
-#include <iostream>
-#include <DShow.h>
+#include "DSFilterEnum.h"
 
-// transform()
 #include <algorithm>
 
-using namespace std;
+#include <DShow.h>
 
 CDSFilterEnum::CDSFilterEnum(CLSID clsid)
 	: CDSFilterEnum(clsid, 0)
@@ -28,7 +24,7 @@ CDSFilterEnum::CDSFilterEnum(CLSID clsid, DWORD dwFlags)
 	HRESULT hr = ::CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC, IID_ICreateDevEnum, reinterpret_cast<void**>(&m_pICreateDevEnum));
 
 	if (FAILED(hr)) {
-		wstring e(L"Error in CoCreateInstance.");
+		std::wstring e(L"Error in CoCreateInstance.");
 		throw e;
 		return; /* not reached */
 	}
@@ -38,7 +34,7 @@ CDSFilterEnum::CDSFilterEnum(CLSID clsid, DWORD dwFlags)
 	if ((FAILED (hr)) || (hr != S_OK)) {
 		// CreateClassEnumerator ‚ªì‚ê‚È‚¢ || Œ©‚Â‚©‚ç‚È‚¢
 		SAFE_RELEASE(m_pICreateDevEnum);
-		wstring e(L"Error in CreateClassEnumerator.");
+		std::wstring e(L"Error in CreateClassEnumerator.");
 		throw e;
 		return; /* not reached */
 	}
@@ -108,7 +104,7 @@ HRESULT CDSFilterEnum::getFilter(IBaseFilter** ppFilter, ULONG order)
 	return getFilter(ppFilter);
 }
 
-HRESULT CDSFilterEnum::getFriendlyName(wstring* pName)
+HRESULT CDSFilterEnum::getFriendlyName(std::wstring* pName)
 {
 	if (m_pIMoniker == NULL) {
 		return E_POINTER;
@@ -142,7 +138,7 @@ HRESULT CDSFilterEnum::getFriendlyName(wstring* pName)
 	return S_OK;
 }
 
-HRESULT CDSFilterEnum::getDisplayName(wstring* pName)
+HRESULT CDSFilterEnum::getDisplayName(std::wstring* pName)
 {
 	HRESULT hr;
 	if (m_pIMoniker == NULL) {
@@ -154,8 +150,17 @@ HRESULT CDSFilterEnum::getDisplayName(wstring* pName)
 		return hr;
 	}
 
-	*pName = pwszName;
-	::transform(pName->begin(), pName->end(), pName->begin(), towlower);
+	*pName = common::WStringToLowerCase(pwszName);
 
 	return S_OK;
+}
+
+std::wstring CDSFilterEnum::getDeviceInstancePathrFromDisplayName(std::wstring displayName)
+{
+	std::wstring::size_type start = displayName.find(L"\\\\\?\\") + 4;
+	std::wstring::size_type len = displayName.find_last_of(L"#") - start;
+	std::wstring dip = common::WStringToUpperCase(displayName.substr(start, len));
+	std::replace(dip.begin(), dip.end(), L'#', L'\\');
+
+	return std::wstring(dip);
 }
