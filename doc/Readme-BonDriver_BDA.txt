@@ -18,10 +18,11 @@ Windows XP以降 (x86/x64)
 
 【対応しているBDASpecialプラグイン】(リリース時現在)
 ・このBonDriver専用のBDASpecialプラグイン
-  -PlexPX.dll（PX-Q3PE/PX-W3PE/PX-W3PE V2/PX-W3U3/PX-W3U3 V2/PX-W3U2/PX-S3U2/PX-S3U）
-  -IT35.dll（PX-W3U4/PX-Q3U4）
+  -PlexPX.dll（Plex PX-Q3PE/Plex PX-W3PE/Plex PX-W3PE V2/Plex PX-W3U3/Plex PX-W3U3 V2/Plex PX-W3U2/Plex PX-S3U2/Plex PX-S3U）
+  -IT35.dll（Plex PX-Q3PE4/Plex PX-W3PE4/Plex PX-Q3U4/Plex PX-W3U4/e-Better DTV02-5T-P/e-Better DTV02-1T1S-U）
   -DVBWorld.dll（現在バイナリでの配布は行っていません。ソースコードからビルドしてください）
   -TBS.dll（現在バイナリでの配布は行っていません。ソースコードからビルドしてください）
+  ※ 各BDASpecialプラグイン共、20180818より前のバージョンは動作しませんのでご注意ください。
 ・「Bon_SPHD_BDA_PATCH_2」相当のBDASpecialプラグイン
   -DVBWorld.dll
   -TBS.dll
