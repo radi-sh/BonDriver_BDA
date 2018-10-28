@@ -916,7 +916,7 @@ protected:
 
 	// チューナーに使用するNetworkProvider 
 	enum enumNetworkProvider {
-		eNetworkProviderAuto = 0,		// 自動
+		eNetworkProviderAuto = 0,		// DVBSystemTypeの値によって自動選択
 		eNetworkProviderGeneric = 1,	// Microsoft Network Provider
 		eNetworkProviderDVBS = 2,		// Microsoft DVB-S Network Provider
 		eNetworkProviderDVBT = 3,		// Microsoft DVB-T Network Provider

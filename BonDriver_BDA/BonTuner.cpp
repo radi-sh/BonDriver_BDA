@@ -1455,7 +1455,7 @@ void CBonTuner::ReadIniFile(void)
 	m_nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(L"DVBSystemType", 1, mapTuningSpaceType);
 
 	// チューナーに使用するNetworkProvider
-	//    0 .. 自動
+	//    0 .. DVBSystemTypeの値によって自動選択
 	//    1 .. Microsoft Network Provider
 	//    2 .. Microsoft DVB-S Network Provider
 	//    3 .. Microsoft DVB-T Network Provider
