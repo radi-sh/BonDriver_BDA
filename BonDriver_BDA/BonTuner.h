@@ -914,6 +914,59 @@ protected:
 	};
 	enumTunerType m_nDVBSystemType;
 
+	// 使用するITuningSpace interface
+	enum enumITuningSpace {
+		eITuningSpaceAuto = -1,			// DVBSystemTypeの値によって自動選択
+		eITuningSpace = 1,				// ITuningSpace
+		eITuningSpaceDVB = 11,			// IDVBTuningSpace
+		eITuningSpaceDVB2 = 12,			// IDVBTuningSpace2
+		eITuningSpaceDVBS = 13,			// IDVBSTuningSpace
+		eITuningSpaceAnalogTV = 21,		// IAnalogTVTuningSpace
+		eITuningSpaceATSC = 22,			// IATSCTuningSpace
+		eITuningSpaceDigitalCable = 23,	// IDigitalCableTuningSpace
+	};
+	enumITuningSpace m_nSpecifyITuningSpace;
+
+	// 使用するILocator interface
+	enum enumILocator {
+		eILocatorAuto = -1,				// DVBSystemTypeの値によって自動選択
+		eILocator = 1,					// ILocator
+		eILocatorDigital = 2,			// IDigitalLocator
+		eILocatorDVBT = 11,				// IDVBTLocator
+		eILocatorDVBT2 = 12,			// IDVBTLocator2
+		eILocatorDVBS = 13,				// IDVBSLocator
+		eILocatorDVBS2 = 14,			// IDVBSLocator2
+		eILocatorISDBS = 15,			// IISDBSLocator
+		eILocatorDVBC = 16,				// IDVBCLocator
+		eILocatorATSC = 21,				// IATSCLocator
+		eILocatorATSC2 = 22,			// IATSCLocator2
+		eILocatorDigitalCable = 23,		// IDigitalCableLocator
+	};
+	enumILocator m_nSpecifyILocator;
+
+	// ITuningSpaceに設定するNetworkType
+	enum enumNetworkType {
+		eNetworkTypeAuto = -1,			// DVBSystemTypeの値によって自動選択
+		eNetworkTypeDVBT = 1,			// STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeDVBS = 2,			// STATIC_DVB_SATELLITE_TV_NETWORK_TYPE
+		eNetworkTypeDVBC = 3,			// STATIC_DVB_CABLE_TV_NETWORK_TYPE
+		eNetworkTypeISDBT = 11,			// STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeISDBS = 12,			// STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE
+		eNetworkTypeISDBC = 13,			// STATIC_ISDB_CABLE_TV_NETWORK_TYPE
+		eNetworkTypeATSC = 21,			// STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeDigitalCable = 22,	// STATIC_DIGITAL_CABLE_NETWORK_TYPE
+		eNetworkTypeBSkyB = 101,		// STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeDIRECTV = 102,		// STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE
+		eNetworkTypeEchoStar = 103,		// STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE
+	};
+	enumNetworkType m_nSpecifyITuningSpaceNetworkType;
+
+	// IDVBTuningSpaceに設定するSystemType
+	DVBSystemType m_nSpecifyIDVBTuningSpaceSystemType;
+
+	// IAnalogTVTuningSpaceに設定するInputType
+	tagTunerInputType m_nSpecifyIAnalogTVTuningSpaceInputType;
+
 	// チューナーに使用するNetworkProvider 
 	enum enumNetworkProvider {
 		eNetworkProviderAuto = 0,		// DVBSystemTypeの値によって自動選択
