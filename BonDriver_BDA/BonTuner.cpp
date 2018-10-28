@@ -83,7 +83,7 @@ std::multimap<WCHAR, int> CBonTuner::PolarisationCharMap;
 
 // CBonTunerÇ≈égópÇ∑ÇÈïŒîgéÌóﬁî‘çÜÇ∆Polarisationå^ÇÃMapping
 const Polarisation CBonTuner::PolarisationMapping[] = {
-	BDA_POLARISATION_NOT_DEFINED,
+	BDA_POLARISATION_NOT_SET,
 	BDA_POLARISATION_LINEAR_H,
 	BDA_POLARISATION_LINEAR_V,
 	BDA_POLARISATION_CIRCULAR_L,
