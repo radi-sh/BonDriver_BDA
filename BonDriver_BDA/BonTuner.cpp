@@ -720,6 +720,8 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_LastTuningParam.ONID = Ch->ONID;															// オリジナルネットワークID / PhysicalChannel (ATSC / Digital Cable)
 	m_LastTuningParam.TSID = Ch->TSID;															// トランスポートストリームID / Channel (ATSC / Digital Cable)
 	m_LastTuningParam.SID = Ch->SID;															// サービスID / MinorChannel (ATSC / Digital Cable)
+	m_LastTuningParam.MajorChannel = Ch->MajorChannel;											// MajorChannel (Digital Cable)
+	m_LastTuningParam.SourceID = Ch->SourceID;													// SourceID (Digital Cable)
 
 	BOOL bRet = LockChannel(&m_LastTuningParam, m_bLockTwice && Ch->LockTwiceTarget);
 
