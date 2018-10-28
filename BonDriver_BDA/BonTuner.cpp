@@ -2220,6 +2220,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// 固有関数がないだけなので、何もせず
 	}
 
+	// ITuningSpace継承順：
+	//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
+	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
+	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
+	//                → IAuxInTuningSpace → IAuxInTuningSpace2
+
 	// IDVBSTuningSpace特有
 	{
 		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_pITuningSpace);
@@ -2248,6 +2254,14 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 
 	// ILocator取得
+	//
+	// ILocator継承順：
+	//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
+	//                               → IDVBSLocator → IDVBSLocator2
+	//                                               → IISDBSLocator
+	//                               → IDVBCLocator
+	//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
+	//            → IAnalogLocator
 	CComPtr<ILocator> pILocator;
 	if (FAILED(hr = m_pITuningSpace->get_DefaultLocator(&pILocator)) || !pILocator) {
 		OutputDebug(L"Fail to get ILocator.\n");
@@ -2321,6 +2335,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 
 	// ITuneRequest作成
+	//
+	// ITuneRequest継承順：
+	//   ITuneRequest → IDVBTuneRequest
+	//                → IChannelTuneRequest → IATSCChannelTuneRequest → IDigitalCableTuneRequest
+	//                → IChannelIDTuneRequest
+	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
 	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
 		OutputDebug(L"Fail to create ITuneRequest.\n");
@@ -2818,6 +2838,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	// ITuningSpace継承順：
 	//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
 	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
+	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
+	//                → IAuxInTuningSpace → IAuxInTuningSpace2
 	if (FAILED(hr = ::CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER, iidITuningSpace, (void**)&m_pITuningSpace))) {
 		OutputDebug(L"FAILED: CoCreateInstance(ITuningSpace)\n");
 		return hr;
@@ -2908,10 +2930,12 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	// pILocatorを作成
 	//
 	// ILocator継承順：
-	//   ILocator → IDVBTLocator → IDVBTLocator2
-	//            → IDVBSLocator → IDVBSLocator2
-	//            → IDVBCLocator
-	//            → IDigitalLocator → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
+	//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
+	//                               → IDVBSLocator → IDVBSLocator2
+	//                                               → IISDBSLocator
+	//                               → IDVBCLocator
+	//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
+	//            → IAnalogLocator
 	CComPtr<ILocator> pILocator;
 	if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator)) || !pILocator) {
 		OutputDebug(L"Fail to get ILocator.\n");
@@ -2927,6 +2951,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	pILocator->put_OuterFECRate(BDA_BCC_RATE_NOT_SET);
 	pILocator->put_Modulation(modulationType);
 	OutputDebug(L"  ILocator is initialized.\n");
+
+	// IISDBSLocator特有プロパティは無い
 
 	// IDVBSLocator特有
 	{
@@ -3027,6 +3053,12 @@ HRESULT CBonTuner::InitTuningSpace(void)
 	HRESULT hr;
 
 	// ITuneRequest作成
+	//
+	// ITuneRequest継承順：
+	//   ITuneRequest → IDVBTuneRequest
+	//                → IChannelTuneRequest → IATSCChannelTuneRequest → IDigitalCableTuneRequest
+	//                → IChannelIDTuneRequest
+	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
 	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
 		OutputDebug(L"Fail to create ITuneRequest.\n");
