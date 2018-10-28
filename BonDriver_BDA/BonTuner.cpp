@@ -713,13 +713,13 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	PurgeTsStream();
 	TuningSpaceData * TuningSpace = it->second;
 	ChData * Ch = it2->second;
-	m_LastTuningParam.Frequency = Ch->Frequency + TuningSpace->FrequencyOffset;
-	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];
-	m_LastTuningParam.Antenna = &m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];
-	m_LastTuningParam.Modulation = &m_aModulationType[Ch->ModulationType];
-	m_LastTuningParam.ONID = Ch->ONID;
-	m_LastTuningParam.TSID = Ch->TSID;
-	m_LastTuningParam.SID = Ch->SID;
+	m_LastTuningParam.Frequency = Ch->Frequency + TuningSpace->FrequencyOffset;					// 周波数(MHz)
+	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];						// 信号の偏波
+	m_LastTuningParam.Antenna = &m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];	// アンテナ設定データ
+	m_LastTuningParam.Modulation = &m_aModulationType[Ch->ModulationType];						// 変調方式設定データ
+	m_LastTuningParam.ONID = Ch->ONID;															// オリジナルネットワークID / PhysicalChannel (ATSC / Digital Cable)
+	m_LastTuningParam.TSID = Ch->TSID;															// トランスポートストリームID / Channel (ATSC / Digital Cable)
+	m_LastTuningParam.SID = Ch->SID;															// サービスID / MinorChannel (ATSC / Digital Cable)
 
 	BOOL bRet = LockChannel(&m_LastTuningParam, m_bLockTwice && Ch->LockTwiceTarget);
 
