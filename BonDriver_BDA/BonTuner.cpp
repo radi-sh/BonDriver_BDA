@@ -1904,27 +1904,42 @@ void CBonTuner::ReadIniFile(void)
 
 					// SID / PhysicalChannel
 					if (buf[5][0] != 0) {
-						itCh->second->SID = common::WStringToLong(buf[5]);
+						val = common::WStringToLong(buf[5]);
+						if (val != 0) {
+							itCh->second->SID = val;
+						}
 					}
 
 					// TSID / Channel
 					if (buf[6][0] != 0) {
-						itCh->second->TSID = common::WStringToLong(buf[6]);
+						val = common::WStringToLong(buf[6]);
+						if (val != 0) {
+							itCh->second->TSID = val;
+						}
 					}
 
 					// ONID / MinorChannel
 					if (buf[7][0] != 0) {
-						itCh->second->ONID = common::WStringToLong(buf[7]);
+						val = common::WStringToLong(buf[7]);
+						if (val != 0) {
+							itCh->second->ONID = val;
+						}
 					}
 
 					// MajorChannel
 					if (buf[8][0] != 0) {
-						itCh->second->MajorChannel = common::WStringToLong(buf[8]);
+						val = common::WStringToLong(buf[8]);
+						if (val != 0) {
+							itCh->second->MajorChannel = val;
+						}
 					}
 
 					// SourceID
 					if (buf[9][0] != 0) {
-						itCh->second->SourceID = common::WStringToLong(buf[9]);
+						val = common::WStringToLong(buf[9]);
+						if (val != 0) {
+							itCh->second->SourceID = val;
+						}
 					}
 				}
 			}
