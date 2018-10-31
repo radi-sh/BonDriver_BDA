@@ -161,7 +161,7 @@ CBonTuner::CBonTuner()
 	m_nReOpenWhenGiveUpReLock(0),
 	m_bTryAnotherTuner(FALSE),
 	m_bBackgroundChannelLock(FALSE),
-	m_nSignalLevelCalcType(0),
+	m_nSignalLevelCalcType(eSignalLevelCalcTypeSSStrength),
 	m_bSignalLevelGetTypeSS(FALSE),
 	m_bSignalLevelGetTypeTuner(FALSE),
 	m_bSignalLevelGetTypeBR(FALSE),
@@ -173,7 +173,7 @@ CBonTuner::CBonTuner()
 	m_fQualityCoefficient(1),
 	m_fStrengthBias(0),
 	m_fQualityBias(0),
-	m_nSignalLockedJudgeType(1),
+	m_nSignalLockedJudgeType(eSignalLockedJudgeTypeSS),
 	m_bSignalLockedJudgeTypeSS(FALSE),
 	m_bSignalLockedJudgeTypeTuner(FALSE),
 	m_dwBuffSize(188 * 1024),
@@ -211,10 +211,10 @@ CBonTuner::CBonTuner()
 	m_nSpecifyTuningSpace(eTuningSpaceAuto),
 	m_nSpecifyLocator(eLocatorAuto),
 	m_nSpecifyITuningSpaceNetworkType(eNetworkTypeAuto),
-	m_nSpecifyIDVBTuningSpaceSystemType((DVBSystemType)-1),
-	m_nSpecifyIAnalogTVTuningSpaceInputType((tagTunerInputType)-1),
+	m_nSpecifyIDVBTuningSpaceSystemType(eDVBSystemTypeAuto),
+	m_nSpecifyIAnalogTVTuningSpaceInputType(eTunerInputTypeAuto),
 	m_nNetworkProvider(eNetworkProviderAuto),
-	m_nDefaultNetwork(1),
+	m_nDefaultNetwork(eDefaultNetworkSPHD),
 	m_bOpened(FALSE),
 	m_dwTargetSpace(CBonTuner::SPACE_INVALID),
 	m_dwCurSpace(CBonTuner::SPACE_INVALID),
@@ -1155,97 +1155,97 @@ void CBonTuner::StopRecv(void)
 void CBonTuner::ReadIniFile(void)
 {
 	static const std::map<const std::wstring, const int> mapThreadPriority = {
-		{ L"", THREAD_PRIORITY_ERROR_RETURN },
-		{ L"THREAD_PRIORITY_IDLE", THREAD_PRIORITY_IDLE },
-		{ L"THREAD_PRIORITY_LOWEST", THREAD_PRIORITY_LOWEST },
-		{ L"THREAD_PRIORITY_BELOW_NORMAL", THREAD_PRIORITY_BELOW_NORMAL },
-		{ L"THREAD_PRIORITY_NORMAL", THREAD_PRIORITY_NORMAL },
-		{ L"THREAD_PRIORITY_ABOVE_NORMAL", THREAD_PRIORITY_ABOVE_NORMAL },
-		{ L"THREAD_PRIORITY_HIGHEST", THREAD_PRIORITY_HIGHEST },
+		{ L"",                              THREAD_PRIORITY_ERROR_RETURN },
+		{ L"THREAD_PRIORITY_IDLE",          THREAD_PRIORITY_IDLE },
+		{ L"THREAD_PRIORITY_LOWEST",        THREAD_PRIORITY_LOWEST },
+		{ L"THREAD_PRIORITY_BELOW_NORMAL",  THREAD_PRIORITY_BELOW_NORMAL },
+		{ L"THREAD_PRIORITY_NORMAL",        THREAD_PRIORITY_NORMAL },
+		{ L"THREAD_PRIORITY_ABOVE_NORMAL",  THREAD_PRIORITY_ABOVE_NORMAL },
+		{ L"THREAD_PRIORITY_HIGHEST",       THREAD_PRIORITY_HIGHEST },
 		{ L"THREAD_PRIORITY_TIME_CRITICAL", THREAD_PRIORITY_TIME_CRITICAL },
 	};
 
 	static const std::map<const std::wstring, const int> mapModulationType = {
-		{ L"BDA_MOD_NOT_SET", BDA_MOD_NOT_SET },
-		{ L"BDA_MOD_NOT_DEFINED", BDA_MOD_NOT_DEFINED },
-		{ L"BDA_MOD_16QAM", BDA_MOD_16QAM },
-		{ L"BDA_MOD_32QAM", BDA_MOD_32QAM },
-		{ L"BDA_MOD_64QAM", BDA_MOD_64QAM },
-		{ L"BDA_MOD_80QAM", BDA_MOD_80QAM },
-		{ L"BDA_MOD_96QAM", BDA_MOD_96QAM },
-		{ L"BDA_MOD_112QAM", BDA_MOD_112QAM },
-		{ L"BDA_MOD_128QAM", BDA_MOD_128QAM },
-		{ L"BDA_MOD_160QAM", BDA_MOD_160QAM },
-		{ L"BDA_MOD_192QAM", BDA_MOD_192QAM },
-		{ L"BDA_MOD_224QAM", BDA_MOD_224QAM },
-		{ L"BDA_MOD_256QAM", BDA_MOD_256QAM },
-		{ L"BDA_MOD_320QAM", BDA_MOD_320QAM },
-		{ L"BDA_MOD_384QAM", BDA_MOD_384QAM },
-		{ L"BDA_MOD_448QAM", BDA_MOD_448QAM },
-		{ L"BDA_MOD_512QAM", BDA_MOD_512QAM },
-		{ L"BDA_MOD_640QAM", BDA_MOD_640QAM },
-		{ L"BDA_MOD_768QAM", BDA_MOD_768QAM },
-		{ L"BDA_MOD_896QAM", BDA_MOD_896QAM },
-		{ L"BDA_MOD_1024QAM", BDA_MOD_1024QAM },
-		{ L"BDA_MOD_QPSK", BDA_MOD_QPSK },
-		{ L"BDA_MOD_BPSK", BDA_MOD_BPSK },
-		{ L"BDA_MOD_OQPSK", BDA_MOD_OQPSK },
-		{ L"BDA_MOD_8VSB", BDA_MOD_8VSB },
-		{ L"BDA_MOD_16VSB", BDA_MOD_16VSB },
-		{ L"BDA_MOD_ANALOG_AMPLITUDE", BDA_MOD_ANALOG_AMPLITUDE },
-		{ L"BDA_MOD_ANALOG_FREQUENCY", BDA_MOD_ANALOG_FREQUENCY },
-		{ L"BDA_MOD_8PSK", BDA_MOD_8PSK },
-		{ L"BDA_MOD_RF", BDA_MOD_RF },
-		{ L"BDA_MOD_16APSK", BDA_MOD_16APSK },
-		{ L"BDA_MOD_32APSK", BDA_MOD_32APSK },
-		{ L"BDA_MOD_NBC_QPSK", BDA_MOD_NBC_QPSK },
-		{ L"BDA_MOD_NBC_8PSK", BDA_MOD_NBC_8PSK },
-		{ L"BDA_MOD_DIRECTV", BDA_MOD_DIRECTV },
-		{ L"BDA_MOD_ISDB_T_TMCC", BDA_MOD_ISDB_T_TMCC },
-		{ L"BDA_MOD_ISDB_S_TMCC", BDA_MOD_ISDB_S_TMCC },
+		{ L"BDA_MOD_NOT_SET",          ModulationType::BDA_MOD_NOT_SET },
+		{ L"BDA_MOD_NOT_DEFINED",      ModulationType::BDA_MOD_NOT_DEFINED },
+		{ L"BDA_MOD_16QAM",            ModulationType::BDA_MOD_16QAM },
+		{ L"BDA_MOD_32QAM",            ModulationType::BDA_MOD_32QAM },
+		{ L"BDA_MOD_64QAM",            ModulationType::BDA_MOD_64QAM },
+		{ L"BDA_MOD_80QAM",            ModulationType::BDA_MOD_80QAM },
+		{ L"BDA_MOD_96QAM",            ModulationType::BDA_MOD_96QAM },
+		{ L"BDA_MOD_112QAM",           ModulationType::BDA_MOD_112QAM },
+		{ L"BDA_MOD_128QAM",           ModulationType::BDA_MOD_128QAM },
+		{ L"BDA_MOD_160QAM",           ModulationType::BDA_MOD_160QAM },
+		{ L"BDA_MOD_192QAM",           ModulationType::BDA_MOD_192QAM },
+		{ L"BDA_MOD_224QAM",           ModulationType::BDA_MOD_224QAM },
+		{ L"BDA_MOD_256QAM",           ModulationType::BDA_MOD_256QAM },
+		{ L"BDA_MOD_320QAM",           ModulationType::BDA_MOD_320QAM },
+		{ L"BDA_MOD_384QAM",           ModulationType::BDA_MOD_384QAM },
+		{ L"BDA_MOD_448QAM",           ModulationType::BDA_MOD_448QAM },
+		{ L"BDA_MOD_512QAM",           ModulationType::BDA_MOD_512QAM },
+		{ L"BDA_MOD_640QAM",           ModulationType::BDA_MOD_640QAM },
+		{ L"BDA_MOD_768QAM",           ModulationType::BDA_MOD_768QAM },
+		{ L"BDA_MOD_896QAM",           ModulationType::BDA_MOD_896QAM },
+		{ L"BDA_MOD_1024QAM",          ModulationType::BDA_MOD_1024QAM },
+		{ L"BDA_MOD_QPSK",             ModulationType::BDA_MOD_QPSK },
+		{ L"BDA_MOD_BPSK",             ModulationType::BDA_MOD_BPSK },
+		{ L"BDA_MOD_OQPSK",            ModulationType::BDA_MOD_OQPSK },
+		{ L"BDA_MOD_8VSB",             ModulationType::BDA_MOD_8VSB },
+		{ L"BDA_MOD_16VSB",            ModulationType::BDA_MOD_16VSB },
+		{ L"BDA_MOD_ANALOG_AMPLITUDE", ModulationType::BDA_MOD_ANALOG_AMPLITUDE },
+		{ L"BDA_MOD_ANALOG_FREQUENCY", ModulationType::BDA_MOD_ANALOG_FREQUENCY },
+		{ L"BDA_MOD_8PSK",             ModulationType::BDA_MOD_8PSK },
+		{ L"BDA_MOD_RF",               ModulationType::BDA_MOD_RF },
+		{ L"BDA_MOD_16APSK",           ModulationType::BDA_MOD_16APSK },
+		{ L"BDA_MOD_32APSK",           ModulationType::BDA_MOD_32APSK },
+		{ L"BDA_MOD_NBC_QPSK",         ModulationType::BDA_MOD_NBC_QPSK },
+		{ L"BDA_MOD_NBC_8PSK",         ModulationType::BDA_MOD_NBC_8PSK },
+		{ L"BDA_MOD_DIRECTV",          ModulationType::BDA_MOD_DIRECTV },
+		{ L"BDA_MOD_ISDB_T_TMCC",      ModulationType::BDA_MOD_ISDB_T_TMCC },
+		{ L"BDA_MOD_ISDB_S_TMCC",      ModulationType::BDA_MOD_ISDB_S_TMCC },
 	};
 
 	static const std::map<const std::wstring, const int> mapFECMethod = {
-		{ L"BDA_FEC_METHOD_NOT_SET", BDA_FEC_METHOD_NOT_SET },
-		{ L"BDA_FEC_METHOD_NOT_DEFINED", BDA_FEC_METHOD_NOT_DEFINED },
-		{ L"BDA_FEC_VITERBI", BDA_FEC_VITERBI },
-		{ L"BDA_FEC_RS_204_188", BDA_FEC_RS_204_188 },
-		{ L"BDA_FEC_LDPC", BDA_FEC_LDPC },
-		{ L"BDA_FEC_BCH", BDA_FEC_BCH },
-		{ L"BDA_FEC_RS_147_130", BDA_FEC_RS_147_130 },
+		{ L"BDA_FEC_METHOD_NOT_SET",     FECMethod::BDA_FEC_METHOD_NOT_SET },
+		{ L"BDA_FEC_METHOD_NOT_DEFINED", FECMethod::BDA_FEC_METHOD_NOT_DEFINED },
+		{ L"BDA_FEC_VITERBI",            FECMethod::BDA_FEC_VITERBI },
+		{ L"BDA_FEC_RS_204_188",         FECMethod::BDA_FEC_RS_204_188 },
+		{ L"BDA_FEC_LDPC",               FECMethod::BDA_FEC_LDPC },
+		{ L"BDA_FEC_BCH",                FECMethod::BDA_FEC_BCH },
+		{ L"BDA_FEC_RS_147_130",         FECMethod::BDA_FEC_RS_147_130 },
 	};
 
 	static const std::map<const std::wstring, const int> mapBinaryConvolutionCodeRate = {
-		{ L"BDA_BCC_RATE_NOT_SET", BDA_BCC_RATE_NOT_SET },
-		{ L"BDA_BCC_RATE_NOT_DEFINED", BDA_BCC_RATE_NOT_DEFINED },
-		{ L"BDA_BCC_RATE_1_2", BDA_BCC_RATE_1_2 },
-		{ L"BDA_BCC_RATE_2_3", BDA_BCC_RATE_2_3 },
-		{ L"BDA_BCC_RATE_3_4", BDA_BCC_RATE_3_4 },
-		{ L"BDA_BCC_RATE_3_5", BDA_BCC_RATE_3_5 },
-		{ L"BDA_BCC_RATE_4_5", BDA_BCC_RATE_4_5 },
-		{ L"BDA_BCC_RATE_5_6", BDA_BCC_RATE_5_6 },
-		{ L"BDA_BCC_RATE_5_11", BDA_BCC_RATE_5_11 },
-		{ L"BDA_BCC_RATE_7_8", BDA_BCC_RATE_7_8 },
-		{ L"BDA_BCC_RATE_1_4", BDA_BCC_RATE_1_4 },
-		{ L"BDA_BCC_RATE_1_3", BDA_BCC_RATE_1_3 },
-		{ L"BDA_BCC_RATE_2_5", BDA_BCC_RATE_2_5 },
-		{ L"BDA_BCC_RATE_6_7", BDA_BCC_RATE_6_7 },
-		{ L"BDA_BCC_RATE_8_9", BDA_BCC_RATE_8_9 },
-		{ L"BDA_BCC_RATE_9_10", BDA_BCC_RATE_9_10 },
+		{ L"BDA_BCC_RATE_NOT_SET",     BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_SET },
+		{ L"BDA_BCC_RATE_NOT_DEFINED", BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_DEFINED },
+		{ L"BDA_BCC_RATE_1_2",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_2 },
+		{ L"BDA_BCC_RATE_2_3",         BinaryConvolutionCodeRate::BDA_BCC_RATE_2_3 },
+		{ L"BDA_BCC_RATE_3_4",         BinaryConvolutionCodeRate::BDA_BCC_RATE_3_4 },
+		{ L"BDA_BCC_RATE_3_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_3_5 },
+		{ L"BDA_BCC_RATE_4_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_4_5 },
+		{ L"BDA_BCC_RATE_5_6",         BinaryConvolutionCodeRate::BDA_BCC_RATE_5_6 },
+		{ L"BDA_BCC_RATE_5_11",        BinaryConvolutionCodeRate::BDA_BCC_RATE_5_11 },
+		{ L"BDA_BCC_RATE_7_8",         BinaryConvolutionCodeRate::BDA_BCC_RATE_7_8 },
+		{ L"BDA_BCC_RATE_1_4",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_4 },
+		{ L"BDA_BCC_RATE_1_3",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_3 },
+		{ L"BDA_BCC_RATE_2_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_2_5 },
+		{ L"BDA_BCC_RATE_6_7",         BinaryConvolutionCodeRate::BDA_BCC_RATE_6_7 },
+		{ L"BDA_BCC_RATE_8_9",         BinaryConvolutionCodeRate::BDA_BCC_RATE_8_9 },
+		{ L"BDA_BCC_RATE_9_10",        BinaryConvolutionCodeRate::BDA_BCC_RATE_9_10 },
 	};
 
 	static const std::map<const std::wstring, const int> mapTuningSpaceType = {
-		{ L"DVB-S/DVB-S2",   1 },
-		{ L"DVB-S2",         1 },
-		{ L"DVB-S",          1 },
-		{ L"DVB-T",          2 },
-		{ L"DVB-C",          3 },
-		{ L"DVB-T2",         4 },
-		{ L"ISDB-S",        11 },
-		{ L"ISDB-T",        12 },
-		{ L"ATSC",          21 },
-		{ L"ATSC CABLE",    22 },
-		{ L"DIGITAL CABLE", 23 },
+		{ L"DVB-S/DVB-S2",  enumTunerType::eTunerTypeDVBS },
+		{ L"DVB-S2",        enumTunerType::eTunerTypeDVBS },
+		{ L"DVB-S",         enumTunerType::eTunerTypeDVBS },
+		{ L"DVB-T",         enumTunerType::eTunerTypeDVBT },
+		{ L"DVB-C",         enumTunerType::eTunerTypeDVBC },
+		{ L"DVB-T2",        enumTunerType::eTunerTypeDVBT2 },
+		{ L"ISDB-S",        enumTunerType::eTunerTypeISDBS },
+		{ L"ISDB-T",        enumTunerType::eTunerTypeISDBT },
+		{ L"ATSC",          enumTunerType::eTunerTypeATSC_Antenna },
+		{ L"ATSC CABLE",    enumTunerType::eTunerTypeATSC_Cable },
+		{ L"DIGITAL CABLE", enumTunerType::eTunerTypeDigitalCable },
 	};
 
 	static const std::map<const std::wstring, const int> mapSpecifyTuningSpace = {
@@ -1269,54 +1269,54 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int> mapSpecifyITuningSpaceNetworkType = {
-		{ L"AUTO",                                           -1 },
-		{ L"STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE",          1 },
-		{ L"STATIC_DVB_SATELLITE_TV_NETWORK_TYPE",            2 },
-		{ L"STATIC_DVB_CABLE_TV_NETWORK_TYPE",                3 },
-		{ L"STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE",        11 },
-		{ L"STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE",          12 },
-		{ L"STATIC_ISDB_CABLE_TV_NETWORK_TYPE",              13 },
-		{ L"STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE",        21 },
-		{ L"STATIC_DIGITAL_CABLE_NETWORK_TYPE",              22 },
-		{ L"STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE",      101 },
-		{ L"STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE",    102 },
-		{ L"STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE",     103 },
+		{ L"AUTO", eNetworkProviderAuto },
+		{ L"STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE",     enumNetworkType::eNetworkTypeDVBT },
+		{ L"STATIC_DVB_SATELLITE_TV_NETWORK_TYPE",       enumNetworkType::eNetworkTypeDVBS },
+		{ L"STATIC_DVB_CABLE_TV_NETWORK_TYPE",           enumNetworkType::eNetworkTypeDVBC },
+		{ L"STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE",    enumNetworkType::eNetworkTypeISDBT },
+		{ L"STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE",      enumNetworkType::eNetworkTypeISDBS },
+		{ L"STATIC_ISDB_CABLE_TV_NETWORK_TYPE",          enumNetworkType::eNetworkTypeISDBC },
+		{ L"STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE",    enumNetworkType::eNetworkTypeATSC },
+		{ L"STATIC_DIGITAL_CABLE_NETWORK_TYPE",          enumNetworkType::eNetworkTypeDigitalCable },
+		{ L"STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE",   enumNetworkType::eNetworkTypeBSkyB },
+		{ L"STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE", enumNetworkType::eNetworkTypeDIRECTV },
+		{ L"STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE",  enumNetworkType::eNetworkTypeEchoStar },
 	};
 
 	static const std::map<const std::wstring, const int> mapSpecifyIDVBTuningSpaceSystemType = {
-		{ L"AUTO", -1 },
-		{ L"DVB_CABLE", DVB_Cable },
-		{ L"DVB_TERRESTRIAL", DVB_Terrestrial },
-		{ L"DVB_SATELLITE", DVB_Satellite },
-		{ L"ISDB_TERRESTRIAL", ISDB_Terrestrial },
-		{ L"ISDB_SATELLITE", ISDB_Satellite },
+		{ L"AUTO",             enumDVBSystemType::eDVBSystemTypeAuto },
+		{ L"DVB_CABLE",        enumDVBSystemType::eDVBSystemTypeDVBC },
+		{ L"DVB_TERRESTRIAL",  enumDVBSystemType::eDVBSystemTypeDVBT },
+		{ L"DVB_SATELLITE",    enumDVBSystemType::eDVBSystemTypeDVBS },
+		{ L"ISDB_TERRESTRIAL", enumDVBSystemType::eDVBSystemTypeISDBT },
+		{ L"ISDB_SATELLITE",   enumDVBSystemType::eDVBSystemTypeISDBS },
 	};
 
 
 	static const std::map<const std::wstring, const int> mapSpecifyIAnalogTVTuningSpaceInputType = {
-		{ L"AUTO", -1 },
-		{ L"TUNERINPUTCABLE", TunerInputCable },
-		{ L"TUNERINPUTANTENNA", TunerInputAntenna },
+		{ L"AUTO",              enumTunerInputType::eTunerInputTypeAuto },
+		{ L"TUNERINPUTCABLE",   enumTunerInputType::eTunerInputTypeCable },
+		{ L"TUNERINPUTANTENNA", enumTunerInputType::eTunerInputTypeAntenna },
 	};
 
 	static const std::map<const std::wstring, const int> mapNetworkProvider = {
-		{ L"AUTO", 0 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[0]), 1 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[1]), 2 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[2]), 3 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[3]), 4 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[4]), 5 },
+		{ L"AUTO",                                                           enumNetworkProvider::eNetworkProviderAuto },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[0]), enumNetworkProvider::eNetworkProviderGeneric },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[1]), enumNetworkProvider::eNetworkProviderDVBS },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[2]), enumNetworkProvider::eNetworkProviderDVBT },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[3]), enumNetworkProvider::eNetworkProviderDVBC },
+		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[4]), enumNetworkProvider::eNetworkProviderATSC },
 	};
 
 	static const std::map<const std::wstring, const int> mapDefaultNetwork = {
-		{ L"SPHD",     1 },
-		{ L"BS/CS110", 2 },
-		{ L"BS",       2 },
-		{ L"CS110",    2 },
-		{ L"UHF/CATV", 3 },
-		{ L"UHF",      3 },
-		{ L"CATV",     3 },
-		{ L"DUAL",     4 },
+		{ L"SPHD",     eDefaultNetworkSPHD },
+		{ L"BS/CS110", eDefaultNetworkBSCS },
+		{ L"BS",       eDefaultNetworkBSCS },
+		{ L"CS110",    eDefaultNetworkBSCS },
+		{ L"UHF/CATV", eDefaultNetworkUHF },
+		{ L"UHF",      eDefaultNetworkUHF },
+		{ L"CATV",     eDefaultNetworkUHF },
+		{ L"DUAL",     eDefaultNetworkDual },
 	};
 
 	static const std::map<const std::wstring, const int> mapSignalLevelCalcType = {
@@ -1445,31 +1445,22 @@ void CBonTuner::ReadIniFile(void)
 	std::wstring sTempTuningSpaceName = IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", L"スカパー");
 
 	// SignalLevel 算出方法
-	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//   3 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	//  13 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	// 100 .. ビットレート値(Mibps)
-	m_nSignalLevelCalcType = IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", 0, mapSignalLevelCalcType);
-	if (m_nSignalLevelCalcType >= 0 && m_nSignalLevelCalcType <= 9)
+	m_nSignalLevelCalcType = (enumSignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength, mapSignalLevelCalcType);
+	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeSSMax)
 		m_bSignalLevelGetTypeSS = TRUE;
-	if (m_nSignalLevelCalcType >= 10 && m_nSignalLevelCalcType <= 19)
+	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeTunerMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeTunerMax)
 		m_bSignalLevelGetTypeTuner = TRUE;
-	if (m_nSignalLevelCalcType == 100)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR)
 		m_bSignalLevelGetTypeBR = TRUE;
-	if (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 3 ||
-			m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12 || m_nSignalLevelCalcType == 13)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
 		m_bSignalLevelNeedStrength = TRUE;
-	if (m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 3 ||
-			m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12 || m_nSignalLevelCalcType == 13)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
 		m_bSignalLevelNeedQuality = TRUE;
-	if (m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 12)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul)
 		m_bSignalLevelCalcTypeMul = TRUE;
-	if (m_nSignalLevelCalcType == 3 || m_nSignalLevelCalcType == 13)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
 		m_bSignalLevelCalcTypeAdd = TRUE;
 
 	// Strength 値補正係数
@@ -1489,26 +1480,14 @@ void CBonTuner::ReadIniFile(void)
 	m_fQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", 0.0);
 
 	// チューニング状態の判断方法
-	// 0 .. 常にチューニングに成功している状態として判断する
-	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
-	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
-	m_nSignalLockedJudgeType = IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", 1, mapSignalLockedJudgeType);
-	if (m_nSignalLockedJudgeType == 1)
+	m_nSignalLockedJudgeType = (enumSignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS, mapSignalLockedJudgeType);
+	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeSS)
 		m_bSignalLockedJudgeTypeSS = TRUE;
-	if (m_nSignalLockedJudgeType == 2)
+	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeTuner)
 		m_bSignalLockedJudgeTypeTuner = TRUE;
 
 	// チューナーの使用するTuningSpaceの種類
-	//    1 .. DVB-S/DVB-S2
-	//    2 .. DVB-T
-	//    3 .. DVB-C
-	//    4 .. DVB-T2
-	//   11 .. ISDB-S
-	//   12 .. ISDB-T
-	//   21 .. ATSC
-	//   22 .. ATSC Cable
-	//   23 .. Digital Cable
-	m_nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(L"DVBSystemType", 1, mapTuningSpaceType);
+	m_nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(L"DVBSystemType", enumTunerType::eTunerTypeDVBS, mapTuningSpaceType);
 
 	// 使用するITuningSpace interface
 	m_nSpecifyTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyTuningSpace", enumTuningSpace::eTuningSpaceAuto, mapSpecifyTuningSpace);
@@ -1517,29 +1496,19 @@ void CBonTuner::ReadIniFile(void)
 	m_nSpecifyLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyLocator", enumLocator::eLocatorAuto, mapSpecifyLocator);
 
 	// ITuningSpaceに設定するNetworkType
-	m_nSpecifyITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyITuningSpaceNetworkType", -1, mapSpecifyITuningSpaceNetworkType);
+	m_nSpecifyITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyITuningSpaceNetworkType", enumNetworkType::eNetworkTypeAuto, mapSpecifyITuningSpaceNetworkType);
 
 	// IDVBTuningSpaceに設定するSystemType
-	m_nSpecifyIDVBTuningSpaceSystemType = (DVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyIDVBTuningSpaceSystemType", -1, mapSpecifyIDVBTuningSpaceSystemType);
+	m_nSpecifyIDVBTuningSpaceSystemType = (enumDVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyIDVBTuningSpaceSystemType", enumDVBSystemType::eDVBSystemTypeAuto, mapSpecifyIDVBTuningSpaceSystemType);
 
 	// IAnalogTVTuningSpaceに設定するInputType
-	m_nSpecifyIAnalogTVTuningSpaceInputType = (tagTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyIAnalogTVTuningSpaceInputType", -1, mapSpecifyIAnalogTVTuningSpaceInputType);
+	m_nSpecifyIAnalogTVTuningSpaceInputType = (enumTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyIAnalogTVTuningSpaceInputType", enumTunerInputType::eTunerInputTypeAuto, mapSpecifyIAnalogTVTuningSpaceInputType);
 
 	// チューナーに使用するNetworkProvider
-	//    0 .. DVBSystemTypeの値によって自動選択
-	//    1 .. Microsoft Network Provider
-	//    2 .. Microsoft DVB-S Network Provider
-	//    3 .. Microsoft DVB-T Network Provider
-	//    4 .. Microsoft DVB-C Network Provider
-	//    5 .. Microsoft ATSC Network Provider
-	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", 0, mapNetworkProvider);
+	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", enumNetworkProvider::eNetworkProviderAuto, mapNetworkProvider);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
-	//    1 .. SPHD
-	//    2 .. BS/CS110
-	//    3 .. UHF/CATV
-	//    4 .. Dual Mode
-	m_nDefaultNetwork = IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", 1, mapDefaultNetwork);
+	m_nDefaultNetwork = (enumDefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", enumDefaultNetwork::eDefaultNetworkSPHD, mapDefaultNetwork);
 
 	//
 	// BonDriver セクション
@@ -1590,7 +1559,7 @@ void CBonTuner::ReadIniFile(void)
 
 	// デフォルト値設定
 	switch (m_nDefaultNetwork) {
-	case 1:
+	case eDefaultNetworkSPHD:
 		// SPHD
 		// 衛星設定1（JCSAT-3A）
 		m_sSatelliteName[1] = L"128.0E";						// チャンネル名生成用衛星名称
@@ -1611,8 +1580,8 @@ void CBonTuner::ReadIniFile(void)
 		m_aSatellite[2].Polarisation[2].Tone = 1;				// 水平偏波時トーン信号
 		break;
 
-	case 2:
-	case 4:
+	case eDefaultNetworkBSCS:
+	case eDefaultNetworkDual:
 		// BS/CS110
 		// 衛星設定1
 		m_sSatelliteName[1] = L"BS/CS110";						// チャンネル名生成用衛星名称
@@ -1624,7 +1593,7 @@ void CBonTuner::ReadIniFile(void)
 		m_aSatellite[1].Polarisation[4].Tone = 0;				// 水平偏波時トーン信号
 		break;
 
-	case 3:
+	case eDefaultNetworkUHF:
 		// UHF/CATVは衛星設定不要
 		break;
 	}
@@ -1704,7 +1673,7 @@ void CBonTuner::ReadIniFile(void)
 	// デフォルト値設定
 	int modNum = 0;
 	switch (m_nDefaultNetwork) {
-	case 1:
+	case eDefaultNetworkSPHD:
 		//SPHD
 		// 変調方式設定0（DVB-S）
 		m_sModulationName[0] = L"DVB-S";							// チャンネル名生成用変調方式名称
@@ -1725,9 +1694,9 @@ void CBonTuner::ReadIniFile(void)
 		m_aModulationType[1].SymbolRate = 23303;					// シンボルレート
 		break;
 
-	case 4:
+	case eDefaultNetworkDual:
 		modNum = 1;
-	case 2:
+	case eDefaultNetworkBSCS:
 		// BS/CS110
 		// 変調方式設定0
 		m_sModulationName[modNum] = L"ISDB-S";							// チャンネル名生成用変調方式名称
@@ -1737,10 +1706,10 @@ void CBonTuner::ReadIniFile(void)
 		m_aModulationType[modNum].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
 		m_aModulationType[modNum].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
 		m_aModulationType[modNum].SymbolRate = 28860;					// シンボルレート
-		if (m_nDefaultNetwork == 2)
+		if (m_nDefaultNetwork == eDefaultNetworkBSCS)
 			break;
 
-	case 3: // case 4も
+	case eDefaultNetworkUHF: // case eDefaultNetworkDualも
 		// UHF/CATV
 		// 変調方式設定0
 		m_sModulationName[0] = L"ISDB-T";							// チャンネル名生成用変調方式名称
@@ -2106,7 +2075,7 @@ void CBonTuner::ReadIniFile(void)
 
 	if (!itSpace->second->Channels.size()) {
 		// CH定義が一つもされていない
-		if (m_nDefaultNetwork == 1) {
+		if (m_nDefaultNetwork == eDefaultNetworkSPHD) {
 			// SPHDの場合のみ過去のバージョン互換動作
 			// 3つのTPをデフォルトでセットしておく
 			ChData *chData;
@@ -2983,12 +2952,12 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		break;
 	}
 
-	if (m_nSpecifyIDVBTuningSpaceSystemType != (DVBSystemType)-1) {
-		dvbSystemType = m_nSpecifyIDVBTuningSpaceSystemType;
+	if (m_nSpecifyIDVBTuningSpaceSystemType != enumDVBSystemType::eDVBSystemTypeAuto) {
+		dvbSystemType = (DVBSystemType)m_nSpecifyIDVBTuningSpaceSystemType;
 	}
 
-	if (m_nSpecifyIAnalogTVTuningSpaceInputType != (tagTunerInputType)-1) {
-		tunerInputType = m_nSpecifyIAnalogTVTuningSpaceInputType;
+	if (m_nSpecifyIAnalogTVTuningSpaceInputType != enumTunerInputType::eTunerInputTypeAuto) {
+		tunerInputType = (tagTunerInputType)m_nSpecifyIAnalogTVTuningSpaceInputType;
 	}
 
 	HRESULT hr;

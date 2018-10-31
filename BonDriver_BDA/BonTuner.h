@@ -485,16 +485,22 @@ protected:
 	BOOL m_bBackgroundChannelLock;
 
 	// SignalLevel 算出方法
-	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//   3 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	//  13 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	// 100 .. ビットレート値(Mibps)
-	unsigned int m_nSignalLevelCalcType;
+	enum enumSignalLevelCalcType {
+		eSignalLevelCalcTypeSSMin = 0,
+		eSignalLevelCalcTypeSSStrength = 0,		// IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+		eSignalLevelCalcTypeSSQuality = 1,		// IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+		eSignalLevelCalcTypeSSMul = 2,			// (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSAdd = 3,			// (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSMax = 9,
+		eSignalLevelCalcTypeTunerMin = 10,
+		eSignalLevelCalcTypeTunerStrength = 10,	// ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+		eSignalLevelCalcTypeTunerQuality = 11,	// ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+		eSignalLevelCalcTypeTunerMul = 12,		// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerAdd = 13,		// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerMax = 19,
+		eSignalLevelCalcTypeBR = 100,			// ビットレート値(Mibps)
+	};
+	enumSignalLevelCalcType m_nSignalLevelCalcType;
 	BOOL m_bSignalLevelGetTypeSS;		// SignalLevel 算出に IBDA_SignalStatistics を使用する
 	BOOL m_bSignalLevelGetTypeTuner;	// SignalLevel 算出に ITuner を使用する
 	BOOL m_bSignalLevelGetTypeBR;		// SignalLevel 算出に ビットレート値を使用する
@@ -516,10 +522,12 @@ protected:
 	double m_fQualityBias;
 
 	// チューニング状態の判断方法
-	// 0 .. 常にチューニングに成功している状態として判断する
-	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
-	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
-	unsigned int m_nSignalLockedJudgeType;
+	enum enumSignalLockedJudgeType {
+		eSignalLockedJudgeTypeAlways = 0,	// 常にチューニングに成功している状態として判断する
+		eSignalLockedJudgeTypeSS = 1,		// IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
+		eSignalLockedJudgeTypeTuner = 2,	// ITuner::get_SignalStrengthで取得した値で判断する
+	};
+	enumSignalLockedJudgeType m_nSignalLockedJudgeType;
 	BOOL m_bSignalLockedJudgeTypeSS;	// チューニング状態の判断に IBDA_SignalStatistics を使用する
 	BOOL m_bSignalLockedJudgeTypeTuner;	// チューニング状態の判断に ITuner を使用する
 
@@ -956,10 +964,23 @@ protected:
 	enumNetworkType m_nSpecifyITuningSpaceNetworkType;
 
 	// IDVBTuningSpaceに設定するSystemType
-	DVBSystemType m_nSpecifyIDVBTuningSpaceSystemType;
+	enum enumDVBSystemType {
+		eDVBSystemTypeAuto = -1,								// DVBSystemTypeの値によって自動選択
+		eDVBSystemTypeDVBC = DVBSystemType::DVB_Cable,			// DVB_Cable
+		eDVBSystemTypeDVBT = DVBSystemType::DVB_Terrestrial,	// DVB_Terrestrial
+		eDVBSystemTypeDVBS = DVBSystemType::DVB_Satellite,		// DVB_Satellite
+		eDVBSystemTypeISDBT = DVBSystemType::ISDB_Terrestrial,	// ISDB_Terrestrial
+		eDVBSystemTypeISDBS = DVBSystemType::ISDB_Satellite,	// ISDB_Satellite
+	};
+	enumDVBSystemType m_nSpecifyIDVBTuningSpaceSystemType;
 
 	// IAnalogTVTuningSpaceに設定するInputType
-	tagTunerInputType m_nSpecifyIAnalogTVTuningSpaceInputType;
+	enum enumTunerInputType {
+		eTunerInputTypeAuto = -1,										// DVBSystemTypeの値によって自動選択
+		eTunerInputTypeCable = tagTunerInputType::TunerInputCable,		// TunerInputCable
+		eTunerInputTypeAntenna = tagTunerInputType::TunerInputAntenna,	// TunerInputAntenna
+	};
+	enumTunerInputType m_nSpecifyIAnalogTVTuningSpaceInputType;
 
 	// チューナーに使用するNetworkProvider 
 	enum enumNetworkProvider {
@@ -972,8 +993,14 @@ protected:
 	};
 	enumNetworkProvider m_nNetworkProvider;
 
-	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV, 4 .. Dual Mode
-	DWORD m_nDefaultNetwork;
+	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
+	enum enumDefaultNetwork {
+		eDefaultNetworkSPHD = 1,		// SPHD
+		eDefaultNetworkBSCS = 2,		// BS/CS110
+		eDefaultNetworkUHF = 3,			// UHF/CATV
+		eDefaultNetworkDual = 4,		// Dual Mode (BS/CS110とUHF/CATV)
+	};
+	enumDefaultNetwork m_nDefaultNetwork;
 
 	// Tuner is opened
 	BOOL m_bOpened;
