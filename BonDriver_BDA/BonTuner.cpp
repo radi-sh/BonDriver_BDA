@@ -208,8 +208,8 @@ CBonTuner::CBonTuner()
 	m_pDSFilterEnumTuner(NULL),
 	m_pDSFilterEnumCapture(NULL),
 	m_nDVBSystemType(eTunerTypeDVBS),
-	m_nSpecifyITuningSpace(eITuningSpaceAuto),
-	m_nSpecifyILocator(eILocatorAuto),
+	m_nSpecifyTuningSpace(eTuningSpaceAuto),
+	m_nSpecifyLocator(eLocatorAuto),
 	m_nSpecifyITuningSpaceNetworkType(eNetworkTypeAuto),
 	m_nSpecifyIDVBTuningSpaceSystemType((DVBSystemType)-1),
 	m_nSpecifyIAnalogTVTuningSpaceInputType((tagTunerInputType)-1),
@@ -1248,30 +1248,24 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DIGITAL CABLE", 23 },
 	};
 
-	static const std::map<const std::wstring, const int> mapSpecifyITuningSpace = {
-		{ L"AUTO",                      -1 },
-		{ L"ITUNINGSPACE",               1 },
-		{ L"IDVBTUNINGSPACE",           11 },
-		{ L"IDVBTUNINGSPACE2",          12 },
-		{ L"IDVBSTUNINGSPACE",          13 },
-		{ L"IANALOGTVTUNINGSPACE",      21 },
-		{ L"IATSCTUNINGSPACE",		    22 },
-		{ L"IDIGITALCABLETUNINGSPACE",  23 },
+	static const std::map<const std::wstring, const int> mapSpecifyTuningSpace = {
+		{ L"AUTO", eTuningSpaceAuto },
+		{ L"DVBTUNINGSPACE", eTuningSpaceDVB },
+		{ L"DVBSTUNINGSPACE", eTuningSpaceDVBS },
+		{ L"ANALOGTVTUNINGSPACE", eTuningSpaceAnalogTV },
+		{ L"ATSCTUNINGSPACE",	eTuningSpaceATSC },
+		{ L"DIGITALCABLETUNINGSPACE",  eTuningSpaceDigitalCable },
 	};
 
-	static const std::map<const std::wstring, const int> mapSpecifyILocator = {
-		{ L"AUTO",                      -1 },
-		{ L"ILOCATOR",                   1 },
-		{ L"IDIGITALLOCATOR",            2 },
-		{ L"IDVBTLOCATOR",              11 },
-		{ L"IDVBTLOCATOR2",             12 },
-		{ L"IDVBSLOCATOR",              13 },
-		{ L"IDVBSLOCATOR2",             14 },
-		{ L"IISDBSLOCATOR",             15 },
-		{ L"IDVBCLOCATOR",              16 },
-		{ L"IATSCLOCATOR",              21 },
-		{ L"IATSCLOCATOR2",             22 },
-		{ L"IDIGITALCABLELOCATOR",	    23 },
+	static const std::map<const std::wstring, const int> mapSpecifyLocator = {
+		{ L"AUTO", eLocatorAuto },
+		{ L"DVBTLOCATOR",         enumLocator::eLocatorDVBT },
+		{ L"DVBTLOCATOR2",        enumLocator::eLocatorDVBT2 },
+		{ L"DVBSLOCATOR",         enumLocator::eLocatorDVBS },
+		{ L"DVBCLOCATOR",         enumLocator::eLocatorDVBC },
+		{ L"ISDBSLOCATOR",        enumLocator::eLocatorISDBS },
+		{ L"ATSCLOCATOR",         enumLocator::eLocatorATSC },
+		{ L"DIGITALCABLELOCATOR", enumLocator::eLocatorDigitalCable },
 	};
 
 	static const std::map<const std::wstring, const int> mapSpecifyITuningSpaceNetworkType = {
@@ -1517,10 +1511,10 @@ void CBonTuner::ReadIniFile(void)
 	m_nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(L"DVBSystemType", 1, mapTuningSpaceType);
 
 	// 使用するITuningSpace interface
-	m_nSpecifyITuningSpace = (enumITuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyITuningSpace", -1, mapSpecifyITuningSpace);
+	m_nSpecifyTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyTuningSpace", enumTuningSpace::eTuningSpaceAuto, mapSpecifyTuningSpace);
 
 	// 使用するILocator interface
-	m_nSpecifyILocator = (enumILocator)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyILocator", -1, mapSpecifyILocator);
+	m_nSpecifyLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyLocator", enumLocator::eLocatorAuto, mapSpecifyLocator);
 
 	// ITuningSpaceに設定するNetworkType
 	m_nSpecifyITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(L"SpecifyITuningSpaceNetworkType", -1, mapSpecifyITuningSpaceNetworkType);
@@ -2754,13 +2748,11 @@ void CBonTuner::StopGraph(void)
 
 HRESULT CBonTuner::CreateTuningSpace(void)
 {
-	enumITuningSpace specifyITuningSpace = eITuningSpaceAuto;
-	enumILocator specifyILocator = eILocatorAuto;
+	enumTuningSpace specifyTuningSpace = eTuningSpaceAuto;
+	enumLocator specifyLocator = eLocatorAuto;
 	enumNetworkType specifyITuningSpaceNetworkType = eNetworkTypeAuto;
 	CLSID clsidTuningSpace = CLSID_NULL;
-	IID iidITuningSpace = IID_NULL;
 	CLSID clsidLocator = CLSID_NULL;
-	IID iidILocator = IID_NULL;
 	IID iidNetworkType = IID_NULL;
 	ModulationType modulationType = BDA_MOD_NOT_SET;
 	_bstr_t bstrUniqueName;
@@ -2787,12 +2779,12 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	case eTunerTypeDVBT2:
 		bstrUniqueName = L"DVB-T";
 		bstrFriendlyName = L"Local DVB-T Digital Antenna";
-		specifyITuningSpace = eITuningSpaceDVB2;
+		specifyTuningSpace = eTuningSpaceDVB;
 		if (m_nDVBSystemType == eTunerTypeDVBT2) {
-			specifyILocator = eILocatorDVBT2;
+			specifyLocator = eLocatorDVBT2;
 		}
 		else {
-			specifyILocator = eILocatorDVBT;
+			specifyLocator = eLocatorDVBT;
 		}
 		specifyITuningSpaceNetworkType = eNetworkTypeDVBT;
 		modulationType = BDA_MOD_NOT_SET;
@@ -2803,8 +2795,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	case eTunerTypeDVBC:
 		bstrUniqueName = L"DVB-C";
 		bstrFriendlyName = L"Local DVB-C Digital Cable";
-		specifyITuningSpace = eITuningSpaceDVB2;
-		specifyILocator = eILocatorDVBC;
+		specifyTuningSpace = eTuningSpaceDVB;
+		specifyLocator = eLocatorDVBC;
 		specifyITuningSpaceNetworkType = eNetworkTypeDVBC;
 		modulationType = BDA_MOD_NOT_SET;
 		dvbSystemType = DVB_Cable;
@@ -2814,8 +2806,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	case eTunerTypeISDBT:
 		bstrUniqueName = L"ISDB-T";
 		bstrFriendlyName = L"Local ISDB-T Digital Antenna";
-		specifyITuningSpace = eITuningSpaceDVB2;
-		specifyILocator = eILocatorDVBT;
+		specifyTuningSpace = eTuningSpaceDVB;
+		specifyLocator = eLocatorDVBT;
 		specifyITuningSpaceNetworkType = eNetworkTypeISDBT;
 		modulationType = BDA_MOD_NOT_SET;
 		dvbSystemType = ISDB_Terrestrial;
@@ -2825,8 +2817,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	case eTunerTypeISDBS:
 		bstrUniqueName = L"ISDB-S";
 		bstrFriendlyName = L"Default Digital ISDB-S Tuning Space";
-		specifyITuningSpace = eITuningSpaceDVBS;
-		specifyILocator = eILocatorISDBS;
+		specifyTuningSpace = eTuningSpaceDVBS;
+		specifyLocator = eLocatorISDBS;
 		specifyITuningSpaceNetworkType = eNetworkTypeISDBS;
 		modulationType = BDA_MOD_NOT_SET;
 		dvbSystemType = ISDB_Satellite;
@@ -2839,8 +2831,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	case eTunerTypeATSC_Antenna:
 		bstrUniqueName = L"ATSC";
 		bstrFriendlyName = L"Local ATSC Digital Antenna";
-		specifyITuningSpace = eITuningSpaceATSC;
-		specifyILocator = eILocatorATSC2;
+		specifyTuningSpace = eTuningSpaceATSC;
+		specifyLocator = eLocatorATSC;
 		specifyITuningSpaceNetworkType = eNetworkTypeATSC;
 		modulationType = BDA_MOD_128QAM;
 		tunerInputType = TunerInputAntenna;
@@ -2855,8 +2847,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	case eTunerTypeATSC_Cable:
 		bstrUniqueName = L"ATSCCable";
 		bstrFriendlyName = L"Local ATSC Digital Cable";
-		specifyITuningSpace = eITuningSpaceATSC;
-		specifyILocator = eILocatorATSC2;
+		specifyTuningSpace = eTuningSpaceATSC;
+		specifyLocator = eLocatorATSC;
 		specifyITuningSpaceNetworkType = eNetworkTypeATSC;
 		modulationType = BDA_MOD_128QAM;
 		tunerInputType = TunerInputCable;
@@ -2871,8 +2863,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	case eTunerTypeDigitalCable:
 		bstrUniqueName = L"Digital Cable";
 		bstrFriendlyName = L"Local Digital Cable";
-		specifyITuningSpace = eITuningSpaceDigitalCable;
-		specifyILocator = eILocatorDigitalCable;
+		specifyTuningSpace = eTuningSpaceDigitalCable;
+		specifyLocator = eLocatorDigitalCable;
 		specifyITuningSpaceNetworkType = eNetworkTypeDigitalCable;
 		modulationType = BDA_MOD_NOT_SET;
 		tunerInputType = TunerInputCable;
@@ -2892,8 +2884,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	default:
 		bstrUniqueName = L"DVB-S";
 		bstrFriendlyName = L"Default Digital DVB-S Tuning Space";
-		specifyITuningSpace = eITuningSpaceDVBS;
-		specifyILocator = eILocatorDVBS2;
+		specifyTuningSpace = eTuningSpaceDVBS;
+		specifyLocator = eLocatorDVBS;
 		specifyITuningSpaceNetworkType = eNetworkTypeDVBS;
 		modulationType = BDA_MOD_NOT_SET;
 		dvbSystemType = DVB_Satellite;
@@ -2904,87 +2896,51 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		break;
 	}
 
-	if (m_nSpecifyITuningSpace != eITuningSpaceAuto) {
-		specifyITuningSpace = m_nSpecifyITuningSpace;
+	if (m_nSpecifyTuningSpace != eTuningSpaceAuto) {
+		specifyTuningSpace = m_nSpecifyTuningSpace;
 	}
-	switch (specifyITuningSpace) {
-	case eITuningSpace:
-		clsidTuningSpace = __uuidof(TuningSpace);
-		iidITuningSpace = __uuidof(ITuningSpace);
-		break;
-	case eITuningSpaceDVB:
+	switch (specifyTuningSpace) {
+	case eTuningSpaceDVB:
 		clsidTuningSpace = __uuidof(DVBTuningSpace);
-		iidITuningSpace = __uuidof(IDVBTuningSpace);
 		break;
-	case eITuningSpaceDVB2:
-		clsidTuningSpace = __uuidof(DVBTuningSpace);
-		iidITuningSpace = __uuidof(IDVBTuningSpace2);
-		break;
-	case eITuningSpaceDVBS:
+	case eTuningSpaceDVBS:
 		clsidTuningSpace = __uuidof(DVBSTuningSpace);
-		iidITuningSpace = __uuidof(IDVBSTuningSpace);
 		break;
-	case eITuningSpaceAnalogTV:
+	case eTuningSpaceAnalogTV:
 		clsidTuningSpace = __uuidof(AnalogTVTuningSpace);
-		iidITuningSpace = __uuidof(IAnalogTVTuningSpace);
 		break;
-	case eITuningSpaceATSC:
+	case eTuningSpaceATSC:
 		clsidTuningSpace = __uuidof(ATSCTuningSpace);
-		iidITuningSpace = __uuidof(IATSCTuningSpace);
 		break;
-	case eITuningSpaceDigitalCable:
+	case eTuningSpaceDigitalCable:
 		clsidTuningSpace = __uuidof(DigitalCableTuningSpace);
-		iidITuningSpace = __uuidof(IDigitalCableTuningSpace);
 		break;
 	}
 
-	if (m_nSpecifyILocator != eILocatorAuto) {
-		specifyILocator = m_nSpecifyILocator;
+	if (m_nSpecifyLocator != eLocatorAuto) {
+		specifyLocator = m_nSpecifyLocator;
 	}
-	switch (specifyILocator) {
-	case eILocator:
-		clsidLocator = __uuidof(Locator);
-		iidILocator = __uuidof(ILocator);
-		break;
-	case eILocatorDigital:
-		clsidLocator = __uuidof(DigitalLocator);
-		iidILocator = __uuidof(IDigitalLocator);
-		break;
-	case eILocatorDVBT:
+	switch (specifyLocator) {
+	case eLocatorDVBT:
 		clsidLocator = __uuidof(DVBTLocator);
-		iidILocator = __uuidof(IDVBTLocator);
 		break;
-	case eILocatorDVBT2:
+	case eLocatorDVBT2:
 		clsidLocator = __uuidof(DVBTLocator2);
-		iidILocator = __uuidof(IDVBTLocator2);
 		break;
-	case eILocatorDVBS:
+	case eLocatorDVBS:
 		clsidLocator = __uuidof(DVBSLocator);
-		iidILocator = __uuidof(IDVBSLocator);
 		break;
-	case eILocatorDVBS2:
-		clsidLocator = __uuidof(DVBSLocator);
-		iidILocator = __uuidof(IDVBSLocator2);
-		break;
-	case eILocatorISDBS:
-		clsidLocator = __uuidof(ISDBSLocator);
-		iidILocator = __uuidof(IISDBSLocator);
-		break;
-	case eILocatorDVBC:
+	case eLocatorDVBC:
 		clsidLocator = __uuidof(DVBCLocator);
-		iidILocator = __uuidof(IDVBCLocator);
 		break;
-	case eILocatorATSC:
+	case eLocatorISDBS:
+		clsidLocator = __uuidof(ISDBSLocator);
+		break;
+	case eLocatorATSC:
 		clsidLocator = __uuidof(ATSCLocator);
-		iidILocator = __uuidof(IATSCLocator);
 		break;
-	case eILocatorATSC2:
-		clsidLocator = __uuidof(ATSCLocator);
-		iidILocator = __uuidof(IATSCLocator2);
-		break;
-	case eILocatorDigitalCable:
+	case eLocatorDigitalCable:
 		clsidLocator = __uuidof(DigitalCableLocator);
-		iidILocator = __uuidof(IDigitalCableLocator);
 		break;
 	}
 
@@ -3044,7 +3000,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
 	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
 	//                → IAuxInTuningSpace → IAuxInTuningSpace2
-	if (FAILED(hr = ::CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER, iidITuningSpace, (void**)&m_pITuningSpace))) {
+	if (FAILED(hr = ::CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER, __uuidof(ITuningSpace), (void**)&m_pITuningSpace))) {
 		OutputDebug(L"FAILED: CoCreateInstance(ITuningSpace)\n");
 		return hr;
 	}
@@ -3141,9 +3097,13 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
 	//            → IAnalogLocator
 	CComPtr<ILocator> pILocator;
-	if (FAILED(hr = ::CoCreateInstance(clsidLocator, NULL, CLSCTX_INPROC_SERVER, iidILocator, (void**)&pILocator)) || !pILocator) {
+	if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator))) {
 		OutputDebug(L"FAILED: CoCreateInstance(ILocator)\n");
-		return FALSE;
+		return hr;
+	}
+	if (!pILocator) {
+		OutputDebug(L"Failed to get ILocator\n");
+		return E_FAIL;
 	}
 
 	// ILocator
@@ -3156,7 +3116,13 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	pILocator->put_Modulation(modulationType);
 	OutputDebug(L"  ILocator is initialized.\n");
 
-	// IISDBSLocator特有プロパティは無い
+	// IDigitalLocator特有プロパティは無いけどLogに残す
+	{
+		CComQIPtr<IDigitalLocator> pIDigitalLocator(pILocator);
+		if (pIDigitalLocator) {
+			OutputDebug(L"  IDigitalLocator is initialized.\n");
+		}
+	}
 
 	// IDVBSLocator特有
 	{
@@ -3218,6 +3184,14 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		}
 	}
 
+	// IDVBCLocator特有プロパティは無いけどLogに残す
+	{
+		CComQIPtr<IDVBCLocator> pIDVBCLocator(pILocator);
+		if (pIDVBCLocator) {
+			OutputDebug(L"  IDVBCLocator is initialized.\n");
+		}
+	}
+
 	// IATSCLocator特有
 	{
 		CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
@@ -3234,6 +3208,14 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		if (pIATSCLocator2) {
 			pIATSCLocator2->put_ProgramNumber(-1);
 			OutputDebug(L"  IATSCLocator2 is initialized.\n");
+		}
+	}
+
+	// IDigitalCableLocator特有プロパティは無いけどLogに残す
+	{
+		CComQIPtr<IDigitalCableLocator> pIDigitalCableLocator(pILocator);
+		if (pIDigitalCableLocator) {
+			OutputDebug(L"  IDigitalCableLocator is initialized.\n");
 		}
 	}
 

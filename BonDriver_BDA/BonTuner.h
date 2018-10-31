@@ -914,35 +914,29 @@ protected:
 	};
 	enumTunerType m_nDVBSystemType;
 
-	// 使用するITuningSpace interface
-	enum enumITuningSpace {
-		eITuningSpaceAuto = -1,			// DVBSystemTypeの値によって自動選択
-		eITuningSpace = 1,				// ITuningSpace
-		eITuningSpaceDVB = 11,			// IDVBTuningSpace
-		eITuningSpaceDVB2 = 12,			// IDVBTuningSpace2
-		eITuningSpaceDVBS = 13,			// IDVBSTuningSpace
-		eITuningSpaceAnalogTV = 21,		// IAnalogTVTuningSpace
-		eITuningSpaceATSC = 22,			// IATSCTuningSpace
-		eITuningSpaceDigitalCable = 23,	// IDigitalCableTuningSpace
+	// 使用するTuningSpace オブジェクト
+	enum enumTuningSpace {
+		eTuningSpaceAuto = -1,			// DVBSystemTypeの値によって自動選択
+		eTuningSpaceDVB = 1,			// DVBTuningSpace
+		eTuningSpaceDVBS = 2,			// DVBSTuningSpace
+		eTuningSpaceAnalogTV = 21,		// AnalogTVTuningSpace
+		eTuningSpaceATSC = 22,			// ATSCTuningSpace
+		eTuningSpaceDigitalCable = 23,	// DigitalCableTuningSpace
 	};
-	enumITuningSpace m_nSpecifyITuningSpace;
+	enumTuningSpace m_nSpecifyTuningSpace;
 
-	// 使用するILocator interface
-	enum enumILocator {
-		eILocatorAuto = -1,				// DVBSystemTypeの値によって自動選択
-		eILocator = 1,					// ILocator
-		eILocatorDigital = 2,			// IDigitalLocator
-		eILocatorDVBT = 11,				// IDVBTLocator
-		eILocatorDVBT2 = 12,			// IDVBTLocator2
-		eILocatorDVBS = 13,				// IDVBSLocator
-		eILocatorDVBS2 = 14,			// IDVBSLocator2
-		eILocatorISDBS = 15,			// IISDBSLocator
-		eILocatorDVBC = 16,				// IDVBCLocator
-		eILocatorATSC = 21,				// IATSCLocator
-		eILocatorATSC2 = 22,			// IATSCLocator2
-		eILocatorDigitalCable = 23,		// IDigitalCableLocator
+	// 使用するLocator オブジェクト
+	enum enumLocator {
+		eLocatorAuto = -1,				// DVBSystemTypeの値によって自動選択
+		eLocatorDVBT = 1,				// DVBTLocator
+		eLocatorDVBT2 = 2,				// DVBTLocator2
+		eLocatorDVBS = 3,				// DVBSLocator
+		eLocatorDVBC = 4,				// DVBCLocator
+		eLocatorISDBS = 11,				// ISDBSLocator
+		eLocatorATSC = 21,				// ATSCLocator
+		eLocatorDigitalCable = 22,		// DigitalCableLocator
 	};
-	enumILocator m_nSpecifyILocator;
+	enumLocator m_nSpecifyLocator;
 
 	// ITuningSpaceに設定するNetworkType
 	enum enumNetworkType {
