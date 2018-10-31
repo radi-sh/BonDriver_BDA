@@ -1309,6 +1309,7 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int> mapDefaultNetwork = {
+		{ L"NONE",     eDefaultNetworkNone },
 		{ L"SPHD",     eDefaultNetworkSPHD },
 		{ L"BS/CS110", eDefaultNetworkBSCS },
 		{ L"BS",       eDefaultNetworkBSCS },

@@ -995,6 +995,7 @@ protected:
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	enum enumDefaultNetwork {
+		eDefaultNetworkNone = 0,		// 設定しない
 		eDefaultNetworkSPHD = 1,		// SPHD
 		eDefaultNetworkBSCS = 2,		// BS/CS110
 		eDefaultNetworkUHF = 3,			// UHF/CATV
