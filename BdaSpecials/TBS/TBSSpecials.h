@@ -38,7 +38,7 @@ public:
 
 private:
 	HMODULE m_hMySelf;
-	IKsPropertySet *m_pPropsetTunerPin;
+	CComPtr<IKsPropertySet> m_pPropsetTunerPin;
 	CComPtr<IBaseFilter> m_pTunerDevice;
 
 	////////////////////////////////////////////////////
