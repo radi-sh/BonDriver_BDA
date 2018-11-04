@@ -2,10 +2,15 @@
 
 CUnknown * WINAPI CTsWriter::CreateInstance(LPUNKNOWN pUnk, HRESULT *phr)
 {
-    return new CTsWriter(NAME("TS Writer Filter"), pUnk, phr);
+	CTsWriter *pFilter = new CTsWriter(NAME("TS Writer Filter"), pUnk, phr);
+	if (pFilter == NULL)
+	{
+		*phr = E_OUTOFMEMORY;
+	}
+	return pFilter;
 }
 
-CTsWriter::CTsWriter(TCHAR * pName, LPUNKNOWN pUnk, HRESULT * phr)
+CTsWriter::CTsWriter(LPCTSTR pName, LPUNKNOWN pUnk, HRESULT * phr)
 	: CTransInPlaceFilter(pName, pUnk, CLSID_TsWriter, phr),
 	  m_pRecv(NULL),
 	  m_pParam(NULL)
@@ -28,7 +33,15 @@ HRESULT CTsWriter::CheckInputType(const CMediaType * mtIn)
 	return S_OK;
 }
 
-void CTsWriter::SetCallBackRecv(RECV_PROC pRecv, void * pParam)
+STDMETHODIMP CTsWriter::NonDelegatingQueryInterface(REFIID riid, void **ppv)
+{
+	if (riid == IID_ITsWriter) {
+		return GetInterface((ITsWriter *)this, ppv);
+	}
+	return CTransformFilter::NonDelegatingQueryInterface(riid, ppv);
+}
+
+void CTsWriter::_SetCallBackRecv(RECV_PROC pRecv, void * pParam)
 {
 	CAutoLock lock_it(&m_Lock);
 	m_pRecv = pRecv;
