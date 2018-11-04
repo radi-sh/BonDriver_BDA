@@ -65,10 +65,6 @@ CDVBWorldSpecials::~CDVBWorldSpecials()
 {
 	m_hMySelf = NULL;
 	m_hTuner = NULL;
-	if (m_pTunerDevice) {
-		m_pTunerDevice.Release();
-		m_pTunerDevice = NULL; 
-	}
 	return;
 }
 
@@ -87,9 +83,8 @@ const HRESULT CDVBWorldSpecials::InitializeHook(void)
 	}
 
 	if (m_hTuner == NULL) {
-		HRESULT hr;
-		CComPtr<IKsObject> pIKsObject ;
-		if ((hr = m_pTunerDevice->QueryInterface(IID_IKsObject, (LPVOID*)&pIKsObject)) != S_OK) {
+		CComQIPtr<IKsObject> pIKsObject(m_pTunerDevice);
+		if (!pIKsObject) {
 			return E_NOINTERFACE;
 		}
 		if ((m_hTuner = pIKsObject->KsGetObjectHandle()) == NULL) {
@@ -125,10 +120,6 @@ const HRESULT CDVBWorldSpecials::FinalizeHook(void)
 {
 	m_hMySelf = NULL;
 	m_hTuner = NULL;
-	if (m_pTunerDevice) {
-		m_pTunerDevice.Release();
-		m_pTunerDevice = NULL; 
-	}
 	return S_OK;
 }
 
