@@ -244,7 +244,7 @@
     <ClCompile>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;BONDRIVER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <WarningLevel>Level4</WarningLevel>
       <AdditionalIncludeDirectories>..\common;..\BaseClasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -264,7 +264,7 @@
     <ClCompile>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;BONDRIVER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <WarningLevel>Level4</WarningLevel>
       <AdditionalIncludeDirectories>..\common;..\BaseClasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
