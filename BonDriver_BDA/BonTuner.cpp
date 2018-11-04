@@ -47,16 +47,19 @@ FILE *g_fpLog = NULL;
 // 定数等定義
 //////////////////////////////////////////////////////////////////////
 
-// TS Writerの名称:AddFilter時に名前を登録するだけなので何でもよい
+// TS Writerの名称:AddFilter時に登録する名前
 static const WCHAR * const FILTER_GRAPH_NAME_TSWRITER	= L"TS Writer";
 
-// MPEG2 Demultiplexerの名称:AddFilter時に名前を登録するだけなので何でもよい
+// MPEG2 Demultiplexerの名称:AddFilter時に登録する名前
 static const WCHAR * const FILTER_GRAPH_NAME_DEMUX = L"MPEG2 Demultiplexer";
 
-// MPEG2 TIFの名称:CLSIDだけでは特定できないのでこの名前と一致するものを使用する
+// MPEG2 TIFの名称:AddFilter時に登録する名前
 static const WCHAR * const FILTER_GRAPH_NAME_TIF = L"BDA MPEG2 Transport Information Filter";
 
-// Network Provider
+// MPEG2 TIFのCLSID
+static const CLSID CLSID_MPEG2TransportInformationFilter = { 0xfc772ab0, 0x0c7f, 0x11d3, 0x8f, 0xf2, 0x00, 0xa0, 0xc9, 0x22, 0x4c, 0xf4 };
+
+// Network Providerの名称
 static const WCHAR * const FILTER_GRAPH_NAME_NETWORK_PROVIDER[] = {
 	L"Microsoft Network Provider",
 	L"Microsoft DVB-S Network Provider",
@@ -193,18 +196,6 @@ CBonTuner::CBonTuner()
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
-	m_pITuningSpace(NULL),
-	m_pITuner(NULL),
-	m_pNetworkProvider(NULL),
-	m_pTunerDevice(NULL),
-	m_pCaptureDevice(NULL),
-	m_pTsWriter(NULL),
-	m_pDemux(NULL),
-	m_pTif(NULL),
-	m_pIGraphBuilder(NULL),
-	m_pIMediaControl(NULL), 
-	m_pCTsWriter(NULL),
-	m_pIBDA_SignalStatistics(NULL),
 	m_pDSFilterEnumTuner(NULL),
 	m_pDSFilterEnumCapture(NULL),
 	m_nDVBSystemType(eTunerTypeDVBS),
@@ -1140,15 +1131,15 @@ int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, DWORD dwSize)
 
 void CBonTuner::StartRecv(void)
 {
-	if (m_pCTsWriter)
-		m_pCTsWriter->SetCallBackRecv(RecvProc, this);
+	if (m_pITsWriter)
+		m_pITsWriter->SetCallBackRecv(RecvProc, this);
 	m_bRecvStarted = TRUE;
 }
 
 void CBonTuner::StopRecv(void)
 {
-	if (m_pCTsWriter)
-		m_pCTsWriter->SetCallBackRecv(NULL, this);
+	if (m_pITsWriter)
+		m_pITsWriter->SetCallBackRecv(NULL, this);
 	m_bRecvStarted = FALSE;
 }
 
@@ -2193,15 +2184,15 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// その中で選局処理が行なわれているはず。よってこのままリターン
 		m_nCurTone = pTuningParam->Antenna->Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
-			OutputDebug(L"TwiceLock 1st[Special2] SUCCESS.\n");
+			OutputDebug(L"  TwiceLock 1st[Special2] SUCCESS.\n");
 			SleepWithMessageLoop(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials2->LockChannel(pTuningParam);
 		}
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"LockChannel[Special2] SUCCESS.\n");
+			OutputDebug(L"  LockChannel[Special2] SUCCESS.\n");
 			return TRUE;
 		} else {
-			OutputDebug(L"LockChannel[Special2] FAIL.\n");
+			OutputDebug(L"  LockChannel[Special2] FAIL.\n");
 			return FALSE;
 		}
 	}
@@ -2213,17 +2204,17 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// その中で選局処理が行なわれているはず。よってこのままリターン
 		m_nCurTone = pTuningParam->Antenna->Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
-			OutputDebug(L"TwiceLock 1st[Special] SUCCESS.\n");
+			OutputDebug(L"  TwiceLock 1st[Special] SUCCESS.\n");
 			SleepWithMessageLoop(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
 					(pTuningParam->Modulation->Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation->Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
 		}
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"LockChannel[Special] SUCCESS.\n");
+			OutputDebug(L"  LockChannel[Special] SUCCESS.\n");
 			return TRUE;
 		}
 		else {
-			OutputDebug(L"LockChannel[Special] FAIL.\n");
+			OutputDebug(L"  LockChannel[Special] FAIL.\n");
 			return FALSE;
 		}
 	}
@@ -2232,28 +2223,28 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->Set22KHz(pTuningParam->Antenna->Tone)) != E_NOINTERFACE) {
 		// BonDriver_BDA改専用DLL
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"Set22KHz[Special2] successfully.\n");
+			OutputDebug(L"  Set22KHz[Special2] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
 				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 			}
 		}
 		else {
-			OutputDebug(L"Set22KHz[Special2] failed.\n");
+			OutputDebug(L"  Set22KHz[Special2] failed.\n");
 			// BDA generic な方法で切り替わるかもしれないので、メッセージだけ出して、そのまま続行
 		}
 	}
 	else if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->Set22KHz(pTuningParam->Antenna->Tone ? 1 : 0)) != E_NOINTERFACE) {
 		// BonDriver_BDAオリジナル互換DLL
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"Set22KHz[Special] successfully.\n");
+			OutputDebug(L"  Set22KHz[Special] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
 				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 			}
 		}
 		else {
-			OutputDebug(L"Set22KHz[Special] failed.\n");
+			OutputDebug(L"  Set22KHz[Special] failed.\n");
 			// BDA generic な方法で切り替わるかもしれないので、メッセージだけ出して、そのまま続行
 		}
 	}
@@ -2304,8 +2295,8 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
 	//            → IAnalogLocator
 	CComPtr<ILocator> pILocator;
-	if (FAILED(hr = m_pITuningSpace->get_DefaultLocator(&pILocator)) || !pILocator) {
-		OutputDebug(L"Fail to get ILocator.\n");
+	if (FAILED(hr = m_pITuningSpace->get_DefaultLocator(&pILocator))) {
+		OutputDebug(L"  Fail to get ILocator.\n");
 		return FALSE;
 	}
 
@@ -2384,7 +2375,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
 	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
-		OutputDebug(L"Fail to create ITuneRequest.\n");
+		OutputDebug(L"  Fail to create ITuneRequest.\n");
 		return FALSE;
 	}
 
@@ -2438,12 +2429,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 
 	if (pTuningParam->Antenna->Tone != m_nCurTone) {
 		//トーン切替ありの場合、先に一度TuneRequestしておく
-		OutputDebug(L"Requesting pre tune.\n");
+		OutputDebug(L"  Requesting pre tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"Fail to put pre tune request.\n");
+			OutputDebug(L"  Fail to put pre tune request.\n");
 			return FALSE;
 		}
-		OutputDebug(L"Pre tune request complete.\n");
+		OutputDebug(L"  Pre tune request complete.\n");
 
 		m_nCurTone = pTuningParam->Antenna->Tone;
 		SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
@@ -2451,24 +2442,24 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 
 	if (bLockTwice) {
 		// TuneRequestを強制的に2度行う
-		OutputDebug(L"Requesting 1st twice tune.\n");
+		OutputDebug(L"  Requesting 1st twice tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"Fail to put 1st twice tune request.\n");
+			OutputDebug(L"  Fail to put 1st twice tune request.\n");
 			return FALSE;
 		}
-		OutputDebug(L"1st Twice tune request complete.\n");
+		OutputDebug(L"  1st Twice tune request complete.\n");
 		SleepWithMessageLoop(m_nLockTwiceDelay);
 	}
 
 	unsigned int nRetryRemain = m_nLockWaitRetry;
 	int nLock = 0;
 	do {
-		OutputDebug(L"Requesting tune.\n");
+		OutputDebug(L"  Requesting tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"Fail to put tune request.\n");
+			OutputDebug(L"  Fail to put tune request.\n");
 			return FALSE;
 		}
-		OutputDebug(L"Tune request complete.\n");
+		OutputDebug(L"  Tune request complete.\n");
 
 		static const int LockRetryTime = 50;
 		unsigned int nWaitRemain = m_nLockWait;
@@ -2476,7 +2467,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		GetSignalState(NULL, NULL, &nLock);
 		while (!nLock && nWaitRemain) {
 			DWORD dwSleepTime = (nWaitRemain > LockRetryTime) ? LockRetryTime : nWaitRemain;
-			OutputDebug(L"Waiting lock status remaining %d msec.\n", nWaitRemain);
+			OutputDebug(L"    Waiting lock status remaining %d msec.\n", nWaitRemain);
 			SleepWithMessageLoop(dwSleepTime);
 			nWaitRemain -= dwSleepTime;
 			GetSignalState(NULL, NULL, &nLock);
@@ -2484,15 +2475,15 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	} while (!nLock && nRetryRemain--);
 
 	if (nLock != 0)
-		OutputDebug(L"LockChannel success.\n");
+		OutputDebug(L"  LockChannel success.\n");
 	else
-		OutputDebug(L"LockChannel failed.\n");
+		OutputDebug(L"  LockChannel failed.\n");
 
 	return nLock != 0;
 }
 
 // チューナ固有Dllのロード
-HRESULT CBonTuner::CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstring tunerFriendlyName)
+HRESULT CBonTuner::CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::wstring tunerGUID, std::wstring tunerFriendlyName)
 {
 	if (m_aTunerParam.sDLLBaseName == L"") {
 		// チューナ固有関数を使わない場合
@@ -2532,21 +2523,21 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstri
 	if ((m_hModuleTunerSpecials = ::LoadLibraryW(sDllName.c_str())) == NULL) {
 		// ロードできない場合、どうする? 
 		//  → デバッグメッセージだけ出して、固有関数を使わないものとして扱う
-		OutputDebug(L"DLL Not found.\n");
+		OutputDebug(L"CheckAndInitTunerDependDll: DLL Not found.\n");
 		return S_OK;
 	} else {
-		OutputDebug(L"Load Library successfully.\n");
+		OutputDebug(L"CheckAndInitTunerDependDll: Load Library successfully.\n");
 	}
 
-	HRESULT(*func)(IBaseFilter*, const WCHAR*, const WCHAR*, const WCHAR*) =
-		(HRESULT(*)(IBaseFilter*, const WCHAR*, const WCHAR*, const WCHAR*))::GetProcAddress(m_hModuleTunerSpecials, "CheckAndInitTuner");
+	HRESULT (* func)(IBaseFilter *, const WCHAR *, const WCHAR *, const WCHAR *) =
+		(HRESULT (*)(IBaseFilter *, const WCHAR *, const WCHAR *, const WCHAR *))::GetProcAddress(m_hModuleTunerSpecials, "CheckAndInitTuner");
 	if (!func) {
 		// 初期化コードが無い
 		// →初期化不要
 		return S_OK;
 	}
 
-	return (*func)(m_pTunerDevice, tunerGUID.c_str(), tunerFriendlyName.c_str(), m_sIniFilePath.c_str());
+	return (* func)(pTunerDevice, tunerGUID.c_str(), tunerFriendlyName.c_str(), m_sIniFilePath.c_str());
 }
 
 // チューナ固有Dllでのキャプチャデバイス確認
@@ -2556,13 +2547,13 @@ HRESULT CBonTuner::CheckCapture(std::wstring tunerGUID, std::wstring tunerFriend
 		return S_OK;
 	}
 
-	HRESULT(*func)(const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*) =
-		(HRESULT(*)(const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*))::GetProcAddress(m_hModuleTunerSpecials, "CheckCapture");
+	HRESULT (* func)(const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *) =
+		(HRESULT (*)(const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *))::GetProcAddress(m_hModuleTunerSpecials, "CheckCapture");
 	if (!func) {
 		return S_OK;
 	}
 
-	return (*func)(tunerGUID.c_str(), tunerFriendlyName.c_str(), captureGUID.c_str(), captureFriendlyName.c_str(), m_sIniFilePath.c_str());
+	return (* func)(tunerGUID.c_str(), tunerFriendlyName.c_str(), captureGUID.c_str(), captureFriendlyName.c_str(), m_sIniFilePath.c_str());
 }
 
 // チューナ固有関数のロード
@@ -2574,20 +2565,20 @@ void CBonTuner::LoadTunerDependCode(void)
 	IBdaSpecials* (*func)(CComPtr<IBaseFilter>);
 	func = (IBdaSpecials* (*)(CComPtr<IBaseFilter>))::GetProcAddress(m_hModuleTunerSpecials, "CreateBdaSpecials");
 	if (!func) {
-		OutputDebug(L"Cannot find CreateBdaSpecials.\n");
+		OutputDebug(L"LoadTunerDependCode: Cannot find CreateBdaSpecials.\n");
 		::FreeLibrary(m_hModuleTunerSpecials);
 		m_hModuleTunerSpecials = NULL;
 		return;
 	}
 	else {
-		OutputDebug(L"CreateBdaSpecials found.\n");
+		OutputDebug(L"LoadTunerDependCode: CreateBdaSpecials found.\n");
 	}
 
 	m_pIBdaSpecials = func(m_pTunerDevice);
 
 	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2a2 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
-		OutputDebug(L"Not IBdaSpecials2 Interface DLL.\n");
+		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 
 	//  BdaSpecialsにiniファイルを読み込ませる
 	HRESULT hr;
@@ -2613,10 +2604,10 @@ void CBonTuner::ReleaseTunerDependCode(void)
 			// 固有Finalize関数がないだけなので、何もせず
 		}
 		else if (SUCCEEDED(hr)) {
-			OutputDebug(L"Tuner Special Finalize successfully.\n");
+			OutputDebug(L"ReleaseTunerDependCode: Tuner Special Finalize successfully.\n");
 		}
 		else {
-			OutputDebug(L"Tuner Special Finalize failed.\n");
+			OutputDebug(L"ReleaseTunerDependCode: Tuner Special Finalize failed.\n");
 		}
 
 		SAFE_RELEASE(m_pIBdaSpecials);
@@ -2625,10 +2616,10 @@ void CBonTuner::ReleaseTunerDependCode(void)
 
 	if (m_hModuleTunerSpecials) {
 		if (::FreeLibrary(m_hModuleTunerSpecials) == 0) {
-			OutputDebug(L"FreeLibrary failed.\n");
+			OutputDebug(L"ReleaseTunerDependCode: FreeLibrary failed.\n");
 		}
 		else {
-			OutputDebug(L"FreeLibrary Success.\n");
+			OutputDebug(L"ReleaseTunerDependCode: FreeLibrary Success.\n");
 			m_hModuleTunerSpecials = NULL;
 		}
 	}
@@ -2636,28 +2627,41 @@ void CBonTuner::ReleaseTunerDependCode(void)
 
 HRESULT CBonTuner::InitializeGraphBuilder(void)
 {
-	HRESULT hr;
-	if (FAILED(hr = ::CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&m_pIGraphBuilder))) {
-		OutputDebug(L"Fail to create Graph.\n");
-		return hr;
+	HRESULT hr = E_FAIL;
+	
+	// pIGraphBuilder interfaceを取得
+	CComPtr<IGraphBuilder> pIGraphBuilder;
+	if (FAILED(hr = pIGraphBuilder.CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[InitializeGraphBuilder] Fail to get IGraphBuilder interface.\n");
+	}
+	else {
+		// pIGraphBuilder interfaceの取得成功
+		// IMediaControl interfaceを取得
+		CComQIPtr<IMediaControl> pIMediaControl(pIGraphBuilder);
+		if (!pIMediaControl) {
+			OutputDebug(L"[InitializeGraphBuilder] Fail to get IMediaControl interface.\n");
+			hr = E_FAIL;
+		}
+		else {
+			// 成功なのでこのまま終了
+			m_pIGraphBuilder = pIGraphBuilder;
+			m_pIMediaControl = pIMediaControl;
+			return hr;
+		}
 	}
 
-	if (FAILED(hr = m_pIGraphBuilder->QueryInterface(&m_pIMediaControl))) {
-		OutputDebug(L"Fail to get IMediaControl.\n");
-		return hr;
-	}
-
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::CleanupGraph(void)
 {
-	DisconnectAll(m_pTif);
-	DisconnectAll(m_pDemux);
-	DisconnectAll(m_pTsWriter);
-	DisconnectAll(m_pCaptureDevice);
-	DisconnectAll(m_pTunerDevice);
-	DisconnectAll(m_pNetworkProvider);
+	// DisconnectAll(m_pTif);
+	// DisconnectAll(m_pDemux);
+	// DisconnectAll(m_pTsWriter);
+	// DisconnectAll(m_pCaptureDevice);
+	// DisconnectAll(m_pTunerDevice);
+	// DisconnectAll(m_pNetworkProvider);
 
 	UnloadTif();
 	UnloadDemux();
@@ -2671,8 +2675,8 @@ void CBonTuner::CleanupGraph(void)
 	UnloadNetworkProvider();
 	UnloadTuningSpace();
 
-	SAFE_RELEASE(m_pIMediaControl);
-	SAFE_RELEASE(m_pIGraphBuilder);
+	m_pIMediaControl.Release();
+	m_pIGraphBuilder.Release();
 
 	return;
 }
@@ -2687,8 +2691,6 @@ HRESULT CBonTuner::RunGraph(void)
 	m_bIsSetStreamThread = FALSE;
 
 	if (FAILED(hr =  m_pIMediaControl->Run())) {
-		m_pIMediaControl->Stop();
-		OutputDebug(L"Failed to Run Graph.\n");
 		return hr;
 	}
 
@@ -2702,15 +2704,11 @@ void CBonTuner::StopGraph(void)
 		SAFE_CLOSE_HANDLE(m_hStreamThread);
 		m_bIsSetStreamThread = FALSE;
 
-		if (SUCCEEDED(hr = m_pIMediaControl->Pause())) {
-			OutputDebug(L"IMediaControl::Pause Success.\n");
-		} else {
+		if (FAILED(hr = m_pIMediaControl->Pause())) {
 			OutputDebug(L"IMediaControl::Pause failed.\n");
 		}
 
-		if (SUCCEEDED(hr = m_pIMediaControl->Stop())) {
-			OutputDebug(L"IMediaControl::Stop Success.\n");
-		} else {
+		if (FAILED(hr = m_pIMediaControl->Stop())) {
 			OutputDebug(L"IMediaControl::Stop failed.\n");
 		}
 	}
@@ -2961,8 +2959,9 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		tunerInputType = (tagTunerInputType)m_nSpecifyIAnalogTVTuningSpaceInputType;
 	}
 
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
+	CComPtr<ITuningSpace> pITuningSpace;
 	// ITuningSpaceを作成
 	//
 	// ITuningSpace継承順：
@@ -2970,233 +2969,232 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
 	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
 	//                → IAuxInTuningSpace → IAuxInTuningSpace2
-	if (FAILED(hr = ::CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER, __uuidof(ITuningSpace), (void**)&m_pITuningSpace))) {
-		OutputDebug(L"FAILED: CoCreateInstance(ITuningSpace)\n");
-		return hr;
+	if (FAILED(hr = pITuningSpace.CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[CreateTuningSpace] Fail to get ITuningSpace interface\n");
 	}
-	if (!m_pITuningSpace) {
-		OutputDebug(L"Failed to get ITuningSpace\n");
-		return E_FAIL;
-	}
+	else {
+		// ITuningSpace に NetworkType を設定
+		if (FAILED(hr = pITuningSpace->put__NetworkType(iidNetworkType))) {
+			OutputDebug(L"[CreateTuningSpace] put__NetworkType failed\n");
+		}
+		else {
+			OutputDebug(L"[CreateTuningSpace] %s is created.\n", (wchar_t *)bstrFriendlyName);
 
-	// ITuningSpace
-	if (FAILED(hr = m_pITuningSpace->put__NetworkType(iidNetworkType))) {
-		OutputDebug(L"put_NetworkType failed\n");
-		return hr;
-	}
-	OutputDebug(L"%s is created.\n", (wchar_t *)bstrFriendlyName);
-	m_pITuningSpace->put_FrequencyMapping(L"");
-	m_pITuningSpace->put_UniqueName(bstrUniqueName);
-	m_pITuningSpace->put_FriendlyName(bstrFriendlyName);
-	OutputDebug(L"  ITuningSpace is initialized.\n");
+			// ITuningSpace
+			pITuningSpace->put_FrequencyMapping(L"");
+			pITuningSpace->put_UniqueName(bstrUniqueName);
+			pITuningSpace->put_FriendlyName(bstrFriendlyName);
+			OutputDebug(L"  ITuningSpace is initialized.\n");
 
+			// IDVBTuningSpace特有
+			{
+				CComQIPtr<IDVBTuningSpace> pIDVBTuningSpace(pITuningSpace);
+				if (pIDVBTuningSpace) {
+					pIDVBTuningSpace->put_SystemType(dvbSystemType);
+					OutputDebug(L"  IDVBTuningSpace is initialized.\n");
+				}
+			}
 
-	// IDVBTuningSpace特有
-	{
-		CComQIPtr<IDVBTuningSpace> pIDVBTuningSpace(m_pITuningSpace);
-		if (pIDVBTuningSpace) {
-			pIDVBTuningSpace->put_SystemType(dvbSystemType);
-			OutputDebug(L"  IDVBTuningSpace is initialized.\n");
+			// IDVBTuningSpace2特有
+			{
+				CComQIPtr<IDVBTuningSpace2> pIDVBTuningSpace2(pITuningSpace);
+				if (pIDVBTuningSpace2) {
+					pIDVBTuningSpace2->put_NetworkID(networkID);
+					OutputDebug(L"  IDVBTuningSpace2 is initialized.\n");
+				}
+			}
+
+			// IDVBSTuningSpace特有
+			{
+				CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(pITuningSpace);
+				if (pIDVBSTuningSpace) {
+					pIDVBSTuningSpace->put_HighOscillator(highOscillator);
+					pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
+					pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
+					pIDVBSTuningSpace->put_SpectralInversion(BDA_SPECTRAL_INVERSION_NOT_SET);
+					OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
+				}
+			}
+
+			// IAnalogTVTuningSpace特有
+			{
+				CComQIPtr<IAnalogTVTuningSpace> pIAnalogTVTuningSpace(pITuningSpace);
+				if (pIAnalogTVTuningSpace) {
+					pIAnalogTVTuningSpace->put_InputType(tunerInputType);
+					pIAnalogTVTuningSpace->put_MinChannel(minChannel);
+					pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
+					pIAnalogTVTuningSpace->put_CountryCode(0);
+					OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
+				}
+			}
+
+			// IATSCTuningSpace特有
+			{
+				CComQIPtr<IATSCTuningSpace> pIATSCTuningSpace(pITuningSpace);
+				if (pIATSCTuningSpace) {
+					pIATSCTuningSpace->put_MinPhysicalChannel(minPhysicalChannel);
+					pIATSCTuningSpace->put_MaxPhysicalChannel(maxPhysicalChannel);
+					pIATSCTuningSpace->put_MinMinorChannel(minMinorChannel);
+					pIATSCTuningSpace->put_MaxMinorChannel(maxMinorChannel);
+					OutputDebug(L"  IATSCTuningSpace is initialized.\n");
+				}
+			}
+
+			// IDigitalCableTuningSpace特有
+			{
+				CComQIPtr<IDigitalCableTuningSpace> pIDigitalCableTuningSpace(pITuningSpace);
+				if (pIDigitalCableTuningSpace) {
+					pIDigitalCableTuningSpace->put_MinMajorChannel(minMajorChannel);
+					pIDigitalCableTuningSpace->put_MaxMajorChannel(maxMajorChannel);
+					pIDigitalCableTuningSpace->put_MinSourceID(minSourceID);
+					pIDigitalCableTuningSpace->put_MaxSourceID(maxSourceID);
+					OutputDebug(L"  IDigitalCableTuningSpace is initialized.\n");
+				}
+			}
+
+			// pILocatorを作成
+			//
+			// ILocator継承順：
+			//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
+			//                               → IDVBSLocator → IDVBSLocator2
+			//                                               → IISDBSLocator
+			//                               → IDVBCLocator
+			//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
+			//            → IAnalogLocator
+			CComPtr<ILocator> pILocator;
+			if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator))) {
+				OutputDebug(L"[CreateTuningSpace] Failed to get ILocator interface.\n");
+			}
+			else {
+				// ILocator
+				pILocator->put_CarrierFrequency(-1);
+				pILocator->put_SymbolRate(-1);
+				pILocator->put_InnerFEC(BDA_FEC_METHOD_NOT_SET);
+				pILocator->put_InnerFECRate(BDA_BCC_RATE_NOT_SET);
+				pILocator->put_OuterFEC(BDA_FEC_METHOD_NOT_SET);
+				pILocator->put_OuterFECRate(BDA_BCC_RATE_NOT_SET);
+				pILocator->put_Modulation(modulationType);
+				OutputDebug(L"  ILocator is initialized.\n");
+
+				// IDigitalLocator特有プロパティは無いけどLogに残す
+				{
+					CComQIPtr<IDigitalLocator> pIDigitalLocator(pILocator);
+					if (pIDigitalLocator) {
+						OutputDebug(L"  IDigitalLocator is initialized.\n");
+					}
+				}
+
+				// IDVBSLocator特有
+				{
+					CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
+					if (pIDVBSLocator) {
+						pIDVBSLocator->put_WestPosition(FALSE);
+						pIDVBSLocator->put_OrbitalPosition(-1);
+						pIDVBSLocator->put_Elevation(-1);
+						pIDVBSLocator->put_Azimuth(-1);
+						pIDVBSLocator->put_SignalPolarisation(BDA_POLARISATION_NOT_SET);
+						OutputDebug(L"  IDVBSLocator is initialized.\n");
+					}
+				}
+
+				// IDVBSLocator2特有
+				{
+					CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
+					if (pIDVBSLocator2) {
+						pIDVBSLocator2->put_LocalOscillatorOverrideHigh(-1);
+						pIDVBSLocator2->put_LocalOscillatorOverrideLow(-1);
+						pIDVBSLocator2->put_LocalLNBSwitchOverride(-1);
+						pIDVBSLocator2->put_LocalSpectralInversionOverride(BDA_SPECTRAL_INVERSION_NOT_SET);
+						pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
+						pIDVBSLocator2->put_SignalPilot(BDA_PILOT_NOT_SET);
+						pIDVBSLocator2->put_SignalRollOff(BDA_ROLL_OFF_NOT_SET);
+						OutputDebug(L"  IDVBSLocator2 is initialized.\n");
+					}
+				}
+
+				// IISDBSLocator特有プロパティは無いけどLogに残す
+				{
+					CComQIPtr<IISDBSLocator> pIISDBSLocator(pILocator);
+					if (pIISDBSLocator) {
+						OutputDebug(L"  IISDBSLocator is initialized.\n");
+					}
+				}
+
+				// IDVBTLocator特有
+				{
+					CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
+					if (pIDVBTLocator) {
+						pIDVBTLocator->put_Bandwidth(-1);
+						pIDVBTLocator->put_Guard(BDA_GUARD_NOT_SET);
+						pIDVBTLocator->put_HAlpha(BDA_HALPHA_NOT_SET);
+						pIDVBTLocator->put_LPInnerFEC(BDA_FEC_METHOD_NOT_SET);
+						pIDVBTLocator->put_LPInnerFECRate(BDA_BCC_RATE_NOT_SET);
+						pIDVBTLocator->put_Mode(BDA_XMIT_MODE_NOT_SET);
+						pIDVBTLocator->put_OtherFrequencyInUse(VARIANT_FALSE);
+						OutputDebug(L"  IDVBTLocator is initialized.\n");
+					}
+				}
+
+				// IDVBTLocator2特有
+				{
+					CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
+					if (pIDVBTLocator2) {
+						pIDVBTLocator2->put_PhysicalLayerPipeId(-1);
+						OutputDebug(L"  IDVBTLocator2 is initialized.\n");
+					}
+				}
+
+				// IDVBCLocator特有プロパティは無いけどLogに残す
+				{
+					CComQIPtr<IDVBCLocator> pIDVBCLocator(pILocator);
+					if (pIDVBCLocator) {
+						OutputDebug(L"  IDVBCLocator is initialized.\n");
+					}
+				}
+
+				// IATSCLocator特有
+				{
+					CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
+					if (pIATSCLocator) {
+						pIATSCLocator->put_PhysicalChannel(-1);
+						pIATSCLocator->put_TSID(-1);
+						OutputDebug(L"  IATSCLocator is initialized.\n");
+					}
+				}
+
+				// IATSCLocator2特有
+				{
+					CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
+					if (pIATSCLocator2) {
+						pIATSCLocator2->put_ProgramNumber(-1);
+						OutputDebug(L"  IATSCLocator2 is initialized.\n");
+					}
+				}
+
+				// IDigitalCableLocator特有プロパティは無いけどLogに残す
+				{
+					CComQIPtr<IDigitalCableLocator> pIDigitalCableLocator(pILocator);
+					if (pIDigitalCableLocator) {
+						OutputDebug(L"  IDigitalCableLocator is initialized.\n");
+					}
+				}
+
+				pITuningSpace->put_DefaultLocator(pILocator);
+
+				// 全て成功
+				m_pITuningSpace = pITuningSpace;
+				return S_OK;
+			}
 		}
 	}
 
-	// IDVBTuningSpace2特有
-	{
-		CComQIPtr<IDVBTuningSpace2> pIDVBTuningSpace2(m_pITuningSpace);
-		if (pIDVBTuningSpace2) {
-			pIDVBTuningSpace2->put_NetworkID(networkID);
-			OutputDebug(L"  IDVBTuningSpace2 is initialized.\n");
-		}
-	}
-
-	// IDVBSTuningSpace特有
-	{
-		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_pITuningSpace);
-		if (pIDVBSTuningSpace) {
-			pIDVBSTuningSpace->put_HighOscillator(highOscillator);
-			pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
-			pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
-			pIDVBSTuningSpace->put_SpectralInversion(BDA_SPECTRAL_INVERSION_NOT_SET);
-			OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
-		}
-	}
-
-	// IAnalogTVTuningSpace特有
-	{
-		CComQIPtr<IAnalogTVTuningSpace> pIAnalogTVTuningSpace(m_pITuningSpace);
-		if (pIAnalogTVTuningSpace) {
-			pIAnalogTVTuningSpace->put_InputType(tunerInputType);
-			pIAnalogTVTuningSpace->put_MinChannel(minChannel);
-			pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
-			pIAnalogTVTuningSpace->put_CountryCode(0);
-			OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
-		}
-	}
-
-	// IATSCTuningSpace特有
-	{
-		CComQIPtr<IATSCTuningSpace> pIATSCTuningSpace(m_pITuningSpace);
-		if (pIATSCTuningSpace) {
-			pIATSCTuningSpace->put_MinPhysicalChannel(minPhysicalChannel);
-			pIATSCTuningSpace->put_MaxPhysicalChannel(maxPhysicalChannel);
-			pIATSCTuningSpace->put_MinMinorChannel(minMinorChannel);
-			pIATSCTuningSpace->put_MaxMinorChannel(maxMinorChannel);
-			OutputDebug(L"  IATSCTuningSpace is initialized.\n");
-		}
-	}
-
-	// IDigitalCableTuningSpace特有
-	{
-		CComQIPtr<IDigitalCableTuningSpace> pIDigitalCableTuningSpace(m_pITuningSpace);
-		if (pIDigitalCableTuningSpace) {
-			pIDigitalCableTuningSpace->put_MinMajorChannel(minMajorChannel);
-			pIDigitalCableTuningSpace->put_MaxMajorChannel(maxMajorChannel);
-			pIDigitalCableTuningSpace->put_MinSourceID(minSourceID);
-			pIDigitalCableTuningSpace->put_MaxSourceID(maxSourceID);
-			OutputDebug(L"  IDigitalCableTuningSpace is initialized.\n");
-		}
-	}
-
-	// pILocatorを作成
-	//
-	// ILocator継承順：
-	//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
-	//                               → IDVBSLocator → IDVBSLocator2
-	//                                               → IISDBSLocator
-	//                               → IDVBCLocator
-	//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
-	//            → IAnalogLocator
-	CComPtr<ILocator> pILocator;
-	if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator))) {
-		OutputDebug(L"FAILED: CoCreateInstance(ILocator)\n");
-		return hr;
-	}
-	if (!pILocator) {
-		OutputDebug(L"Failed to get ILocator\n");
-		return E_FAIL;
-	}
-
-	// ILocator
-	pILocator->put_CarrierFrequency(-1);
-	pILocator->put_SymbolRate(-1);
-	pILocator->put_InnerFEC(BDA_FEC_METHOD_NOT_SET);
-	pILocator->put_InnerFECRate(BDA_BCC_RATE_NOT_SET);
-	pILocator->put_OuterFEC(BDA_FEC_METHOD_NOT_SET);
-	pILocator->put_OuterFECRate(BDA_BCC_RATE_NOT_SET);
-	pILocator->put_Modulation(modulationType);
-	OutputDebug(L"  ILocator is initialized.\n");
-
-	// IDigitalLocator特有プロパティは無いけどLogに残す
-	{
-		CComQIPtr<IDigitalLocator> pIDigitalLocator(pILocator);
-		if (pIDigitalLocator) {
-			OutputDebug(L"  IDigitalLocator is initialized.\n");
-		}
-	}
-
-	// IDVBSLocator特有
-	{
-		CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
-		if (pIDVBSLocator) {
-			pIDVBSLocator->put_WestPosition(FALSE);
-			pIDVBSLocator->put_OrbitalPosition(-1);
-			pIDVBSLocator->put_Elevation(-1);
-			pIDVBSLocator->put_Azimuth(-1);
-			pIDVBSLocator->put_SignalPolarisation(BDA_POLARISATION_NOT_SET);
-			OutputDebug(L"  IDVBSLocator is initialized.\n");
-		}
-	}
-
-	// IDVBSLocator2特有
-	{
-		CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
-		if (pIDVBSLocator2) {
-			pIDVBSLocator2->put_LocalOscillatorOverrideHigh(-1);
-			pIDVBSLocator2->put_LocalOscillatorOverrideLow(-1);
-			pIDVBSLocator2->put_LocalLNBSwitchOverride(-1);
-			pIDVBSLocator2->put_LocalSpectralInversionOverride(BDA_SPECTRAL_INVERSION_NOT_SET);
-			pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
-			pIDVBSLocator2->put_SignalPilot(BDA_PILOT_NOT_SET);
-			pIDVBSLocator2->put_SignalRollOff(BDA_ROLL_OFF_NOT_SET);
-			OutputDebug(L"  IDVBSLocator2 is initialized.\n");
-		}
-	}
-
-	// IISDBSLocator特有プロパティは無いけどLogに残す
-	{
-		CComQIPtr<IISDBSLocator> pIISDBSLocator(pILocator);
-		if (pIISDBSLocator) {
-			OutputDebug(L"  IISDBSLocator is initialized.\n");
-		}
-	}
-
-	// IDVBTLocator特有
-	{
-		CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
-		if (pIDVBTLocator) {
-			pIDVBTLocator->put_Bandwidth(-1);
-			pIDVBTLocator->put_Guard(BDA_GUARD_NOT_SET);
-			pIDVBTLocator->put_HAlpha(BDA_HALPHA_NOT_SET);
-			pIDVBTLocator->put_LPInnerFEC(BDA_FEC_METHOD_NOT_SET);
-			pIDVBTLocator->put_LPInnerFECRate(BDA_BCC_RATE_NOT_SET);
-			pIDVBTLocator->put_Mode(BDA_XMIT_MODE_NOT_SET);
-			pIDVBTLocator->put_OtherFrequencyInUse(VARIANT_FALSE);
-			OutputDebug(L"  IDVBTLocator is initialized.\n");
-		}
-	}
-
-	// IDVBTLocator2特有
-	{
-		CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
-		if (pIDVBTLocator2) {
-			pIDVBTLocator2->put_PhysicalLayerPipeId(-1);
-			OutputDebug(L"  IDVBTLocator2 is initialized.\n");
-		}
-	}
-
-	// IDVBCLocator特有プロパティは無いけどLogに残す
-	{
-		CComQIPtr<IDVBCLocator> pIDVBCLocator(pILocator);
-		if (pIDVBCLocator) {
-			OutputDebug(L"  IDVBCLocator is initialized.\n");
-		}
-	}
-
-	// IATSCLocator特有
-	{
-		CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
-		if (pIATSCLocator) {
-			pIATSCLocator->put_PhysicalChannel(-1);
-			pIATSCLocator->put_TSID(-1);
-			OutputDebug(L"  IATSCLocator is initialized.\n");
-		}
-	}
-
-	// IATSCLocator2特有
-	{
-		CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
-		if (pIATSCLocator2) {
-			pIATSCLocator2->put_ProgramNumber(-1);
-			OutputDebug(L"  IATSCLocator2 is initialized.\n");
-		}
-	}
-
-	// IDigitalCableLocator特有プロパティは無いけどLogに残す
-	{
-		CComQIPtr<IDigitalCableLocator> pIDigitalCableLocator(pILocator);
-		if (pIDigitalCableLocator) {
-			OutputDebug(L"  IDigitalCableLocator is initialized.\n");
-		}
-	}
-
-	m_pITuningSpace->put_DefaultLocator(pILocator);
-
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadTuningSpace(void)
 {
-	SAFE_RELEASE(m_pITuningSpace);
+	m_pITuningSpace.Release();
 }
 
 // Tuning Request を送って Tuning Space を初期化する
@@ -3205,16 +3203,16 @@ void CBonTuner::UnloadTuningSpace(void)
 HRESULT CBonTuner::InitTuningSpace(void)
 {
 	if (!m_pITuningSpace) {
-		OutputDebug(L"TuningSpace NOT SET.\n");
+		OutputDebug(L"[InitTuningSpace] TuningSpace NOT SET.\n");
 		return E_POINTER;
 	}
 
 	if (!m_pITuner) {
-		OutputDebug(L"ITuner NOT SET.\n");
+		OutputDebug(L"[InitTuningSpace] ITuner NOT SET.\n");
 		return E_POINTER;
 	}
 
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
 	// ITuneRequest作成
 	//
@@ -3225,50 +3223,53 @@ HRESULT CBonTuner::InitTuningSpace(void)
 	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
 	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
-		OutputDebug(L"Fail to create ITuneRequest.\n");
-		return hr;
+		OutputDebug(L"[InitTuningSpace] Fail to get ITuneRequest interface.\n");
 	}
-
-	// IDVBTuneRequest特有
-	{
-		CComQIPtr<IDVBTuneRequest> pIDVBTuneRequest(pITuneRequest);
-		if (pIDVBTuneRequest) {
-			pIDVBTuneRequest->put_ONID(-1);
-			pIDVBTuneRequest->put_TSID(-1);
-			pIDVBTuneRequest->put_SID(-1);
+	else {
+		// IDVBTuneRequest特有
+		{
+			CComQIPtr<IDVBTuneRequest> pIDVBTuneRequest(pITuneRequest);
+			if (pIDVBTuneRequest) {
+				pIDVBTuneRequest->put_ONID(-1);
+				pIDVBTuneRequest->put_TSID(-1);
+				pIDVBTuneRequest->put_SID(-1);
+			}
 		}
-	}
 
-	// IChannelTuneRequest特有
-	{
-		CComQIPtr<IChannelTuneRequest> pIChannelTuneRequest(pITuneRequest);
-		if (pIChannelTuneRequest) {
-			pIChannelTuneRequest->put_Channel(-1);
+		// IChannelTuneRequest特有
+		{
+			CComQIPtr<IChannelTuneRequest> pIChannelTuneRequest(pITuneRequest);
+			if (pIChannelTuneRequest) {
+				pIChannelTuneRequest->put_Channel(-1);
+			}
 		}
-	}
 
-	// IATSCChannelTuneRequest特有
-	{
-		CComQIPtr<IATSCChannelTuneRequest> pIATSCChannelTuneRequest(pITuneRequest);
-		if (pIATSCChannelTuneRequest) {
-			pIATSCChannelTuneRequest->put_MinorChannel(-1);
+		// IATSCChannelTuneRequest特有
+		{
+			CComQIPtr<IATSCChannelTuneRequest> pIATSCChannelTuneRequest(pITuneRequest);
+			if (pIATSCChannelTuneRequest) {
+				pIATSCChannelTuneRequest->put_MinorChannel(-1);
+			}
 		}
-	}
 
-	// IDigitalCableTuneRequest特有
-	{
-		CComQIPtr<IDigitalCableTuneRequest> pIDigitalCableTuneRequest(pITuneRequest);
-		if (pIDigitalCableTuneRequest) {
-			pIDigitalCableTuneRequest->put_MajorChannel(-1);
-			pIDigitalCableTuneRequest->put_SourceID(-1);
+		// IDigitalCableTuneRequest特有
+		{
+			CComQIPtr<IDigitalCableTuneRequest> pIDigitalCableTuneRequest(pITuneRequest);
+			if (pIDigitalCableTuneRequest) {
+				pIDigitalCableTuneRequest->put_MajorChannel(-1);
+				pIDigitalCableTuneRequest->put_SourceID(-1);
+			}
 		}
+
+		m_pITuner->put_TuningSpace(m_pITuningSpace);
+		m_pITuner->put_TuneRequest(pITuneRequest);
+
+		// 全て成功
+		return S_OK;
 	}
 
-	m_pITuner->put_TuningSpace(m_pITuningSpace);
-
-	m_pITuner->put_TuneRequest(pITuneRequest);
-
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 HRESULT CBonTuner::LoadNetworkProvider(void)
@@ -3329,26 +3330,40 @@ HRESULT CBonTuner::LoadNetworkProvider(void)
 		break;
 	}
 
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
-	OutputDebug(L"Loading %s.\n", strName);
-	if (FAILED(hr = ::CoCreateInstance(clsidNetworkProvider, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void **)(&m_pNetworkProvider)))) {
-		OutputDebug(L"Fail to create network-provider.\n");
-		return hr;
+	CComPtr<IBaseFilter> pNetworkProvider;
+	// Network Proveiderフィルタを取得
+	OutputDebug(L"[LoadNetworkProvider] Loading %s.\n", strName);
+	if (FAILED(hr = pNetworkProvider.CoCreateInstance(clsidNetworkProvider, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[LoadNetworkProvider] Fail to get NetworkProvider IBaseFilter interface.\n");
+	}
+	else {
+		// フィルタ取得成功
+		// Graph Builderにフィルタを追加
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pNetworkProvider, strName))) {
+			OutputDebug(L"[LoadNetworkProvider] Fail to add NetworkProvider IBaseFilter into graph.\n");
+		}
+		else {
+			// フィルタ追加成功
+			// ITuner interfaceを取得
+			CComQIPtr<ITuner> pITuner(pNetworkProvider);
+			if (!pITuner) {
+				OutputDebug(L"[LoadNetworkProvider] Fail to get ITuner interface.\n");
+				hr = E_FAIL;
+			}
+			else {
+				// ITuner interfaceの取得成功
+				// 全て成功
+				m_pNetworkProvider = pNetworkProvider;
+				m_pITuner = pITuner;
+				return hr;
+			}
+		}
 	}
 
-	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pNetworkProvider, strName))) {
-		OutputDebug(L"Fail to add network-provider into graph.\n");
-		SAFE_RELEASE(m_pNetworkProvider);
-		return hr;
-	}
-
-	if (FAILED(hr = m_pNetworkProvider->QueryInterface(__uuidof(ITuner), (void **)&m_pITuner))) {
-		OutputDebug(L"Fail to get ITuner.\n");
-		return E_FAIL;
-	}
-
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadNetworkProvider(void)
@@ -3357,8 +3372,8 @@ void CBonTuner::UnloadNetworkProvider(void)
 	if (m_pIGraphBuilder && m_pNetworkProvider)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pNetworkProvider);
 
-	SAFE_RELEASE(m_pITuner);
-	SAFE_RELEASE(m_pNetworkProvider);
+	m_pITuner.Release();
+	m_pNetworkProvider.Release();
 }
 
 // ini ファイルで指定されたチューナ・キャプチャの組合せListを作成
@@ -3546,124 +3561,135 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		m_hSemaphore = ::CreateSemaphoreW(NULL, 1, 1, semName.c_str());
 		DWORD result = WaitForSingleObjectWithMessageLoop(m_hSemaphore, 0);
 		if (result != WAIT_OBJECT_0) {
-			OutputDebug(L"[P->T] Another is using.\n");
 			// 使用中なので次のチューナを探す
+			OutputDebug(L"[P->T] Another is using.\n");
 		} 
 		else {
 			// 排他確認OK
+			CComPtr<IBaseFilter> pTunerDevice;
 			// チューナデバイスのフィルタを取得
-			if (FAILED(hr = m_pDSFilterEnumTuner->getFilter(&m_pTunerDevice, it->Tuner.Order))) {
-				OutputDebug(L"[P->T] Error in Get Filter\n");
+			if (FAILED(hr = m_pDSFilterEnumTuner->getFilter(&pTunerDevice, it->Tuner.Order))) {
+				// フィルタを取得できなかったので次のチューナへ
+				OutputDebug(L"[P->T] Fail to get TunerDevice IBaseFilter interface.\n");
 			}
 			else {
 				// フィルタ取得成功
-				// チューナデバイスのフィルタを追加
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, it->Tuner.FriendlyName.c_str()))) {
-					OutputDebug(L"[P->T] Error in AddFilter\n");
+				// Graph Builderにチューナデバイスのフィルタを追加
+				if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTunerDevice, it->Tuner.FriendlyName.c_str()))) {
+					// フィルタの追加に失敗したので次のチューナへ
+					OutputDebug(L"[P->T] Fail to add TunerDevice IBaseFilter into graph.\n");
 				}
 				else {
-					// フィルタ取得成功
+					// フィルタ追加成功
 					// チューナデバイスをconnect してみる
-					if (FAILED(hr = Connect(L"Provider->Tuner", m_pNetworkProvider, m_pTunerDevice))) {
-						// NetworkProviderが異なる等の理由でconnectに失敗
-						// 次のチューナへ
-						OutputDebug(L"[P->T] Connect Failed.\n");
+					if (FAILED(hr = Connect(m_pNetworkProvider, pTunerDevice))) {
+						// connectに失敗したので次のチューナへ
+						OutputDebug(L"[P->T] Fail to connect.\n");
 					}
 					else {
 						// connect 成功
 						OutputDebug(L"[P->T] Connect OK.\n");
-
 						// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
-						if (FAILED(hr = CheckAndInitTunerDependDll(it->Tuner.GUID, it->Tuner.FriendlyName))) {
-							// 何らかの理由で使用できないみたいなので次のチューナへ
-							OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
+						if (FAILED(hr = CheckAndInitTunerDependDll(pTunerDevice, it->Tuner.GUID, it->Tuner.FriendlyName))) {
+							// 固有Dllの処理が失敗したので次のチューナへ
+							OutputDebug(L"[P->T] Discarded by BDASpecial's CheckAndInitTuner function.\n");
 						}
 						else {
 							// 固有Dll処理OK
 							if (!m_aTunerParam.bNotExistCaptureDevice) {
-								// キャプチャデバイスを使用する
+								// キャプチャデバイスを使用する場合
 								for (auto it2 = it->CaptureList.begin(); it2 != it->CaptureList.end(); it2++) {
-									OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
 									// キャプチャデバイスループ
+									OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
 									// チューナ固有Dllでの確認処理があれば呼び出す
 									if (FAILED(hr = CheckCapture(it->Tuner.GUID, it->Tuner.FriendlyName, it2->GUID, it2->FriendlyName))) {
 										// 固有Dllがダメと言っているので次のキャプチャデバイスへ
-										OutputDebug(L"[T->C] Discarded by BDASpecials.\n");
+										OutputDebug(L"[T->C] Discarded by BDASpecial's CheckCapture function.\n");
 									}
 									else {
 										// 固有Dllの確認OK
+										CComPtr<IBaseFilter> pCaptureDevice;
 										// キャプチャデバイスのフィルタを取得
-										if (!m_pDSFilterEnumCapture || FAILED(hr = m_pDSFilterEnumCapture->getFilter(&m_pCaptureDevice, it2->Order))) {
-											OutputDebug(L"[T->C] Error in Get Filter\n");
+										if (!m_pDSFilterEnumCapture || FAILED(hr = m_pDSFilterEnumCapture->getFilter(&pCaptureDevice, it2->Order))) {
+											// フィルタを取得できなかったので次のキャプチャデバイスへ
+											OutputDebug(L"[T->C] Fail to get CaptureDevice IBaseFilter interface.\n");
 										}
 										else {
 											// フィルタ取得成功
-											// キャプチャデバイスのフィルタを追加
-											if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pCaptureDevice, it2->FriendlyName.c_str()))) {
-												OutputDebug(L"[T->C] Error in AddFilter\n");
+											// Graph Builderにキャプチャデバイスのフィルタを追加
+											if (FAILED(hr = m_pIGraphBuilder->AddFilter(pCaptureDevice, it2->FriendlyName.c_str()))) {
+												// フィルタの追加に失敗したので次のキャプチャデバイスへ
+												OutputDebug(L"[T->C] Fail to add CaptureDevice IBaseFilter into graph.\n");
 											}
 											else {
 												// フィルタ追加成功
 												// キャプチャデバイスをconnect してみる
-												if (FAILED(hr = Connect(L"Tuner->Capture", m_pTunerDevice, m_pCaptureDevice))) {
-													// connect できなければチューナとの組合せが正しくないと思われる
-													// 次のキャプチャデバイスへ
-													OutputDebug(L"[T->C] Connect Failed.\n");
+												if (FAILED(hr = Connect(pTunerDevice, pCaptureDevice))) {
+													// connectに失敗したので次のキャプチャデバイスへ
+													OutputDebug(L"[T->C] Fail to connect.\n");
 												}
 												else {
 													// connect 成功
 													OutputDebug(L"[T->C] Connect OK.\n");
-
 													// TsWriter以降と接続～Run
-													if (FAILED(LoadAndConnectMiscFilters())) {
-														// 失敗したら次のキャプチャデバイスへ
-													}
-													else {
+													if (SUCCEEDED(LoadAndConnectMiscFilters(pTunerDevice, pCaptureDevice))) {
 														// すべて成功
+														m_pTunerDevice = pTunerDevice;
+														m_pCaptureDevice = pCaptureDevice;
+														// チューナ固有関数のロード
 														LoadTunerDependCode();
 														if (m_bTryAnotherTuner)
+															// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
 															m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
 														return S_OK;
-													} // すべて成功
-													DisconnectAll(m_pCaptureDevice);
-												} // connect 成功
-												m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-											} // フィルタ追加成功
-											SAFE_RELEASE(m_pCaptureDevice);
-										} // フィルタ取得成功
-									} // 固有Dllの確認OK
-								} // キャプチャデバイスループ
-								// 動作する組合せが見つからなかったので次のチューナへ
-							} // キャプチャデバイスを使用する
-							else {
-								// キャプチャデバイスを使用しない
-								// TsWriter以降と接続～Run
-								if (FAILED(hr = LoadAndConnectMiscFilters())) {
-									// 失敗したら次のチューナへ
+													}
+													// キャプチャデバイスをdisconnect
+													// DisconnectAll(pCaptureDevice);
+												}
+												// Graph Builderからキャプチャデバイスをremove
+												m_pIGraphBuilder->RemoveFilter(pCaptureDevice);
+											}
+										}
+									}
+									// 次のキャプチャデバイスへループ
 								}
-								else {
-									// 成功
+								// キャプチャデバイスループ終わり
+								// 動作する組合せが見つからなかったので次のチューナへ
+							}
+							else {
+								// キャプチャデバイスを使用しない場合
+								// TsWriter以降と接続～Run
+								if (SUCCEEDED(hr = LoadAndConnectMiscFilters(pTunerDevice, NULL))) {
+									// すべて成功
+									m_pTunerDevice = pTunerDevice;
+									// チューナ固有関数のロード
 									LoadTunerDependCode();
 									if (m_bTryAnotherTuner)
+										// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
 										m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
 									return S_OK;
-								} // 成功
-							} // キャプチャデバイスを使用しない
-						} // 固有Dll処理OK
-						ReleaseTunerDependCode();
-						DisconnectAll(m_pTunerDevice);
-					} // connect 成功
-					m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-				} // フィルタ取得成功
-				SAFE_RELEASE(m_pTunerDevice);
-			} // フィルタ取得成功
+								}
+							}
+							// チューナ固有関数とDll解放
+							ReleaseTunerDependCode();
+						}
+						// Graph Builderからチューナをremove
+						// DisconnectAll(pTunerDevice);
+					}
+					// Graph Builderからチューナをremove
+					m_pIGraphBuilder->RemoveFilter(pTunerDevice);
+				}
+			}
+			// 排他処理終了
 			::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-		} // 排他処理OK
+		}
+		// セマフォ解放
 		SAFE_CLOSE_HANDLE(m_hSemaphore);
-	} // チューナデバイスループ
-
+		// 次のチューナデバイスへループ
+	}
+	// チューナデバイスループ終わり
 	// 動作する組み合わせが見つからなかった
-	OutputDebug(L"[P->T] Tuner not found.\n");
+	OutputDebug(L"[P->T] Can not found a connectable pair of TunerDevice and CaptureDevice.\n");
 	return E_FAIL;
 }
 
@@ -3676,7 +3702,7 @@ void CBonTuner::UnloadTunerDevice(void)
 	if (m_pIGraphBuilder && m_pTunerDevice)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
 
-	SAFE_RELEASE(m_pTunerDevice);
+	m_pTunerDevice.Release();
 }
 
 void CBonTuner::UnloadCaptureDevice(void)
@@ -3686,106 +3712,106 @@ void CBonTuner::UnloadCaptureDevice(void)
 	if (m_pIGraphBuilder && m_pCaptureDevice)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
 
-	SAFE_RELEASE(m_pCaptureDevice);
+	m_pCaptureDevice.Release();
 }
 
-HRESULT CBonTuner::LoadAndConnectMiscFilters(void)
-{
-	HRESULT hr;
-
-	// TsWriterと接続
-	if (FAILED(hr = LoadAndConnectTsWriter())) {
-		return hr;
-	}
-
-	// TsDemuxerと接続
-	if (FAILED(hr = LoadAndConnectDemux())) {
-		DisconnectAll(m_pTsWriter);
-		UnloadTsWriter();
-		return hr;
-	}
-
-	// TIFと接続
-	if (FAILED(hr = LoadAndConnectTif())) {
-		DisconnectAll(m_pDemux);
-		DisconnectAll(m_pTsWriter);
-		UnloadDemux();
-		UnloadTsWriter();
-		return hr;
-	}
-
-	// Runしてみる
-	if (FAILED(hr = RunGraph())) {
-		OutputDebug(L"RunGraph Failed.\n");
-		DisconnectAll(m_pTif);
-		DisconnectAll(m_pDemux);
-		DisconnectAll(m_pTsWriter);
-		UnloadTif();
-		UnloadDemux();
-		UnloadTsWriter();
-		return hr;
-	}
-
-	// 成功
-	OutputDebug(L"RunGraph OK.\n");
-	return S_OK;
-}
-
-HRESULT CBonTuner::LoadAndConnectTsWriter(void)
+HRESULT CBonTuner::LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice)
 {
 	HRESULT hr = E_FAIL;
 
-	if (!m_pTunerDevice || (!m_pCaptureDevice && !m_aTunerParam.bNotExistCaptureDevice)) {
-		OutputDebug(L"[C->W] TunerDevice or CaptureDevice NOT SET.\n");
+	// TsWriterと接続
+	if (SUCCEEDED(hr = LoadAndConnectTsWriter(pTunerDevice, pCaptureDevice))) {
+		// TsDemuxerと接続
+		if (SUCCEEDED(hr = LoadAndConnectDemux())) {
+			// TIFと接続
+			if (SUCCEEDED(hr = LoadAndConnectTif())) {
+				// Runしてみる
+				if (SUCCEEDED(hr = RunGraph())) {
+					// 成功
+					OutputDebug(L"RunGraph OK.\n");
+					return hr;
+				}
+				OutputDebug(L"RunGraph Failed.\n");
+				// DisconnectAll(m_pTif);
+				UnloadTif();
+			}
+			// DisconnectAll(m_pDemux);
+			UnloadDemux();
+		}
+		// DisconnectAll(m_pTsWriter);
+		UnloadTsWriter();
+	}
+
+	// 失敗
+	return hr;
+}
+
+HRESULT CBonTuner::LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice)
+{
+	HRESULT hr = E_FAIL;
+
+	if (!pTunerDevice || (!pCaptureDevice && !m_aTunerParam.bNotExistCaptureDevice)) {
+		OutputDebug(L"[C->W/T->W] TunerDevice or CaptureDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
-	// インスタンス作成
-	m_pCTsWriter = static_cast<CTsWriter *>(CTsWriter::CreateInstance(NULL, &hr));
-	if (!m_pCTsWriter) {
-		OutputDebug(L"[C->W] Fail to load TsWriter filter.\n");
-		return E_NOINTERFACE;
-	}
-
-	m_pCTsWriter->AddRef();
-
-	// フィルタを取得
-	if (FAILED(hr = m_pCTsWriter->QueryInterface(IID_IBaseFilter, (void**)(&m_pTsWriter)))) {
-		OutputDebug(L"[C->W] Fail to get TsWriter interface.\n");
-		SAFE_RELEASE(m_pCTsWriter);
-		return hr;
-	}
-
-	// フィルタを追加
-	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTsWriter, FILTER_GRAPH_NAME_TSWRITER))) {
-		OutputDebug(L"[C->W] Fail to add TsWriter filter into graph.\n");
-		SAFE_RELEASE(m_pTsWriter);
-		SAFE_RELEASE(m_pCTsWriter);
-		return hr;
-	}
-
-	// connect してみる
-	if (m_aTunerParam.bNotExistCaptureDevice) {
-		// Captureデバイスが存在しない場合はTunerと接続
-		if (FAILED(hr = Connect(L"Tuner->TsWriter", m_pTunerDevice, m_pTsWriter))) {
-			OutputDebug(L"[T->W] Failed to connect.\n");
-			SAFE_RELEASE(m_pTsWriter);
-			SAFE_RELEASE(m_pCTsWriter);
-			return hr;
-		}
+	// フィルタクラスのロード
+	CTsWriter *pCTsWriter = (CTsWriter *)CTsWriter::CreateInstance(NULL, &hr);
+	if (!pCTsWriter) {
+		OutputDebug(L"[C->W/T->W] Fail to create CTsWriter filter class instance.\n");
+		hr = E_FAIL;
 	}
 	else {
-		if (FAILED(hr = Connect(L"Capture->TsWriter", m_pCaptureDevice, m_pTsWriter))) {
-			OutputDebug(L"[C->W] Failed to connect.\n");
-			SAFE_RELEASE(m_pTsWriter);
-			SAFE_RELEASE(m_pCTsWriter);
-			return hr;
+		// フィルタを取得
+		CComQIPtr<IBaseFilter> pTsWriter(pCTsWriter);
+		if (!pTsWriter) {
+			OutputDebug(L"[C->W/T->W] Fail to get TsWriter IBaseFilter interface.\n");
+			hr = E_FAIL;
+		}
+		else {
+			// フィルタ取得成功
+			// Graph Builderにフィルタを追加
+			if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTsWriter, FILTER_GRAPH_NAME_TSWRITER))) {
+				OutputDebug(L"[C->W/T->W] Fail to add TsWriter IBaseFilter into graph.\n");
+			}
+			else {
+				// フィルタ追加成功
+				// ITsWriter interfaceを取得
+				CComQIPtr<ITsWriter> pITsWriter(pTsWriter);
+				if (!pITsWriter) {
+					OutputDebug(L"[C->W/T->W] Fail to get ITsWriter interface.\n");
+					hr = E_FAIL;
+				}
+				else {
+					// ITsWriter interfaceの取得成功
+					// connect してみる
+					if (m_aTunerParam.bNotExistCaptureDevice) {
+						// Captureデバイスが存在しない場合はTunerと接続
+						if (FAILED(hr = Connect(pTunerDevice, pTsWriter))) {
+							OutputDebug(L"[T->W] Failed to connect.\n");
+						}
+					}
+					else {
+						// Captureデバイスと接続
+						if (FAILED(hr = Connect(pCaptureDevice, pTsWriter))) {
+							OutputDebug(L"[C->W] Fail to connect.\n");
+						}
+					}
+					if (SUCCEEDED(hr)) {
+						// connect 成功なのでこのまま終了
+						OutputDebug(L"[C->W/T->W] Connect OK.\n");
+						m_pTsWriter = pTsWriter;
+						m_pITsWriter = pITsWriter;
+						return hr;
+					}
+				}
+				m_pIGraphBuilder->RemoveFilter(pTsWriter);
+			}
 		}
 	}
 
-	// connect 成功なのでこのまま終了
-	OutputDebug(L"[C->W] Connect OK.\n");
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadTsWriter(void)
@@ -3794,42 +3820,48 @@ void CBonTuner::UnloadTsWriter(void)
 	if (m_pIGraphBuilder && m_pTsWriter)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pTsWriter);
 
-	SAFE_RELEASE(m_pTsWriter);
-	SAFE_RELEASE(m_pCTsWriter);
+	m_pITsWriter.Release();
+	m_pTsWriter.Release();
 }
 
 HRESULT CBonTuner::LoadAndConnectDemux(void)
 {
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
 	if (!m_pTsWriter) {
 			OutputDebug(L"[W->M] TsWriter NOT SET.\n");
 			return E_POINTER;
 	}
 
-	// インスタンス作成
-	if (FAILED(hr = ::CoCreateInstance(CLSID_MPEG2Demultiplexer, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void **)(&m_pDemux)))) {
-		OutputDebug(L"[W->M] Fail to load MPEG2-Demultiplexer.\n");
-		return hr;
+	CComPtr<IBaseFilter> pDemux;
+	// フィルタを取得
+	if (FAILED(hr = pDemux.CoCreateInstance(CLSID_MPEG2Demultiplexer, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[W->M] Fail to get MPEG2Demultiplexer IBaseFilter interface.\n");
+	}
+	else {
+		// フィルタ取得成功
+		// Graph Builderにフィルタを追加
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pDemux, FILTER_GRAPH_NAME_DEMUX))) {
+			OutputDebug(L"[W->M] Fail to add MPEG2Demultiplexer IBaseFilter into graph.\n");
+		}
+		else {
+			// フィルタ追加成功
+			// connect してみる
+			if (FAILED(hr = Connect(m_pTsWriter, pDemux))) {
+				OutputDebug(L"[W->M] Fail to connect.\n");
+			}
+			else {
+				// connect 成功なのでこのまま終了
+				OutputDebug(L"[W->M] Connect OK.\n");
+				m_pDemux = pDemux;
+				return hr;
+			}
+			m_pIGraphBuilder->RemoveFilter(pDemux);
+		}
 	}
 
-	// フィルタを追加
-	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pDemux, FILTER_GRAPH_NAME_DEMUX))) {
-		OutputDebug(L"[W->M] Fail to add MPEG2-Demultiplexer into graph.\n");
-		SAFE_RELEASE(m_pDemux);
-		return hr;
-	}
-
-	// connect してみる
-	if (FAILED(hr = Connect(L"Grabber->Demux", m_pTsWriter, m_pDemux))) {
-		OutputDebug(L"[W->M] Fail to connect Grabber->Demux.\n");
-		SAFE_RELEASE(m_pDemux);
-		return hr;
-	}
-
-	// connect 成功なのでこのまま終了
-	OutputDebug(L"[W->M] Connect OK.\n");
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadDemux(void)
@@ -3838,60 +3870,47 @@ void CBonTuner::UnloadDemux(void)
 	if (m_pIGraphBuilder && m_pDemux)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pDemux);
 
-	SAFE_RELEASE(m_pDemux);
+	m_pDemux.Release();
 }
 
 HRESULT CBonTuner::LoadAndConnectTif(void)
 {
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
 	if (!m_pDemux) {
-			OutputDebug(L"[M->I] Demux NOT SET.\n");
+			OutputDebug(L"[M->I] MPEG2Demultiplexer NOT SET.\n");
 			return E_POINTER;
 	}
 
-	std::wstring friendlyName;
-
-	try {
-		CDSFilterEnum dsfEnum(KSCATEGORY_BDA_TRANSPORT_INFORMATION, CDEF_DEVMON_FILTER);
-		while (SUCCEEDED(hr = dsfEnum.next()) && hr == S_OK) {
-			// MPEG-2 Sections and Tables Filter に接続してしまうと RunGraph に失敗してしまうので
-			// BDA MPEG2 Transport Information Filter 以外はスキップ
-			dsfEnum.getFriendlyName(&friendlyName);
-			if (friendlyName.find(FILTER_GRAPH_NAME_TIF) == std::wstring::npos)
-				continue;
-
-			// フィルタを取得
-			if (FAILED(hr = dsfEnum.getFilter(&m_pTif))) {
-				OutputDebug(L"[M->I] Error in Get Filter\n");
-				return hr;
-			}
-
-			// フィルタを追加
-			if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTif, FILTER_GRAPH_NAME_TIF))) {
-				SAFE_RELEASE(m_pTif);
-				OutputDebug(L"[M->I] Error in AddFilter.\n");
-				return hr;
-			}
-
-			// connect してみる
-			if (FAILED(hr = Connect(L"Demux -> Tif", m_pDemux, m_pTif))) {
-				m_pIGraphBuilder->RemoveFilter(m_pTif);
-				SAFE_RELEASE(m_pTif);
-				return hr;
-			}
-
-			// connect 成功なのでこのまま終了
-			OutputDebug(L"[M->I] Connect OK.\n");
-			return S_OK;
-		}
-		OutputDebug(L"[M->I] MPEG2 Transport Information Filter not found.\n");
-		return E_FAIL;
-	} catch (...) {
-		OutputDebug(L"[M->I] Fail to construct CDSFilterEnum.\n");
-		SAFE_RELEASE(m_pTif);
-		return E_FAIL;
+	CComPtr<IBaseFilter> pTif;
+	// フィルタを取得
+	if (FAILED(hr = pTif.CoCreateInstance(CLSID_MPEG2TransportInformationFilter, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[M->I] Fail to get TIF IBaseFilter interface.\n");
 	}
+	else {
+		// フィルタ取得成功
+		// Graph Builderにフィルタを追加
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTif, FILTER_GRAPH_NAME_TIF))) {
+			OutputDebug(L"[M->I] Fail to add TIF IBaseFilter into graph.\n");
+		}
+		else {
+			// フィルタ追加成功
+			// connect してみる
+			if (FAILED(hr = Connect(m_pDemux, pTif))) {
+				OutputDebug(L"[M->I] Fail to connect.\n");
+			}
+			else {
+				// connect 成功なのでこのまま終了
+				OutputDebug(L"[M->I] Connect OK.\n");
+				m_pTif = pTif;
+				return hr;
+			}
+			m_pIGraphBuilder->RemoveFilter(pTif);
+		}
+	}
+
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadTif(void)
@@ -3900,167 +3919,146 @@ void CBonTuner::UnloadTif(void)
 	if (m_pIGraphBuilder && m_pTif)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pTif);
 
-	SAFE_RELEASE(m_pTif);
+	m_pTif.Release();
 }
 
 HRESULT CBonTuner::LoadTunerSignalStatistics(void)
 {
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
-	if (m_pTunerDevice == NULL) {
+	if (!m_pTunerDevice) {
 		OutputDebug(L"[LoadTunerSignalStatistics] TunerDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
 	CComQIPtr<IBDA_Topology> pIBDA_Topology(m_pTunerDevice);
 	if (!pIBDA_Topology) {
-		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_Topology.\n");
-		return E_FAIL;
+		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_Topology interface.\n");
+		hr = E_FAIL;
 	}
-
-	ULONG NodeTypes;
-	ULONG NodeType[32];
-	if (FAILED(hr = pIBDA_Topology->GetNodeTypes(&NodeTypes, 32, NodeType))) {
-		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get NodeTypes.\n");
-		return E_FAIL;
-	}
-
-	BOOL bFound = FALSE;
-	for (ULONG i = 0; i < NodeTypes; i++) {
-		IUnknown *pControlNode = NULL;
-		if (SUCCEEDED(hr = pIBDA_Topology->GetControlNode(0UL, 1UL, NodeType[i], &pControlNode))) {
-			if (SUCCEEDED(hr = pControlNode->QueryInterface(__uuidof(IBDA_SignalStatistics), (void **)(&m_pIBDA_SignalStatistics)))) {
-				OutputDebug(L"[LoadTunerSignalStatistics] SUCCESS.\n");
-				bFound = TRUE;
-			}
-			SAFE_RELEASE(pControlNode);
+	else {
+		ULONG NodeTypes;
+		ULONG NodeType[32];
+		if (FAILED(hr = pIBDA_Topology->GetNodeTypes(&NodeTypes, 32, NodeType))) {
+			OutputDebug(L"[LoadTunerSignalStatistics] Fail to get NodeTypes.\n");
 		}
-		if (bFound)
-			break;
+		else {
+			for (ULONG i = 0; i < NodeTypes; i++) {
+				CComPtr<IUnknown> pControlNode;
+				if (SUCCEEDED(hr = pIBDA_Topology->GetControlNode(0UL, 1UL, NodeType[i], &pControlNode))) {
+					CComQIPtr<IBDA_SignalStatistics> pIBDA_SignalStatistics(pControlNode);
+					if (pIBDA_SignalStatistics) {
+						OutputDebug(L"[LoadTunerSignalStatistics] SUCCESS.\n");
+						m_pIBDA_SignalStatistics = pIBDA_SignalStatistics;
+						return hr;
+					}
+				}
+			}
+		}
 	}
 
-	if (!m_pIBDA_SignalStatistics) {
-		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_SignalStatistics.\n");
-		return E_FAIL;
-	}
-
-	return S_OK;
+	OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_SignalStatistics interface.\n");
+	return E_FAIL;
 }
 
 void CBonTuner::UnloadTunerSignalStatistics(void)
 {
-	SAFE_RELEASE(m_pIBDA_SignalStatistics);
+	m_pIBDA_SignalStatistics.Release();
 }
 
 
 // Connect pins (Common subroutine)
 //  全てのピンを接続して成功したら終了
 //
-HRESULT CBonTuner::Connect(const WCHAR* pszName, IBaseFilter* pFilterUp, IBaseFilter* pFilterDown)
+HRESULT CBonTuner::Connect(IBaseFilter* pFilterUp, IBaseFilter* pFilterDown)
 {
 	HRESULT hr;
 
-	IEnumPins *pIEnumPinsUp = NULL;
-	IEnumPins *pIEnumPinsDown = NULL;
-	do {
-		// 上流フィルタのピン列挙
-		if (FAILED(hr = pFilterUp->EnumPins(&pIEnumPinsUp))) {
-			OutputDebug(L"Fatal Error; Cannot enumerate upstream filter's pins.\n");
+	CComPtr<IEnumPins> pIEnumPinsUp;
+	CComPtr<IEnumPins> pIEnumPinsDown;
+
+	// 上流フィルタのピン列挙
+	if (FAILED(hr = pFilterUp->EnumPins(&pIEnumPinsUp))) {
+		OutputDebug(L"  Can not enumerate upstream filter's pins.\n");
+		return hr;
+	}
+
+	// 下流フィルタのピン列挙
+	if (FAILED(hr = pFilterDown->EnumPins(&pIEnumPinsDown))) {
+		OutputDebug(L"  Can not enumerate downstream filter's pins.\n");
+		return hr;
+	}
+
+	// 上流フィルタのピンの数だけループ
+	while (1) {
+		CComPtr<IPin> pIPinUp;
+		if (FAILED(hr = pIEnumPinsUp->Next(1, &pIPinUp, 0)) || hr != S_OK) {
+			// ループ終わり
 			break;
 		}
+		do {
+			PIN_DIRECTION pinDirUp;
+			CComPtr<IPin> pIPinPeerOfUp;
+			if (FAILED(hr = pIPinUp->QueryDirection(&pinDirUp))) {
+				OutputDebug(L"  Can not get upstream filter's pinDir.\n");
+				return hr;
+			}
 
-		// 下流フィルタのピン列挙
-		if (FAILED(hr = pFilterDown->EnumPins(&pIEnumPinsDown))) {
-			OutputDebug(L"Fatal Error; Cannot enumerate downstream filter's pins.\n");
-			break;
-		}
+			// 着目ピンが INPUTピンなら次の上流ピンへ
+			if (pinDirUp == PINDIR_INPUT) {
+				break;
+			}
 
-		BOOL bExitLoop = FALSE;
-		// 上流フィルタのピンの数だけループ
-		IPin *pIPinUp = NULL;
-		while (SUCCEEDED(hr = pIEnumPinsUp->Next(1, &pIPinUp, 0)) && hr == S_OK) {
-			PIN_INFO PinInfoUp = { NULL, };
-			IPin *pIPinPeerOfUp = NULL;
-			do {
-				if (FAILED(hr = pIPinUp->QueryPinInfo(&PinInfoUp))) {
-					OutputDebug(L"Fatal Error; Cannot get upstream filter's pinInfo.\n");
-					bExitLoop = TRUE;
+			// 上流フィルタの着目ピンが接続済orエラーだったら次の上流ピンへ
+			if (pIPinUp->ConnectedTo(&pIPinPeerOfUp) != VFW_E_NOT_CONNECTED){
+				OutputDebug(L"  An already connected pin was found.\n");
+				break;
+			}
+
+			// 下流フィルタのピンの数だけループ
+			pIEnumPinsDown->Reset();
+			while (1) {
+				CComPtr<IPin> pIPinDown;
+				if (FAILED(hr = pIEnumPinsDown->Next(1, &pIPinDown, 0)) || hr != S_OK) {
+					// ループ終わり
 					break;
 				}
+				do {
+					PIN_DIRECTION pinDirDown;
+					CComPtr<IPin> pIPinPeerOfDown;
+					if (FAILED(hr = pIPinDown->QueryDirection(&pinDirDown))) {
+						OutputDebug(L"  Can not get downstream filter's pinDir.\n");
+						return hr;
+					}
 
-				// 着目ピンが INPUTピンなら次の上流ピンへ
-				if (PinInfoUp.dir == PINDIR_INPUT) {
-					OutputDebug(L"This is an INPUT pin.\n");
-					break;
-				}
-
-				// 上流フィルタの着目ピンが接続済orエラーだったら次の上流ピンへ
-				if (pIPinUp->ConnectedTo(&pIPinPeerOfUp) != VFW_E_NOT_CONNECTED){
-					OutputDebug(L"Target pin is already connected.\n");
-					break;
-				}
-
-				// 下流フィルタのピンの数だけループ
-				IPin *pIPinDown = NULL;
-				pIEnumPinsDown->Reset();
-				while (SUCCEEDED(hr = pIEnumPinsDown->Next(1, &pIPinDown, 0)) && hr == S_OK) {
-					PIN_INFO PinInfoDown = { NULL, };
-					IPin *pIPinPeerOfDown = NULL;
-					do {
-						if (FAILED(hr = pIPinDown->QueryPinInfo(&PinInfoDown))) {
-							OutputDebug(L"Fatal Error; cannot get downstream filter's pinInfo.\n");
-							bExitLoop = TRUE;
-							break;
-						}
-
-						// 着目ピンが OUTPUT ピンなら次の下流ピンへ
-						if (PinInfoDown.dir == PINDIR_OUTPUT) {
-							OutputDebug(L"This is an OUTPUT pin.\n");
-							break;
-						}
-
-						// 下流フィルタの着目ピンが接続済orエラーだったら次の下流ピンへ
-						if (pIPinDown->ConnectedTo(&pIPinPeerOfDown) != VFW_E_NOT_CONNECTED) {
-							OutputDebug(L"Target pin is already connected.\n");
-							break;
-						}
-
-						// 接続を試みる
-						if (SUCCEEDED(hr = m_pIGraphBuilder->ConnectDirect(pIPinUp, pIPinDown, NULL))) {
-							OutputDebug(L"%s CBonTuner::Connect successfully.\n", pszName);
-							bExitLoop = TRUE;
-							break;
-						} else {
-							// 違うチューナユニットのフィルタを接続しようとしてる場合など
-							// コネクトできない場合、次の下流ピンへ
-							OutputDebug(L"Can't connect to unconnected pin, Maybe differenct unit?\n");
-						}
-					} while(0);
-					SAFE_RELEASE(pIPinPeerOfDown);
-					SAFE_RELEASE(PinInfoDown.pFilter);
-					SAFE_RELEASE(pIPinDown);
-					if (bExitLoop)
+					// 着目ピンが OUTPUT ピンなら次の下流ピンへ
+					if (pinDirDown == PINDIR_OUTPUT) {
 						break;
-					OutputDebug(L"Trying next downstream pin.\n");
-				} // while; 次の下流ピンへ
-				break;
-			} while (0);
-			SAFE_RELEASE(pIPinPeerOfUp);
-			SAFE_RELEASE(PinInfoUp.pFilter);
-			SAFE_RELEASE(pIPinUp);
-			if (bExitLoop)
-				break;
-			OutputDebug(L"Trying next upstream pin.\n");
-		} // while ; 次の上流ピンへ
-		if (!bExitLoop) {
-			OutputDebug(L"Can't connect.\n");
-			hr = E_FAIL;
-		}
-	} while(0);
-	SAFE_RELEASE(pIEnumPinsDown);
-	SAFE_RELEASE(pIEnumPinsUp);
+					}
 
-	return hr;
+					// 下流フィルタの着目ピンが接続済orエラーだったら次の下流ピンへ
+					if (pIPinDown->ConnectedTo(&pIPinPeerOfDown) != VFW_E_NOT_CONNECTED) {
+						OutputDebug(L"  An already connected pin was found.\n");
+						break;
+					}
+
+					// 接続を試みる
+					if (SUCCEEDED(hr = m_pIGraphBuilder->ConnectDirect(pIPinUp, pIPinDown, NULL))) {
+						// 接続成功
+						return hr;
+					} else {
+						// 違うチューナユニットのフィルタを接続しようとしてる場合など
+						// コネクトできない場合、次の下流ピンへ
+						OutputDebug(L"  A pair of pins that can not be connected was found.\n");
+					}
+				} while(0);
+			} // while; 次の下流ピンへ
+		} while (0);
+	} // while ; 次の上流ピンへ
+
+	// コネクト可能な組み合わせが見つからなかった
+	OutputDebug(L"  Can not found a pair of connectable pins.\n");
+	return E_FAIL;
 }
 
 void CBonTuner::DisconnectAll(IBaseFilter* pFilter)
@@ -4070,22 +4068,24 @@ void CBonTuner::DisconnectAll(IBaseFilter* pFilter)
 	
 	HRESULT hr;
 
-	IEnumPins *pIEnumPins = NULL;
+	CComPtr<IEnumPins> pIEnumPins;
 	// フィルタのピン列挙
 	if (SUCCEEDED(hr = pFilter->EnumPins(&pIEnumPins))) {
 		// ピンの数だけループ
-		IPin *pIPin = NULL;
-		while (SUCCEEDED(hr = pIEnumPins->Next(1, &pIPin, 0)) && hr == S_OK) {
+		while (1) {
+			CComPtr<IPin> pIPin;
+			CComPtr<IPin> pIPinPeerOf;
+			if (FAILED(hr = pIEnumPins->Next(1, &pIPin, 0)) || hr != S_OK) {
+				// ループ終わり
+				break;
+			}
 			// ピンが接続済だったら切断
-			IPin *pIPinPeerOf = NULL;
+
 			if (SUCCEEDED(hr = pIPin->ConnectedTo(&pIPinPeerOf))) {
 				hr = m_pIGraphBuilder->Disconnect(pIPinPeerOf);
 				hr = m_pIGraphBuilder->Disconnect(pIPin);
-				SAFE_RELEASE(pIPinPeerOf);
 			}
-			SAFE_RELEASE(pIPin);
 		}
-		SAFE_RELEASE(pIEnumPins);
 	}
 }
 

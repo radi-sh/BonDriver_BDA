@@ -18,7 +18,7 @@
 #include "LockChannel.h"
 #include "DSFilterEnum.h"
 
-class CTsWriter;
+struct ITsWriter;
 
 // CBonTuner class
 ////////////////////////////////
@@ -113,7 +113,7 @@ protected:
 	BOOL LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice);
 
 	// チューナ固有Dllのロード
-	HRESULT CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstring tunerFriendlyName);
+	HRESULT CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::wstring tunerGUID, std::wstring tunerFriendlyName);
 
 	// チューナ固有Dllでのキャプチャデバイス確認
 	HRESULT CheckCapture(std::wstring tunerGUID, std::wstring tunerFriendlyName, std::wstring captureGUID, std::wstring captureFriendlyName);
@@ -152,7 +152,7 @@ protected:
 	void UnloadCaptureDevice(void);
 	
 	// TsWriter
-	HRESULT LoadAndConnectTsWriter(void);
+	HRESULT LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice);
 	void UnloadTsWriter(void);
 
 	// Demultiplexer
@@ -164,14 +164,14 @@ protected:
 	void UnloadTif(void);
 
 	// TsWriter/Demultiplexer/TIFをLoad&ConnectしRunする
-	HRESULT LoadAndConnectMiscFilters(void);
+	HRESULT LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice);
 
 	// チューナ信号状態取得用インターフェース
 	HRESULT LoadTunerSignalStatistics(void);
 	void UnloadTunerSignalStatistics(void);
 
 	// Pin の接続
-	HRESULT Connect(const WCHAR* pszName, IBaseFilter* pFrom, IBaseFilter* pTo);
+	HRESULT Connect(IBaseFilter* pFrom, IBaseFilter* pTo);
 
 	// 全ての Pin を切断する
 	void DisconnectAll(IBaseFilter* pFilter);
@@ -861,20 +861,20 @@ protected:
 	HANDLE m_hSemaphore;
 
 	// Graph
-	ITuningSpace *m_pITuningSpace;
-	ITuner *m_pITuner;
-	IBaseFilter *m_pNetworkProvider;
-	IBaseFilter *m_pTunerDevice;
-	IBaseFilter *m_pCaptureDevice;
-	IBaseFilter *m_pTsWriter;
-	IBaseFilter *m_pDemux;
-	IBaseFilter *m_pTif;
-	IGraphBuilder *m_pIGraphBuilder;
-	IMediaControl *m_pIMediaControl;
-	CTsWriter *m_pCTsWriter;
+	CComPtr<IGraphBuilder> m_pIGraphBuilder;	// Filter Graph Manager の IGraphBuilder interface
+	CComPtr<IMediaControl> m_pIMediaControl;	// Filter Graph Manager の IMediaControl interface
+	CComPtr<IBaseFilter> m_pNetworkProvider;	// NetworkProvider の IBaseFilter interface
+	CComPtr<ITuner> m_pITuner;					// NetworkProvider の ITuner interface
+	CComPtr<IBaseFilter> m_pTunerDevice;		// Tuner Device の IBaseFilter interface
+	CComPtr<IBaseFilter> m_pCaptureDevice;		// Capture Device の IBaseFilter interface
+	CComPtr<IBaseFilter> m_pTsWriter;			// CTsWriter の IBaseFilter interface
+	CComPtr<ITsWriter> m_pITsWriter;			// CTsWriter の ITsWriter interface
+	CComPtr<IBaseFilter> m_pDemux;				// MPEG2 Demultiplexer の IBaseFilter interface
+	CComPtr<IBaseFilter> m_pTif;				// MPEG2 Transport Information Filter の IBaseFilter interface
+	CComPtr<ITuningSpace> m_pITuningSpace;		// Tuning Space の ITuningSpace interface
 
 	// チューナ信号状態取得用インターフェース
-	IBDA_SignalStatistics *m_pIBDA_SignalStatistics;
+	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatistics;
 
 	// DSフィルター列挙 CDSFilterEnum
 	CDSFilterEnum *m_pDSFilterEnumTuner;
