@@ -8,6 +8,7 @@
 #include <dshow.h>
 
 #include <string>
+#include <atlbase.h>
 
 class CDSFilterEnum
 {
@@ -17,15 +18,15 @@ public:
 	virtual ~CDSFilterEnum(void);
 
 	HRESULT next(void);
-	HRESULT getFilter(IBaseFilter** ppFilter);
-	HRESULT getFilter(IBaseFilter** ppFilter, ULONG order);
-	HRESULT getFriendlyName(std::wstring* pName);
-	HRESULT getDisplayName(std::wstring* pName);
+	HRESULT getFilter(IBaseFilter ** ppFilter);
+	HRESULT getFilter(IBaseFilter ** ppFilter, ULONG order);
+	HRESULT getFriendlyName(std::wstring * pName);
+	HRESULT getDisplayName(std::wstring * pName);
 
 	static std::wstring getDeviceInstancePathrFromDisplayName(std::wstring Name);
 
 private:
-	IEnumMoniker* m_pIEnumMoniker;
-	ICreateDevEnum* m_pICreateDevEnum;
-	IMoniker* m_pIMoniker;
+	CComPtr<IEnumMoniker> m_pIEnumMoniker;
+	CComPtr<ICreateDevEnum> m_pICreateDevEnum;
+	CComPtr<IMoniker> m_pIMoniker;
 };

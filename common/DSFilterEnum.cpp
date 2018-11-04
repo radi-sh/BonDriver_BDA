@@ -17,24 +17,18 @@ CDSFilterEnum::CDSFilterEnum(CLSID clsid)
 }
 
 CDSFilterEnum::CDSFilterEnum(CLSID clsid, DWORD dwFlags)
-	: m_pIEnumMoniker(NULL), 
-	  m_pICreateDevEnum(NULL),
-	  m_pIMoniker(NULL)
 {
-	HRESULT hr = ::CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC, IID_ICreateDevEnum, reinterpret_cast<void**>(&m_pICreateDevEnum));
+	HRESULT hr;
 
-	if (FAILED(hr)) {
-		std::wstring e(L"Error in CoCreateInstance.");
+	if (FAILED(hr = m_pICreateDevEnum.CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC))) {
+		std::wstring e(L"CDSFilterEnum: Error in CoCreateInstance.");
 		throw e;
 		return; /* not reached */
 	}
 
-	hr = m_pICreateDevEnum->CreateClassEnumerator(clsid, &m_pIEnumMoniker, dwFlags);
-
-	if ((FAILED (hr)) || (hr != S_OK)) {
+	if ((FAILED(hr = m_pICreateDevEnum->CreateClassEnumerator(clsid, &m_pIEnumMoniker, dwFlags))) || (hr != S_OK)) {
 		// CreateClassEnumerator ‚ªì‚ê‚È‚¢ || Œ©‚Â‚©‚ç‚È‚¢
-		SAFE_RELEASE(m_pICreateDevEnum);
-		std::wstring e(L"Error in CreateClassEnumerator.");
+		std::wstring e(L"CDSFilterEnum: Error in CreateClassEnumerator.");
 		throw e;
 		return; /* not reached */
 	}
@@ -44,14 +38,11 @@ CDSFilterEnum::CDSFilterEnum(CLSID clsid, DWORD dwFlags)
 
 CDSFilterEnum::~CDSFilterEnum(void)
 {
-	SAFE_RELEASE(m_pIMoniker);
-	SAFE_RELEASE(m_pICreateDevEnum);
-	SAFE_RELEASE(m_pIEnumMoniker);
 }
 
 HRESULT CDSFilterEnum::next(void)
 {
-	SAFE_RELEASE(m_pIMoniker);
+	m_pIMoniker.Release();
 
 	HRESULT hr = m_pIEnumMoniker->Next(1, &m_pIMoniker, 0);
 
@@ -59,86 +50,75 @@ HRESULT CDSFilterEnum::next(void)
 }
 
 
-HRESULT CDSFilterEnum::getFilter(IBaseFilter** ppFilter)
+HRESULT CDSFilterEnum::getFilter(IBaseFilter ** ppFilter)
 {
 	if ((!ppFilter) || (m_pIMoniker == NULL))
 		return E_POINTER;
 
-	*ppFilter = NULL;
+	HRESULT hr;
 
-	// bind the filter        
-    HRESULT hr = m_pIMoniker->BindToObject(NULL, NULL, IID_IBaseFilter, reinterpret_cast<void**>(ppFilter));
-
-	if (!*ppFilter)
-			return E_POINTER;
+	// bind the filter
+    hr = m_pIMoniker->BindToObject(NULL, NULL, IID_IBaseFilter, (void **)ppFilter);
 
 	return hr;
 }
 
-HRESULT CDSFilterEnum::getFilter(IBaseFilter** ppFilter, ULONG order)
+HRESULT CDSFilterEnum::getFilter(IBaseFilter ** ppFilter, ULONG order)
 {
 	if ((!ppFilter) || (m_pIEnumMoniker == NULL))
 		return E_POINTER;
 
-	SAFE_RELEASE(m_pIMoniker);
-	*ppFilter = NULL;
+	m_pIMoniker.Release();
 
-	HRESULT hr;
-		
 	m_pIEnumMoniker->Reset();
 
+	HRESULT hr;
+
 	if (order) {
-		hr = m_pIEnumMoniker->Skip(order);
-		if (FAILED(hr)) {
-			OutputDebug(L"m_pIEnumMoniker->Skip method failed.\n");
+		if (FAILED(hr = m_pIEnumMoniker->Skip(order))) {
+			OutputDebug(L"CDSFilterEnum::getFilter: IEnumMoniker::Skip method failed.\n");
 			return hr;
 		}
 	}
 
-	hr = m_pIEnumMoniker->Next(1, &m_pIMoniker, 0);
-	if (FAILED(hr)) {
-		OutputDebug(L"m_pIEnumMoniker->Next method failed.\n");
+	if (FAILED(hr = m_pIEnumMoniker->Next(1, &m_pIMoniker, 0))) {
+		OutputDebug(L"CDSFilterEnum::getFilter: IEnumMoniker::Next method failed.\n");
 		return hr;
 	}
 
 	return getFilter(ppFilter);
 }
 
-HRESULT CDSFilterEnum::getFriendlyName(std::wstring* pName)
+HRESULT CDSFilterEnum::getFriendlyName(std::wstring * pName)
 {
 	if (m_pIMoniker == NULL) {
 		return E_POINTER;
 	}
 
-    IPropertyBag *pBag;
-    HRESULT hr =m_pIMoniker->BindToStorage(NULL, NULL, IID_IPropertyBag, reinterpret_cast<void**>(&pBag));
+    CComPtr<IPropertyBag> pBag;
+	HRESULT hr;
 
-	if(FAILED(hr)) {
-		OutputDebug(L"Cannot BindToStorage for.\n");
+	if(FAILED(hr = m_pIMoniker->BindToStorage(NULL, NULL, IID_IPropertyBag, (void**)&pBag))) {
+		OutputDebug(L"CDSFilterEnum::getFriendlyName: IMoniker::BindToStorage method failed.\n");
         return hr;
     }
 
 	VARIANT varName;
 	::VariantInit(&varName);
 
-	hr = pBag->Read(L"FriendlyName", &varName, NULL);
-
-	if(FAILED(hr)){
-		OutputDebug(L"IPropertyBag->Read method failed for.\n");
-		SAFE_RELEASE(pBag);
+	if(FAILED(hr = pBag->Read(L"FriendlyName", &varName, NULL))){
+		OutputDebug(L"CDSFilterEnum::getFriendlyName: IPropertyBag::Read method failed.\n");
 		::VariantClear(&varName);
 		return hr;
     }
 	
 	*pName = varName.bstrVal;
-	
-	SAFE_RELEASE(pBag);
 	::VariantClear(&varName);
 
 	return S_OK;
 }
 
-HRESULT CDSFilterEnum::getDisplayName(std::wstring* pName)
+HRESULT CDSFilterEnum::getDisplayName(std::wstring * pName)
 {
 	HRESULT hr;
 	if (m_pIMoniker == NULL) {
