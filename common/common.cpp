@@ -41,17 +41,17 @@ std::basic_string<TCHAR> common::TStringPrintf(LPCTSTR format, ...)
 
 std::string common::WStringToString(std::wstring Src)
 {
-	return std::string(Src.begin(), Src.end());
+	return std::string(Src.cbegin(), Src.cend());
 }
 
 std::wstring common::StringToWString(std::string Src)
 {
-	return std::wstring(Src.begin(), Src.end());
+	return std::wstring(Src.cbegin(), Src.cend());
 }
 
 std::basic_string<TCHAR> common::WStringToTString(std::wstring Src)
 {
-	return std::basic_string<TCHAR>(Src.begin(), Src.end());
+	return std::basic_string<TCHAR>(Src.cbegin(), Src.cend());
 }
 
 std::wstring common::WStringToUpperCase(std::wstring Src)
