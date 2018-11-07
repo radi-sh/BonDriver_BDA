@@ -24,6 +24,7 @@ public:
 	HRESULT getDisplayName(std::wstring * pName);
 
 	static std::wstring getDeviceInstancePathrFromDisplayName(std::wstring Name);
+	static std::wstring getRegistryName(IBaseFilter * pFilter);
 
 private:
 	CComPtr<IEnumMoniker> m_pIEnumMoniker;

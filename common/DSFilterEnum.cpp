@@ -11,6 +11,9 @@
 
 #include <DShow.h>
 
+#include "Rpc.h"
+#pragma comment(lib, "Rpcrt4.lib")
+
 CDSFilterEnum::CDSFilterEnum(CLSID clsid)
 	: CDSFilterEnum(clsid, 0)
 {
@@ -143,4 +146,39 @@ std::wstring CDSFilterEnum::getDeviceInstancePathrFromDisplayName(std::wstring d
 	std::replace(dip.begin(), dip.end(), L'#', L'\\');
 
 	return std::wstring(dip);
+}
+
+std::wstring CDSFilterEnum::getRegistryName(IBaseFilter * pFilter)
+{
+	HRESULT hr;
+	std::wstring strFilterName;
+	// filterオブジェクトクラスのCLSIDを取得
+	CComQIPtr<IPersist> pIpersist(pFilter);
+	if (pIpersist) {
+		CLSID clsidFilterObj;
+		if (SUCCEEDED(hr = pIpersist->GetClassID(&clsidFilterObj))) {
+			// CLSIDを文字列に変換
+			RPC_STATUS rpcret;
+			WCHAR *wszUuid = NULL;
+			if ((rpcret = ::UuidToStringW(&clsidFilterObj, (RPC_WSTR *)&wszUuid)) == RPC_S_OK) {
+				std::wstring strRegKey(wszUuid);
+				::RpcStringFreeW((RPC_WSTR *)&wszUuid);
+				// レジストリキー名を作成
+				strRegKey = L"CLSID\\{" + strRegKey + L"}";
+				// レジストリから名称を取得
+				LSTATUS ret;
+				HKEY hk;
+				if ((ret = ::RegOpenKeyExW(HKEY_CLASSES_ROOT, strRegKey.c_str(), 0, KEY_READ, &hk)) == ERROR_SUCCESS) {
+					WCHAR data[128];
+					DWORD size = sizeof(data) / sizeof(data[0]);
+					if ((ret = ::RegQueryValueExW(hk, NULL, NULL, NULL, (BYTE *)data, &size)) == ERROR_SUCCESS) {
+						::RegCloseKey(hk);
+						return std::wstring(data);
+					}
+					::RegCloseKey(hk);
+				}
+			}
+		}
+	}
+	return L"Unknown filter";
 }
