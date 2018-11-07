@@ -44,31 +44,6 @@
 FILE *g_fpLog = NULL;
 
 //////////////////////////////////////////////////////////////////////
-// 定数等定義
-//////////////////////////////////////////////////////////////////////
-
-// TS Writerの名称:AddFilter時に登録する名前
-static const WCHAR * const FILTER_GRAPH_NAME_TSWRITER	= L"TS Writer";
-
-// MPEG2 Demultiplexerの名称:AddFilter時に登録する名前
-static const WCHAR * const FILTER_GRAPH_NAME_DEMUX = L"MPEG2 Demultiplexer";
-
-// MPEG2 TIFの名称:AddFilter時に登録する名前
-static const WCHAR * const FILTER_GRAPH_NAME_TIF = L"BDA MPEG2 Transport Information Filter";
-
-// MPEG2 TIFのCLSID
-static const CLSID CLSID_MPEG2TransportInformationFilter = { 0xfc772ab0, 0x0c7f, 0x11d3, 0x8f, 0xf2, 0x00, 0xa0, 0xc9, 0x22, 0x4c, 0xf4 };
-
-// Network Providerの名称
-static const WCHAR * const FILTER_GRAPH_NAME_NETWORK_PROVIDER[] = {
-	L"Microsoft Network Provider",
-	L"Microsoft DVB-S Network Provider",
-	L"Microsoft DVB-T Network Provider",
-	L"Microsoft DVB-C Network Provider",
-	L"Microsoft ATSC Network Provider",
-};
-
-//////////////////////////////////////////////////////////////////////
 // 静的メンバ変数
 //////////////////////////////////////////////////////////////////////
 
@@ -1292,11 +1267,11 @@ void CBonTuner::ReadIniFile(void)
 
 	static const std::map<const std::wstring, const int> mapNetworkProvider = {
 		{ L"AUTO",                                                           enumNetworkProvider::eNetworkProviderAuto },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[0]), enumNetworkProvider::eNetworkProviderGeneric },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[1]), enumNetworkProvider::eNetworkProviderDVBS },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[2]), enumNetworkProvider::eNetworkProviderDVBT },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[3]), enumNetworkProvider::eNetworkProviderDVBC },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[4]), enumNetworkProvider::eNetworkProviderATSC },
+		{ L"MICROSOFT NETWORK PROVIDER",       enumNetworkProvider::eNetworkProviderGeneric },
+		{ L"MICROSOFT DVB-S NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBS },
+		{ L"MICROSOFT DVB-T NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBT },
+		{ L"MICROSOFT DVB-C NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBC },
+		{ L"MICROSOFT ATSC NETWORK PROVIDER",  enumNetworkProvider::eNetworkProviderATSC },
 	};
 
 	static const std::map<const std::wstring, const int> mapDefaultNetwork = {
@@ -3274,29 +3249,23 @@ HRESULT CBonTuner::InitTuningSpace(void)
 
 HRESULT CBonTuner::LoadNetworkProvider(void)
 {
-	const WCHAR *strName = NULL;
 	CLSID clsidNetworkProvider = CLSID_NULL;
 
 	switch (m_nNetworkProvider) {
 	case eNetworkProviderGeneric:
 		clsidNetworkProvider = CLSID_NetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[0];
 		break;
 	case eNetworkProviderDVBS:
 		clsidNetworkProvider = CLSID_DVBSNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[1];
 		break;
 	case eNetworkProviderDVBT:
 		clsidNetworkProvider = CLSID_DVBTNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[2];
 		break;
 	case eNetworkProviderDVBC:
 		clsidNetworkProvider = CLSID_DVBCNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[3];
 		break;
 	case eNetworkProviderATSC:
 		clsidNetworkProvider = CLSID_ATSCNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[4];
 		break;
 	case eNetworkProviderAuto:
 	default:
@@ -3304,27 +3273,22 @@ HRESULT CBonTuner::LoadNetworkProvider(void)
 		case eTunerTypeDVBS:
 		case eTunerTypeISDBS:
 			clsidNetworkProvider = CLSID_DVBSNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[1];
 			break;
 		case eTunerTypeDVBT:
 		case eTunerTypeDVBT2:
 		case eTunerTypeISDBT:
 			clsidNetworkProvider = CLSID_DVBTNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[2];
 			break;
 		case eTunerTypeDVBC:
 			clsidNetworkProvider = CLSID_DVBCNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[3];
 			break;
 		case eTunerTypeATSC_Antenna:
 		case eTunerTypeATSC_Cable:
 		case eTunerTypeDigitalCable:
 			clsidNetworkProvider = CLSID_ATSCNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[4];
 			break;
 		default:
 			clsidNetworkProvider = CLSID_NetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[0];
 			break;
 		}
 		break;
@@ -3334,14 +3298,15 @@ HRESULT CBonTuner::LoadNetworkProvider(void)
 
 	CComPtr<IBaseFilter> pNetworkProvider;
 	// Network Proveiderフィルタを取得
-	OutputDebug(L"[LoadNetworkProvider] Loading %s.\n", strName);
 	if (FAILED(hr = pNetworkProvider.CoCreateInstance(clsidNetworkProvider, NULL, CLSCTX_INPROC_SERVER))) {
 		OutputDebug(L"[LoadNetworkProvider] Fail to get NetworkProvider IBaseFilter interface.\n");
 	}
 	else {
+		std::wstring strName = CDSFilterEnum::getRegistryName(pNetworkProvider);
+		OutputDebug(L"[LoadNetworkProvider] %s is loaded.\n", strName.c_str());
 		// フィルタ取得成功
 		// Graph Builderにフィルタを追加
-		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pNetworkProvider, strName))) {
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pNetworkProvider, strName.c_str()))) {
 			OutputDebug(L"[LoadNetworkProvider] Fail to add NetworkProvider IBaseFilter into graph.\n");
 		}
 		else {
@@ -3748,6 +3713,9 @@ HRESULT CBonTuner::LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFil
 
 HRESULT CBonTuner::LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice)
 {
+	// TS Writerの名称:AddFilter時に登録する名前
+	static const WCHAR * const FILTER_GRAPH_NAME_TSWRITER = L"TS Writer";
+
 	HRESULT hr = E_FAIL;
 
 	if (!pTunerDevice || (!pCaptureDevice && !m_aTunerParam.bNotExistCaptureDevice)) {
@@ -3770,6 +3738,7 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter
 		}
 		else {
 			// フィルタ取得成功
+			OutputDebug(L"[C->W/T->W] %s is loaded.\n", FILTER_GRAPH_NAME_TSWRITER);
 			// Graph Builderにフィルタを追加
 			if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTsWriter, FILTER_GRAPH_NAME_TSWRITER))) {
 				OutputDebug(L"[C->W/T->W] Fail to add TsWriter IBaseFilter into graph.\n");
@@ -3839,9 +3808,11 @@ HRESULT CBonTuner::LoadAndConnectDemux(void)
 		OutputDebug(L"[W->M] Fail to get MPEG2Demultiplexer IBaseFilter interface.\n");
 	}
 	else {
+		std::wstring strName = CDSFilterEnum::getRegistryName(pDemux);
+		OutputDebug(L"[W->M] %s is loaded.\n", strName.c_str());
 		// フィルタ取得成功
 		// Graph Builderにフィルタを追加
-		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pDemux, FILTER_GRAPH_NAME_DEMUX))) {
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pDemux, strName.c_str()))) {
 			OutputDebug(L"[W->M] Fail to add MPEG2Demultiplexer IBaseFilter into graph.\n");
 		}
 		else {
@@ -3875,6 +3846,9 @@ void CBonTuner::UnloadDemux(void)
 
 HRESULT CBonTuner::LoadAndConnectTif(void)
 {
+	// MPEG2 TIFのCLSID
+	static const CLSID CLSID_MPEG2TransportInformationFilter = { 0xfc772ab0, 0x0c7f, 0x11d3, 0x8f, 0xf2, 0x00, 0xa0, 0xc9, 0x22, 0x4c, 0xf4 };
+
 	HRESULT hr = E_FAIL;
 
 	if (!m_pDemux) {
@@ -3888,9 +3862,11 @@ HRESULT CBonTuner::LoadAndConnectTif(void)
 		OutputDebug(L"[M->I] Fail to get TIF IBaseFilter interface.\n");
 	}
 	else {
+		std::wstring strName = CDSFilterEnum::getRegistryName(pTif);
+		OutputDebug(L"[M->I] %s is loaded.\n", strName.c_str());
 		// フィルタ取得成功
 		// Graph Builderにフィルタを追加
-		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTif, FILTER_GRAPH_NAME_TIF))) {
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTif, strName.c_str()))) {
 			OutputDebug(L"[M->I] Fail to add TIF IBaseFilter into graph.\n");
 		}
 		else {
