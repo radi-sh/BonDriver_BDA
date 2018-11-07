@@ -3,7 +3,7 @@
 #include <streams.h>
 #include <initguid.h>
 
-typedef int (CALLBACK * RECV_PROC) (void * pParam, BYTE * pbData, DWORD dwSize);
+typedef int (CALLBACK * RECV_PROC)(void * pParam, BYTE * pbData, DWORD dwSize);
 
 // define a IID for ITsWriter interface
 // {57FE9CC4-DD3A-4FB3-9873-E7F3E41467D9}
@@ -14,14 +14,7 @@ MIDL_INTERFACE("57fe9cc4-dd3a-4fb3-9873-e7f3e41467d9")
 	ITsWriter: public IUnknown 
 {
 public:
-	STDMETHODIMP SetCallBackRecv(RECV_PROC pRecv, void * pParam)
-	{
-		_SetCallBackRecv(pRecv, pParam);
-		return S_OK;
-	};
-
-protected:
-	virtual void _SetCallBackRecv(RECV_PROC pRecv, void * pParam) = 0;
+	virtual STDMETHODIMP SetCallBackRecv(RECV_PROC pRecv, void * pParam) = 0;
 };
 
 // define a CLSID for CTsWriter filters
@@ -42,10 +35,10 @@ public:
 	virtual HRESULT CheckInputType(const CMediaType * mtIn);
 
 	DECLARE_IUNKNOWN;
-	STDMETHODIMP NonDelegatingQueryInterface(REFIID riid, void **ppv);
+	STDMETHODIMP NonDelegatingQueryInterface(REFIID riid, void ** ppv);
+	virtual STDMETHODIMP SetCallBackRecv(RECV_PROC pRecv, void * pParam);
 
 protected:
-	virtual void _SetCallBackRecv(RECV_PROC pRecv, void * pParam);
 	HRESULT Write(PBYTE pbData, LONG lDataLength);
 
 protected:

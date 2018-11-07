@@ -1,6 +1,6 @@
 #include "tswriter.h"
 
-CUnknown * WINAPI CTsWriter::CreateInstance(LPUNKNOWN pUnk, HRESULT *phr)
+CUnknown * WINAPI CTsWriter::CreateInstance(LPUNKNOWN pUnk, HRESULT * phr)
 {
 	CTsWriter *pFilter = new CTsWriter(NAME("TS Writer Filter"), pUnk, phr);
 	if (pFilter == NULL)
@@ -33,7 +33,7 @@ HRESULT CTsWriter::CheckInputType(const CMediaType * mtIn)
 	return S_OK;
 }
 
-STDMETHODIMP CTsWriter::NonDelegatingQueryInterface(REFIID riid, void **ppv)
+STDMETHODIMP CTsWriter::NonDelegatingQueryInterface(REFIID riid, void ** ppv)
 {
 	if (riid == IID_ITsWriter) {
 		return GetInterface((ITsWriter *)this, ppv);
@@ -41,11 +41,12 @@ STDMETHODIMP CTsWriter::NonDelegatingQueryInterface(REFIID riid, void **ppv)
 	return CTransformFilter::NonDelegatingQueryInterface(riid, ppv);
 }
 
-void CTsWriter::_SetCallBackRecv(RECV_PROC pRecv, void * pParam)
+STDMETHODIMP CTsWriter::SetCallBackRecv(RECV_PROC pRecv, void * pParam)
 {
 	CAutoLock lock_it(&m_Lock);
 	m_pRecv = pRecv;
 	m_pParam = pParam;
+	return S_OK;
 }
 
 HRESULT CTsWriter::Write(PBYTE pbData, LONG lDataLength)
