@@ -13,7 +13,7 @@
 DEFINE_GUID( GUID_TUNER_S_LOCK,
 0x8bed860a, 0xa7b4, 0x4e90, 0x9d, 0xf4, 0x13, 0x20, 0xc9, 0x49, 0x22, 0x61 ) ;
 
-class CDVBWorldSpecials : public IBdaSpecials2a2
+class CDVBWorldSpecials : public IBdaSpecials2a3
 {
 public:
 	CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);

@@ -693,6 +693,8 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_LastTuningParam.SID = Ch->SID;															// サービスID / MinorChannel (ATSC / Digital Cable)
 	m_LastTuningParam.MajorChannel = Ch->MajorChannel;											// MajorChannel (Digital Cable)
 	m_LastTuningParam.SourceID = Ch->SourceID;													// SourceID (Digital Cable)
+	m_LastTuningParam.IniSpaceID = dwSpace;														// iniファイルで読込まれたチューニングスペース番号
+	m_LastTuningParam.IniChannelID = dwChannel;													// iniファイルで読込まれたチャンネル番号
 
 	BOOL bRet = LockChannel(&m_LastTuningParam, m_bLockTwice && Ch->LockTwiceTarget);
 
@@ -2551,7 +2553,7 @@ void CBonTuner::LoadTunerDependCode(void)
 
 	m_pIBdaSpecials = func(m_pTunerDevice);
 
-	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2a2 *>(m_pIBdaSpecials);
+	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2a3 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
 		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 

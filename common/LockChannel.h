@@ -58,6 +58,8 @@ struct TuningParam {
 	};
 	long MajorChannel;					// Digital Cable用
 	long SourceID;						// Digital Cable用
+	DWORD IniSpaceID;					// iniファイルで読込まれたチューニングスペース番号
+	DWORD IniChannelID;					// iniファイルで読込まれたチャンネル番号
 	TuningParam(void)
 		: Frequency(-1),
 		  Polarisation(BDA_POLARISATION_NOT_SET),
@@ -67,6 +69,8 @@ struct TuningParam {
 		  TSID(-1),
 		  SID(-1),
 		  MajorChannel(-1),
-		  SourceID(-1)
+		  SourceID(-1),
+		  IniSpaceID(0xFFFFFFFFL),
+		  IniChannelID(0xFFFFFFFFL)
 	{};
 };
