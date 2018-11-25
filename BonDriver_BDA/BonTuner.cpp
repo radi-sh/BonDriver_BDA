@@ -1888,12 +1888,9 @@ void CBonTuner::ReadIniFile(void)
 					// •Î”gŽí—Þ
 					if (buf[2][0] == L' ')
 						buf[2][0] = L'\0';
-					val = -1;
 					auto it = PolarisationCharMap.find(buf[2][0]);
-					if (it != PolarisationCharMap.end())
-						val = it->second;
-					if (val != -1) {
-						itCh->second->Polarisation = val;
+					if (it != PolarisationCharMap.end()) {
+						itCh->second->Polarisation = it->second;
 					}
 					else
 						OutputDebug(L"Format Error in readIniFile; Wrong Polarization.\n");
