@@ -61,7 +61,7 @@ std::multimap<WCHAR, int> CBonTuner::PolarisationCharMap;
 
 void CBonTuner::Init(void) {
 	PolarisationCharMap.clear();
-	for (unsigned int polarisation = 1; polarisation < POLARISATION_SIZE; polarisation++) {
+	for (unsigned int polarisation = 0; polarisation < POLARISATION_SIZE; polarisation++) {
 		PolarisationCharMap.insert(std::pair<WCHAR, int>(PolarisationChar[polarisation], polarisation));
 	}
 }
