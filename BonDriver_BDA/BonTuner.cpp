@@ -1905,6 +1905,8 @@ void CBonTuner::ReadIniFile(void)
 		std::wstring chAutoOpt = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(L"ChannelSettingsAutoOptions", L""));
 		BOOL bOptVHFPlus = FALSE;
 		BOOL bOptC24Plus = FALSE;
+		BOOL bOptOnly64QAM = FALSE;
+		BOOL bOptOnly256QAM = FALSE;
 		BOOL bOptH11Plus = FALSE;
 		BOOL bOptH26Plus = FALSE;
 		BOOL bOptOnlySD = FALSE;
@@ -1921,6 +1923,12 @@ void CBonTuner::ReadIniFile(void)
 				}
 				else if (opt == L"C24+") {
 					bOptC24Plus = TRUE;
+				}
+				else if (opt == L"ONLY64QAM") {
+					bOptOnly64QAM = TRUE;
+				}
+				else if (opt == L"ONLY256QAM") {
+					bOptOnly256QAM = TRUE;
 				}
 				else if (opt == L"H011+") {
 					bOptH11Plus = TRUE;
@@ -1989,42 +1997,48 @@ void CBonTuner::ReadIniFile(void)
 		}
 		else if (chAuto == L"TRANSMODULATION") {
 			int num = 0;
-			ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-			ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-			ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-			ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-			ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-			if (bOptAll) {
-				ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-			}
-			else {
-				if (bOptVHFPlus) {
-					ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,3,0";
-					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,71,0";
+			unsigned int startCh = 0;
+			if (!bOptOnly256QAM) {
+				ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberJ83C64QAM) + L",," + std::to_wstring(startCh) + L",0";
+				ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				if (bOptAll) {
+					ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
 				}
-				if (bOptC24Plus) {
-					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,73,0";
+				else {
+					if (bOptVHFPlus) {
+						ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,3,0";
+						ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,71,0";
+					}
+					if (bOptC24Plus) {
+						ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,73,0";
+					}
 				}
+				startCh += 200;
 			}
-			ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberJ83C256QAM) + L",,200,0,%dch/256QAM";
-			ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch/256QAM";
-			ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch/256QAM";
-			ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch/256QAM";
-			ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch/256QAM";
-			if (bOptAll) {
-				ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch+/256QAM";
-				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch+/256QAM";
-				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch+/256QAM";
-			}
-			else {
-				if (bOptVHFPlus) {
-					ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,203,0,%dch+/256QAM";
-					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,271,0,C%dch+/256QAM";
+			if (!bOptOnly64QAM) {
+				ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberJ83C256QAM) + L",," + std::to_wstring(startCh) + L",0,%dch/256QAM";
+				ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch/256QAM";
+				ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch/256QAM";
+				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch/256QAM";
+				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch/256QAM";
+				if (bOptAll) {
+					ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch+/256QAM";
+					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch+/256QAM";
+					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch+/256QAM";
 				}
-				if (bOptC24Plus) {
-					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,273,0,C%dch+/256QAM";
+				else {
+					if (bOptVHFPlus) {
+						ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,203,0,%dch+/256QAM";
+						ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,271,0,C%dch+/256QAM";
+					}
+					if (bOptC24Plus) {
+						ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,273,0,C%dch+/256QAM";
+					}
 				}
 			}
 		}
