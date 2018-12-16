@@ -604,6 +604,7 @@ protected:
 	struct TuningSpaceData {
 		std::basic_string<TCHAR> sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
 		long FrequencyOffset;							// 周波数オフセット値
+		unsigned int DVBSystemTypeNumber;				// TuningSpaceの種類番号
 		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;								// チャンネル数
 		TuningSpaceData(void)
@@ -637,12 +638,6 @@ protected:
 		};
 	};
 	TuningData m_TuningData;
-
-	// iniファイルからCH設定を読込む際に
-	// 使用されていないCH番号があっても前詰せず確保しておくかどうか
-	// FALSE .. 使用されてない番号があった場合前詰し連続させる
-	// TRUE .. 使用されていない番号をそのまま空CHとして確保しておく
-	BOOL m_bReserveUnusedCh;
 
 	////////////////////////////////////////
 	// 衛星受信パラメータ
@@ -883,7 +878,6 @@ protected:
 	CComPtr<ITsWriter> m_pITsWriter;			// CTsWriter の ITsWriter interface
 	CComPtr<IBaseFilter> m_pDemux;				// MPEG2 Demultiplexer の IBaseFilter interface
 	CComPtr<IBaseFilter> m_pTif;				// MPEG2 Transport Information Filter の IBaseFilter interface
-	CComPtr<ITuningSpace> m_pITuningSpace;		// Tuning Space の ITuningSpace interface
 
 	// チューナ信号状態取得用インターフェース
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatistics;
@@ -922,6 +916,7 @@ protected:
 
 	// チューナーの使用するTuningSpaceの種類
 	enum enumTunerType {
+		eTunerTypeNone = -1,
 		eTunerTypeDVBS = 1,				// DBV-S/DVB-S2
 		eTunerTypeDVBT = 2,				// DVB-T
 		eTunerTypeDVBC = 3,				// DVB-C
@@ -932,7 +927,6 @@ protected:
 		eTunerTypeATSC_Cable = 22,		// ATSC Cable
 		eTunerTypeDigitalCable = 23,	// Digital Cable
 	};
-	enumTunerType m_nDVBSystemType;
 
 	// 使用するTuningSpace オブジェクト
 	enum enumTuningSpace {
@@ -943,7 +937,6 @@ protected:
 		eTuningSpaceATSC = 22,			// ATSCTuningSpace
 		eTuningSpaceDigitalCable = 23,	// DigitalCableTuningSpace
 	};
-	enumTuningSpace m_nSpecifyTuningSpace;
 
 	// 使用するLocator オブジェクト
 	enum enumLocator {
@@ -956,7 +949,6 @@ protected:
 		eLocatorATSC = 21,				// ATSCLocator
 		eLocatorDigitalCable = 22,		// DigitalCableLocator
 	};
-	enumLocator m_nSpecifyLocator;
 
 	// ITuningSpaceに設定するNetworkType
 	enum enumNetworkType {
@@ -973,7 +965,6 @@ protected:
 		eNetworkTypeDIRECTV = 102,		// STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE
 		eNetworkTypeEchoStar = 103,		// STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE
 	};
-	enumNetworkType m_nSpecifyITuningSpaceNetworkType;
 
 	// IDVBTuningSpaceに設定するSystemType
 	enum enumDVBSystemType {
@@ -984,7 +975,6 @@ protected:
 		eDVBSystemTypeISDBT = DVBSystemType::ISDB_Terrestrial,	// ISDB_Terrestrial
 		eDVBSystemTypeISDBS = DVBSystemType::ISDB_Satellite,	// ISDB_Satellite
 	};
-	enumDVBSystemType m_nSpecifyIDVBTuningSpaceSystemType;
 
 	// IAnalogTVTuningSpaceに設定するInputType
 	enum enumTunerInputType {
@@ -992,7 +982,67 @@ protected:
 		eTunerInputTypeCable = tagTunerInputType::TunerInputCable,		// TunerInputCable
 		eTunerInputTypeAntenna = tagTunerInputType::TunerInputAntenna,	// TunerInputAntenna
 	};
-	enumTunerInputType m_nSpecifyIAnalogTVTuningSpaceInputType;
+
+	// チューナーの使用するTuningSpaceの種類データ
+	struct DVBSystemTypeData {
+		enumTunerType nDVBSystemType;						// チューナーの使用するTuningSpaceの種類
+		enumTuningSpace nTuningSpace;						// 使用するTuningSpace オブジェクト
+		enumLocator nLocator;								// 使用するLocator オブジェクト
+		enumNetworkType nITuningSpaceNetworkType;			// ITuningSpaceに設定するNetworkType
+		enumDVBSystemType nIDVBTuningSpaceSystemType;		// IDVBTuningSpaceに設定するSystemType
+		enumTunerInputType nIAnalogTVTuningSpaceInputType;	// IAnalogTVTuningSpaceに設定するInputType
+		CComPtr<ITuningSpace> pITuningSpace;				// Tuning Space の ITuningSpace interface
+		DVBSystemTypeData(void)
+			: nDVBSystemType(eTunerTypeNone),
+			  nTuningSpace(eTuningSpaceAuto),
+			  nLocator(eLocatorAuto),
+			  nITuningSpaceNetworkType(eNetworkTypeAuto),
+			  nIDVBTuningSpaceSystemType(eDVBSystemTypeAuto),
+			  nIAnalogTVTuningSpaceInputType(eTunerInputTypeAuto)
+		{
+		};
+		~DVBSystemTypeData(void)
+		{
+			pITuningSpace.Release();
+		};
+	};
+
+	// TuningSpaceの種類データベース
+	struct DVBSystemTypeDB {
+		std::basic_string<TCHAR> sTuningSpaceName;				// EnumTuningSpaceで返すTuning Space名
+		std::map<unsigned int, DVBSystemTypeData*> SystemType;	// TuningSpaceの種類番号とTuningSpaceの種類データ
+		unsigned int nNumType;									// TuningSpaceの種類数
+		DVBSystemTypeDB(void)
+			: nNumType(0)
+		{
+		};
+		~DVBSystemTypeDB(void)
+		{
+			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
+				SAFE_DELETE(it->second);
+			}
+			SystemType.clear();
+		};
+		BOOL IsExist(unsigned int number)
+		{
+			auto it = SystemType.find(number);
+			if (it == SystemType.end())
+				return FALSE;
+			if (!it->second->pITuningSpace)
+				return FALSE;
+			return TRUE;
+		};
+		void ReleaseAll(void)
+		{
+			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
+				it->second->pITuningSpace.Release();
+			}
+		};
+	};
+	DVBSystemTypeDB m_DVBSystemTypeDB;
+
+	// iniファイルで定義できる最大TuningSpaceの種類データ数
+	static constexpr unsigned int MAX_DBV_SYSTEM_TYPE = 10;
 
 	// チューナーに使用するNetworkProvider 
 	enum enumNetworkProvider {
