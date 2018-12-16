@@ -59,54 +59,6 @@ CRITICAL_SECTION CBonTuner::st_LockInstanceList;
 // 偏波種類毎のiniファイルでの記号 逆引き用
 std::multimap<WCHAR, int> CBonTuner::PolarisationCharMap;
 
-// CBonTunerで使用する偏波種類番号とPolarisation型のMapping
-const Polarisation CBonTuner::PolarisationMapping[] = {
-	BDA_POLARISATION_NOT_SET,
-	BDA_POLARISATION_LINEAR_H,
-	BDA_POLARISATION_LINEAR_V,
-	BDA_POLARISATION_CIRCULAR_L,
-	BDA_POLARISATION_CIRCULAR_R
-};
-
-const WCHAR CBonTuner::PolarisationChar[] = {
-	L'\0',
-	L'H',
-	L'V',
-	L'L',
-	L'R'
-};
-
-const CBonTuner::TUNER_SPECIAL_DLL CBonTuner::aTunerSpecialData [] = {
-	// ここはプログラマしかいじらないと思うので、プログラム中でGUID を小文字に正規化しないので、
-	// 追加する場合は、GUIDは小文字で書いてください
-
-	/* TBS6980A */
-	{ L"{e9ead02c-8b8c-4d9b-97a2-2ec0324360b1}", L"TBS" },
-
-	/* TBS6980B, Prof 8000 */
-	{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
-
-	/* Prof 7300, 7301, TBS 8920 */ 
-	{ L"{91b0cc87-9905-4d65-a0d1-5861c6f22cbf}", L"TBS" },	// 7301 は固有関数でなくてもOKだった
-
-	/* TBS 6920 */
-	{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
-
-	/* Prof Prof 7500, Q-BOX II */ 
-	{ L"{b45b50ff-2d09-4bf2-a87c-ee4a7ef00857}", L"TBS" },
-
-	/* DVBWorld 2002, 2004, 2006 */
-	{ L"{4c807f36-2db7-44ce-9582-e1344782cb85}", L"DVBWorld" },
-
-	/* DVBWorld 210X, 2102X, 2104X */
-	{ L"{5a714cad-60f9-4124-b922-8a0557b8840e}", L"DVBWorld" },
-
-	/* DVBWorld 2005 */
-	{ L"{ede18552-45e6-469f-93b5-27e94296de38}", L"DVBWorld" }, // 2005 は固有関数は必要ないかも
-
-	{ L"", L"" }, // terminator
-};
-
 void CBonTuner::Init(void) {
 	PolarisationCharMap.clear();
 	for (unsigned int polarisation = 1; polarisation < POLARISATION_SIZE; polarisation++) {
@@ -1312,7 +1264,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"PORT-C", 3 },
 		{ L"PORT-D", 4 },
 	};
-	
+
 	// INIファイルのファイル名取得
 	std::wstring tempPath = common::GetModuleName(st_hModule);
 	m_sIniFilePath = tempPath + L"ini";
@@ -1354,7 +1306,8 @@ void CBonTuner::ReadIniFile(void)
 				captureGuid = IniFileAccess.ReadKeySSectionData(L"CaptureGUID", L"");
 				captureFriendlyName = IniFileAccess.ReadKeySSectionData(L"CaptureFriendlyName", L"");
 				// どれも指定されていない場合でも登録
-			} else
+			}
+			else
 				break;
 		}
 		TunerSearchData *sdata = new TunerSearchData(tunerGuid, tunerFriendlyName, captureGuid, captureFriendlyName);
@@ -1637,7 +1590,7 @@ void CBonTuner::ReadIniFile(void)
 	IniFileAccess.ReadSection(L"MODULATION");
 	IniFileAccess.CreateSectionData();
 
-	// 変調方式別パラメータ（0～3の順なので注意）
+	// 変調方式別パラメータ（0～9の順なので注意）
 
 	// デフォルト値設定
 	int modNum = 0;
@@ -2435,7 +2388,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		}
 		OutputDebug(L"  Tune request complete.\n");
 
-		static const int LockRetryTime = 50;
+		static constexpr int LockRetryTime = 50;
 		unsigned int nWaitRemain = m_nLockWait;
 		SleepWithMessageLoop(m_nLockWaitDelay);
 		GetSignalState(NULL, NULL, &nLock);
@@ -2468,7 +2421,8 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::w
 		// INI ファイルで "AUTO" 指定の場合
 		BOOL found = FALSE;
 		for (unsigned int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
-			if ((aTunerSpecialData[i].sTunerGUID != L"") && (tunerGUID.find(aTunerSpecialData[i].sTunerGUID)) != std::wstring::npos) {
+			std::wstring dbGUID(aTunerSpecialData[i].sTunerGUID);
+			if ((dbGUID != L"") && (tunerGUID.find(dbGUID)) != std::wstring::npos) {
 				// この時のチューナ依存コードをチューナパラメータに変数にセットする
 				m_aTunerParam.sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;
 				break;
@@ -3713,7 +3667,7 @@ HRESULT CBonTuner::LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFil
 HRESULT CBonTuner::LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice)
 {
 	// TS Writerの名称:AddFilter時に登録する名前
-	static const WCHAR * const FILTER_GRAPH_NAME_TSWRITER = L"TS Writer";
+	static constexpr WCHAR * const FILTER_GRAPH_NAME_TSWRITER = L"TS Writer";
 
 	HRESULT hr = E_FAIL;
 
@@ -3846,7 +3800,7 @@ void CBonTuner::UnloadDemux(void)
 HRESULT CBonTuner::LoadAndConnectTif(void)
 {
 	// MPEG2 TIFのCLSID
-	static const CLSID CLSID_MPEG2TransportInformationFilter = { 0xfc772ab0, 0x0c7f, 0x11d3, 0x8f, 0xf2, 0x00, 0xa0, 0xc9, 0x22, 0x4c, 0xf4 };
+	static constexpr CLSID CLSID_MPEG2TransportInformationFilter = { 0xfc772ab0, 0x0c7f, 0x11d3, 0x8f, 0xf2, 0x00, 0xa0, 0xc9, 0x22, 0x4c, 0xf4 };
 
 	HRESULT hr = E_FAIL;
 

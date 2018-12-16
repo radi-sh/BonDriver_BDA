@@ -408,7 +408,7 @@ protected:
 	////////////////////////////////////////
 
 	// INIファイルで指定できるGUID/FriendlyName最大数
-	static const unsigned int MAX_GUID = 100;
+	static constexpr unsigned int MAX_GUID = 100;
 
 	// チューナ・キャプチャ検索に使用するGUID文字列とFriendlyName文字列の組合せ
 	struct TunerSearchData {
@@ -602,10 +602,10 @@ protected:
 
 	// チューニング空間データ
 	struct TuningSpaceData {
-		std::basic_string<TCHAR> sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
-		long FrequencyOffset;			// 周波数オフセット値
+		std::basic_string<TCHAR> sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
+		long FrequencyOffset;							// 周波数オフセット値
 		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
-		DWORD dwNumChannel;				// チャンネル数
+		DWORD dwNumChannel;								// チャンネル数
 		TuningSpaceData(void)
 			: FrequencyOffset(0),
 			  dwNumChannel(0)
@@ -623,7 +623,7 @@ protected:
 	// チューニングスペース一覧
 	struct TuningData {
 		std::map<unsigned int, TuningSpaceData*> Spaces;	// チューニングスペース番号とデータ
-		DWORD dwNumSpace;					// チューニングスペース数
+		DWORD dwNumSpace;									// チューニングスペース数
 		TuningData(void)
 			: dwNumSpace(0)
 		{
@@ -649,19 +649,31 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルで受付ける偏波種類数
-	static const unsigned int POLARISATION_SIZE = 5;
+	static constexpr unsigned int POLARISATION_SIZE = 5;
 
 	// CBonTunerで使用する偏波種類番号とPolarisation型のMapping
-	static const Polarisation PolarisationMapping[POLARISATION_SIZE];
+	static constexpr Polarisation PolarisationMapping[POLARISATION_SIZE] = {
+		BDA_POLARISATION_NOT_SET,
+		BDA_POLARISATION_LINEAR_H,
+		BDA_POLARISATION_LINEAR_V,
+		BDA_POLARISATION_CIRCULAR_L,
+		BDA_POLARISATION_CIRCULAR_R
+	};
 
 	// 偏波種類毎のiniファイルでの記号
-	static const WCHAR PolarisationChar[POLARISATION_SIZE];
+	static constexpr WCHAR PolarisationChar[POLARISATION_SIZE] = {
+		L'\0',
+		L'H',
+		L'V',
+		L'L',
+		L'R'
+	};
 
 	// 偏波種類毎のiniファイルでの記号 逆引き用
 	static std::multimap<WCHAR, int> PolarisationCharMap;
 
 	// iniファイルで設定できる最大衛星数 + 1
-	static const unsigned int MAX_SATELLITE = 10;
+	static constexpr unsigned int MAX_SATELLITE = 10;
 
 	// 衛星受信設定データ
 	struct Satellite {
@@ -677,7 +689,7 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルで設定できる最大変調方式数
-	static const unsigned int MAX_MODULATION = 10;
+	static constexpr unsigned int MAX_MODULATION = 10;
 
 	// 変調方式設定データ
 	ModulationMethod m_aModulationType[MAX_MODULATION];
@@ -1013,7 +1025,7 @@ protected:
 	DWORD m_dwCurSpace;
 
 	// チューニングスペース番号不明
-	static const DWORD SPACE_INVALID = 0xFFFFFFFF;
+	static constexpr DWORD SPACE_INVALID = 0xFFFFFFFF;
 
 	// SetChannel()を試みたチャンネル番号
 	DWORD m_dwTargetChannel;
@@ -1022,13 +1034,13 @@ protected:
 	DWORD m_dwCurChannel;
 
 	// チャンネル番号不明
-	static const DWORD CHANNEL_INVALID = 0xFFFFFFFF;
+	static constexpr DWORD CHANNEL_INVALID = 0xFFFFFFFF;
 
 	// 現在のトーン切替状態
 	long m_nCurTone; // current tone signal state
 
 	// トーン切替状態不明
-	static const long TONE_UNKNOWN = -1;
+	static constexpr long TONE_UNKNOWN = -1;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;
@@ -1043,10 +1055,39 @@ protected:
 	// チューナ固有の関数が必要かどうかを自動判別するDB
 	// GUID をキーに DLL 名を得る
 	struct TUNER_SPECIAL_DLL {
-		std::wstring sTunerGUID;
-		std::wstring sDLLBaseName;
+		const WCHAR * const sTunerGUID;
+		const WCHAR * const sDLLBaseName;
 	};
-	static const TUNER_SPECIAL_DLL aTunerSpecialData[];
+	static constexpr TUNER_SPECIAL_DLL aTunerSpecialData[] = {
+		// ここはプログラマしかいじらないと思うので、プログラム中でGUID を小文字に正規化しないので、
+		// 追加する場合は、GUIDは小文字で書いてください
+
+		/* TBS6980A */
+		{ L"{e9ead02c-8b8c-4d9b-97a2-2ec0324360b1}", L"TBS" },
+
+		/* TBS6980B, Prof 8000 */
+		{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
+
+		/* Prof 7300, 7301, TBS 8920 */
+		{ L"{91b0cc87-9905-4d65-a0d1-5861c6f22cbf}", L"TBS" },	// 7301 は固有関数でなくてもOKだった
+
+		/* TBS 6920 */
+		{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
+
+		/* Prof Prof 7500, Q-BOX II */
+		{ L"{b45b50ff-2d09-4bf2-a87c-ee4a7ef00857}", L"TBS" },
+
+		/* DVBWorld 2002, 2004, 2006 */
+		{ L"{4c807f36-2db7-44ce-9582-e1344782cb85}", L"DVBWorld" },
+
+		/* DVBWorld 210X, 2102X, 2104X */
+		{ L"{5a714cad-60f9-4124-b922-8a0557b8840e}", L"DVBWorld" },
+
+		/* DVBWorld 2005 */
+		{ L"{ede18552-45e6-469f-93b5-27e94296de38}", L"DVBWorld" }, // 2005 は固有関数は必要ないかも
+
+		{ L"", L"" }, // terminator
+	};
 
 	// チャンネル名自動生成 inline 関数
 	inline std::basic_string<TCHAR> MakeChannelName(CBonTuner::ChData* pChData)

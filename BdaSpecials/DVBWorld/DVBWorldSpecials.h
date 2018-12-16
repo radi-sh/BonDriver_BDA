@@ -62,23 +62,23 @@ private:
 
 
 	// polarization
-	static const int LINEAR_V = 0;
-	static const int LINEAR_H = 1;
+	static constexpr int LINEAR_V = 0;
+	static constexpr int LINEAR_H = 1;
 
 	// DiSeqC
-	static const int DISEQC_PORT_A = 1;
-	static const int DISEQC_PORT_B = 2;
-	static const int DISEQC_PORT_C = 3;
-	static const int DISEQC_PORT_D = 4;
+	static constexpr int DISEQC_PORT_A = 1;
+	static constexpr int DISEQC_PORT_B = 2;
+	static constexpr int DISEQC_PORT_C = 3;
+	static constexpr int DISEQC_PORT_D = 4;
 
 	// Modulation
-	static const int DW_MOD_DVBS1_QPSK = 1;
-	static const int DW_MOD_DVBS2_QPSK = 2;
-	static const int DW_MOD_DVBS2_8PSK = 3;
+	static constexpr int DW_MOD_DVBS1_QPSK = 1;
+	static constexpr int DW_MOD_DVBS2_QPSK = 2;
+	static constexpr int DW_MOD_DVBS2_8PSK = 3;
 
 	// Burst
-	static const int DW_BURST_UNDEFINED = 0;
-	static const int DW_BURST_A = 1;
-	static const int DW_BURST_B = 2;
+	static constexpr int DW_BURST_UNDEFINED = 0;
+	static constexpr int DW_BURST_A = 1;
+	static constexpr int DW_BURST_B = 2;
 
 };
