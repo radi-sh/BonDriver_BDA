@@ -1523,7 +1523,7 @@ void CBonTuner::ReadIniFile(void)
 
 		// ‰q¯İ’è©“®¶¬
 		key = prefix1 + L"SettingsAuto";
-		sateliteSettingsAuto[satellite] = IniFileAccess.ReadKeySSectionData(key, sateliteSettingsAuto[satellite]);
+		sateliteSettingsAuto[satellite] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key, sateliteSettingsAuto[satellite]));
 
 		if (sateliteSettingsAuto[satellite] == L"JCSAT-3") {
 			// JCSAT-3A
@@ -1660,7 +1660,7 @@ void CBonTuner::ReadIniFile(void)
 
 		// •Ï’²•û®İ’è©“®¶¬
 		key = prefix + L"SettingsAuto";
-		modulationSettingsAuto[modulation] = IniFileAccess.ReadKeySSectionData(key, modulationSettingsAuto[modulation]);
+		modulationSettingsAuto[modulation] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key, modulationSettingsAuto[modulation]));
 
 		if (modulationSettingsAuto[modulation] == L"DVB-S") {
 			// SPHD DVB-S
