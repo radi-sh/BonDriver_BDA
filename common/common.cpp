@@ -88,3 +88,17 @@ std::wstring common::GetModuleName(HMODULE hModule)
 	std::wstring tempPath(buffer);
 	return tempPath.substr(0, tempPath.length() - 3);
 }
+
+std::wstring::size_type common::WStringSplit(std::wstring * Src, WCHAR Separator, std::wstring * Out)
+{
+	std::wstring::size_type pos = Src->find(Separator);
+	if (pos == std::wstring::npos) {
+		*Out = *Src;
+		*Src = L"";
+	}
+	else {
+		*Out = Src->substr(0, pos);
+		*Src = Src->substr(pos + 1, Src->length() - pos - 1);
+	}
+	return pos;
+}
