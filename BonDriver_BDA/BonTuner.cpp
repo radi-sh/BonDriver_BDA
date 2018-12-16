@@ -1879,9 +1879,13 @@ void CBonTuner::ReadIniFile(void)
 						itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(chNum, chData));
 					}
 
-					WCHAR buf[10][256] = { L"", L"", L"", L"", L"", L"", L"", L"", L"", L"" };
-					::swscanf_s(data.c_str(), L"%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,]", buf[0], 256, buf[1], 256,
-						buf[2], 256, buf[3], 256, buf[4], 256, buf[5], 256, buf[6], 256, buf[7], 256, buf[8], 256, buf[9], 256);
+					// ƒJƒ“ƒ}‹æØ‚è‚Å10ŒÂ‚É•ª‰ğ
+					std::wstring t(data);
+					std::wstring buf[10];
+					for (int n = 0; n < 10; n++) {
+						if (std::wstring::npos == common::WStringSplit(&t, L',', &buf[n]))
+							break;
+					}
 
 					// ‰q¯”Ô†
 					val = common::WStringToLong(buf[0]);
@@ -1892,19 +1896,19 @@ void CBonTuner::ReadIniFile(void)
 						OutputDebug(L"Format Error in readIniFile; Wrong Bird.\n");
 
 					// ü”g”
-					WCHAR buf2[2][256] = { L"", L"" };
-					::swscanf_s(buf[1], L"%[^.].%[^.]", buf2[0], 256, buf2[1], 256);
-					val = common::WStringDecimalToLong(buf2[0]) * 1000 + common::WStringDecimalToLong(buf2[1]);
-					if ((val > 0) && (val <= 20000000)) {
+					val = (int)(common::WstringToDouble(buf[1]) * 1000.0);
+					if ((val > 0) && (val <= 30000000)) {
 						itCh->second->Frequency = val;
 					}
 					else
 						OutputDebug(L"Format Error in readIniFile; Wrong Frequency.\n");
 
 					// •Î”gí—Ş
-					if (buf[2][0] == L' ')
-						buf[2][0] = L'\0';
-					auto it = PolarisationCharMap.find(buf[2][0]);
+					WCHAR c = buf[2].c_str()[0];
+					if (c == L'\0') {
+						c = L' ';
+					}
+					auto it = PolarisationCharMap.find(c);
 					if (it != PolarisationCharMap.end()) {
 						itCh->second->Polarisation = it->second;
 					}
@@ -1927,7 +1931,7 @@ void CBonTuner::ReadIniFile(void)
 					itCh->second->sServiceName = name;
 
 					// SID / PhysicalChannel
-					if (buf[5][0] != 0) {
+					if (buf[5] != L"") {
 						val = common::WStringToLong(buf[5]);
 						if (val != 0) {
 							itCh->second->SID = val;
@@ -1935,7 +1939,7 @@ void CBonTuner::ReadIniFile(void)
 					}
 
 					// TSID / Channel
-					if (buf[6][0] != 0) {
+					if (buf[6] != L"") {
 						val = common::WStringToLong(buf[6]);
 						if (val != 0) {
 							itCh->second->TSID = val;
@@ -1943,7 +1947,7 @@ void CBonTuner::ReadIniFile(void)
 					}
 
 					// ONID / MinorChannel
-					if (buf[7][0] != 0) {
+					if (buf[7] != L"") {
 						val = common::WStringToLong(buf[7]);
 						if (val != 0) {
 							itCh->second->ONID = val;
@@ -1951,7 +1955,7 @@ void CBonTuner::ReadIniFile(void)
 					}
 
 					// MajorChannel
-					if (buf[8][0] != 0) {
+					if (buf[8] != L"") {
 						val = common::WStringToLong(buf[8]);
 						if (val != 0) {
 							itCh->second->MajorChannel = val;
@@ -1959,7 +1963,7 @@ void CBonTuner::ReadIniFile(void)
 					}
 
 					// SourceID
-					if (buf[9][0] != 0) {
+					if (buf[9] != L"") {
 						val = common::WStringToLong(buf[9]);
 						if (val != 0) {
 							itCh->second->SourceID = val;

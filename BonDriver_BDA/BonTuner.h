@@ -657,7 +657,7 @@ protected:
 
 	// 偏波種類毎のiniファイルでの記号
 	static constexpr WCHAR PolarisationChar[POLARISATION_SIZE] = {
-		L'\0',
+		L' ',
 		L'H',
 		L'V',
 		L'L',
