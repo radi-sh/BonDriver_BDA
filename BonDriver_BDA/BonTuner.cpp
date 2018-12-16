@@ -1913,11 +1913,11 @@ void CBonTuner::ReadIniFile(void)
 		BOOL bOptOnlyHD = FALSE;
 		BOOL bOptAll = FALSE;
 		{
-			WCHAR buf[10][256] = { L"", L"", L"", L"", L"", L"", L"", L"", L"", L"" };
-			::swscanf_s(chAutoOpt.c_str(), L"%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,]",
-				buf[0], 256, buf[1], 256, buf[2], 256, buf[3], 256, buf[4], 256, buf[5], 256, buf[6], 256, buf[7], 256, buf[8], 256, buf[9], 256);
-			for (int i = 0; i < 10; i++) {
-				std::wstring opt(buf[i]);
+			// カンマ区切りで7つに分解
+			std::wstring t(chAutoOpt);
+			for (int n = 0; n < 10; n++) {
+				std::wstring opt;
+				std::wstring::size_type pos = common::WStringSplit(&t, L',', &opt);
 				if (opt == L"VHF+") {
 					bOptVHFPlus = TRUE;
 				}
@@ -1945,6 +1945,8 @@ void CBonTuner::ReadIniFile(void)
 				else if (opt == L"ALL") {
 					bOptAll = TRUE;
 				}
+				if (pos == std::wstring::npos)
+					break;
 			}
 
 		}
@@ -2530,46 +2532,31 @@ void CBonTuner::ReadIniFile(void)
 		// CH切替動作を強制的に2度行う場合の対象CH
 		if (m_bLockTwice) {
 			std::wstring s = IniFileAccess.ReadKeySSectionData(L"ChannelLockTwiceTarget", L"");
-			if (s.length() > 0) {
-				WCHAR szToken[256];
-				unsigned int nPos = 0;
-				int nTokenLen;
-				while (nPos < s.length()) {
+			if (s != L"") {
+				while (1) {
 					// カンマ区切りまでの文字列を取得
-					::swscanf_s(s.substr(nPos).c_str(), L"%[^,]%n", szToken, 256, &nTokenLen);
-					if (nTokenLen) {
-						// さらに'-'区切りの数値に分解
+					std::wstring token;
+					std::wstring::size_type pos = common::WStringSplit(&s, L',', &token);
+					if (token != L"") {
 						DWORD begin = 0;
 						DWORD end = itSpace->second->dwNumChannel - 1;
-						WCHAR buf[3][256] = { L"", L"", L"" };
-						int num = ::swscanf_s(szToken, L" %[0-9] %[-] %[0-9]", buf[0], 256, buf[1], 256, buf[2], 256);
-						switch (num)
-						{
-						case 1:
-							// "10"の形式（単独指定）
-							begin = end = common::WStringToLong(buf[0]);
-							break;
-						case 2:
-							// "10-"の形式
-							begin = common::WStringToLong(buf[0]);
-							break;
-						case 3:
-							// "10-15"の形式
-							begin = common::WStringToLong(buf[0]);
-							end = common::WStringToLong(buf[2]);
-							break;
-						case 0:
-							num = ::swscanf_s(szToken, L" %[-] %[0-9]", buf[1], 256, buf[2], 256);
-							if (num == 2) {
-								// "-10"の形式
-								end = common::WStringToLong(buf[2]);
+						// さらに'-'区切りの数値に分解
+						std::wstring left;
+						std::wstring right(token);
+						if (std::wstring::npos == common::WStringSplit(&right, L'-', &left)) {
+							// "-"記号が無い
+							begin = end = common::WStringToLong(left);
+						}
+						else {
+							// "-"記号が有る
+							if (left != L"") {
+								// "-"記号の前に数値がある
+								begin = common::WStringToLong(left);
 							}
-							else {
-								// 解析不能
-								OutputDebug(L"Format Error in readIniFile; ChannelLockTwiceTarget.\n");
-								continue;
+							if (right != L"") {
+								// "-"記号の後に数値がある
+								end = common::WStringToLong(right);
 							}
-							break;
 						}
 						// 対象範囲のCHのFlagをSetする
 						for (DWORD ch = begin; ch <= end; ch++) {
@@ -2578,10 +2565,11 @@ void CBonTuner::ReadIniFile(void)
 								itCh->second->LockTwiceTarget = TRUE;
 							}
 						}
-					} // if (nTokenLen)
-					nPos += nTokenLen + 1;
-				} // while (nPos < s.length())
-			} // if (s.length() > 0) 
+					}
+					if (pos == std::wstring::npos)
+						break;
+				}
+			}
 			else {
 				// ChannelLockTwiceTargetの指定が無い場合はすべてのCHが対象
 				for (DWORD ch = 0; ch < itSpace->second->dwNumChannel - 1; ch++) {
