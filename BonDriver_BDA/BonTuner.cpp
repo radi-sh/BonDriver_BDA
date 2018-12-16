@@ -2957,7 +2957,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			tunerInputType = (tagTunerInputType)it->second->nIAnalogTVTuningSpaceInputType;
 		}
 
-		HRESULT hr = E_FAIL;
+		HRESULT hr;
 
 		CComPtr<ITuningSpace> pITuningSpace;
 		// ITuningSpace‚ðì¬
@@ -3182,6 +3182,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 					// ‘S‚Ä¬Œ÷
 					it->second->pITuningSpace = pITuningSpace;
 					OutputDebug(L"[CreateTuningSpace] Process number %ld was successful.\n", it->first);
+					continue;
 				}
 			}
 		}
@@ -3190,8 +3191,10 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		OutputDebug(L"[CreateTuningSpace] Process number %ld failed.\n", it->first);
 	}
 
-	if (!m_DVBSystemTypeDB.IsExist(0) || !m_DVBSystemTypeDB.SystemType[0]->pITuningSpace)
+	if (!m_DVBSystemTypeDB.IsExist(0) || !m_DVBSystemTypeDB.SystemType[0]->pITuningSpace) {
+		OutputDebug(L"[CreateTuningSpace] Fail to create default ITuningSpace.\n");
 		return E_FAIL;
+	}
 
 	return S_OK;
 }
