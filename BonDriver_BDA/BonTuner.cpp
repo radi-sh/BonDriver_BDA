@@ -1475,7 +1475,7 @@ void CBonTuner::ReadIniFile(void)
 
 	// 衛星別受信パラメータ
 
-	// 未設定時用（iniファイルからの読込は行わない）
+	// Satellite0～は衛星設定無し用（iniファイルからの読込は行わない）
 	m_sSatelliteName[0] = L"not set";						// チャンネル名生成用衛星名称
 	// 名称以外はコンストラクタのデフォルト値使用
 
