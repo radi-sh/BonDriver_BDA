@@ -1533,10 +1533,10 @@ void CBonTuner::ReadIniFile(void)
 			// JCSAT-3A
 			satelliteNumberJCSAT3 = satellite;
 			m_sSatelliteName[satellite] = L"128.0E";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[1].Polarisation[1].LowOscillator = 11200000;
+			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;
 			// ‚’¼•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[1].Tone = 0;				// ‚’¼•Î”gƒg[ƒ“M†
-			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[1].Polarisation[2].LowOscillator = 11200000;
+			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;
 			// …•½•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[2].Tone = 0;				// …•½•Î”gƒg[ƒ“M†
 		}
@@ -1544,20 +1544,20 @@ void CBonTuner::ReadIniFile(void)
 			// JCSAT-4B
 			satelliteNumberJCSAT4 = satellite;
 			m_sSatelliteName[satellite] = L"124.0E";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[2].Polarisation[1].LowOscillator = 11200000;
+			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;
 			// ‚’¼•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[1].Tone = 1;				// ‚’¼•Î”gƒg[ƒ“M†
-			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[2].Polarisation[2].LowOscillator = 11200000;
+			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;
 			// …•½•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[2].Tone = 1;				// …•½•Î”gƒg[ƒ“M†
 		}
 		else if (sateliteSettingsAuto[satellite] == L"BS/CS110") {
 			// BS/CS110
 			m_sSatelliteName[satellite] = L"BS/CS110";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-			m_aSatellite[satellite].Polarisation[3].HighOscillator = m_aSatellite[1].Polarisation[3].LowOscillator = 10678000;
+			m_aSatellite[satellite].Polarisation[3].HighOscillator = m_aSatellite[satellite].Polarisation[3].LowOscillator = 10678000;
 			// ‚’¼•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[3].Tone = 0;				// ‚’¼•Î”gƒg[ƒ“M†
-			m_aSatellite[1].Polarisation[4].HighOscillator = m_aSatellite[1].Polarisation[4].LowOscillator = 10678000;
+			m_aSatellite[1].Polarisation[4].HighOscillator = m_aSatellite[satellite].Polarisation[4].LowOscillator = 10678000;
 			// …•½•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[4].Tone = 0;				// …•½•Î”gƒg[ƒ“M†
 		}
