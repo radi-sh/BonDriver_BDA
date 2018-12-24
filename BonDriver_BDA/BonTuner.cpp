@@ -1516,6 +1516,9 @@ void CBonTuner::ReadIniFile(void)
 		break;
 	}
 
+	// BS/CS110のCH設定自動生成時に使用する衛星設定番号
+	unsigned int satelliteNumberBSCS110R = 1;
+
 	// SPHDのCH設定自動生成時に使用する衛星設定番号
 	unsigned int satelliteNumberJCSAT3 = 1;
 	unsigned int satelliteNumberJCSAT4 = 2;
@@ -1553,6 +1556,7 @@ void CBonTuner::ReadIniFile(void)
 		}
 		else if (sateliteSettingsAuto[satellite] == L"BS/CS110") {
 			// BS/CS110
+			satelliteNumberBSCS110R = satellite;
 			m_sSatelliteName[satellite] = L"BS/CS110";						// チャンネル名生成用衛星名称
 			m_aSatellite[satellite].Polarisation[3].HighOscillator = m_aSatellite[satellite].Polarisation[3].LowOscillator = 10678000;
 			// 垂直偏波時LNB周波数
@@ -1659,6 +1663,9 @@ void CBonTuner::ReadIniFile(void)
 	// UHF / CATVのCH設定自動生成時に使用する変調方式番号
 	unsigned int modulationNumberISDBT = 0;
 
+	// BS/CS110のCH設定自動生成時に使用する変調方式番号
+	unsigned int modulationNumberISDBS = 0;
+
 	// SPHDのCH設定自動生成時に使用する変調方式番号
 	unsigned int modulationNumberDVBS = 0;
 	unsigned int modulationNumberDVBS2 = 1;
@@ -1703,6 +1710,7 @@ void CBonTuner::ReadIniFile(void)
 		}
 		else if (modulationSettingsAuto[modulation] == L"ISDB-S") {
 			// BS/CS110
+			modulationNumberISDBS = modulation;
 			m_sModulationName[modulation] = L"ISDB-S";							// チャンネル名生成用変調方式名称
 			m_aModulationType[modulation].Modulation = BDA_MOD_ISDB_S_TMCC;		// 変調タイプ
 			m_aModulationType[modulation].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
@@ -1854,20 +1862,22 @@ void CBonTuner::ReadIniFile(void)
 		// チャンネル自動生成タイプ
 		enum enumChGenerate {
 			eChGenerateNone = 0,
-			eChGenerateVHF_L = 1,
-			eChGenerateVHF_H = 2,
-			eChGenerateUHF = 3,
-			eChGenerateCATV_L = 4,
-			eChGenerateCATV_H = 5,
-			eChGenerateVHF_4Plus = 8,
-			eChGenerateCATV_22Plus = 9,
-			eChGenerateCATV_24Plus = 10,
-			eChGenerateJD1 = 32,
-			eChGenerateJD17A = 33,
-			eChGenerateJD17B = 34,
-			eChGenerateOpticast = 64,
-			eChGenerateOpticast_11Plus = 72,
-			eChGenerateOpticast_26Plus = 73,
+			eChGenerateVHF_L = 1,				// VHF 1ch～3ch
+			eChGenerateVHF_H = 2,				// VHF 4ch～12ch
+			eChGenerateUHF = 3,					// UHF 13ch～62ch
+			eChGenerateCATV_L = 4,				// CATV C13ch～C22ch
+			eChGenerateCATV_H = 5,				// CATV C23ch～C63ch
+			eChGenerateVHF_4Plus = 8,			// VHF 4ch+
+			eChGenerateCATV_22Plus = 9,			// CATV C22ch+
+			eChGenerateCATV_24Plus = 10,		// CATV C24ch+～C27ch+
+			eChGenerateBS1 = 16,				// BS-R BS1,BS3,BS5...～BS23
+			eChGenerateND2 = 20,				// CS110-R ND2,ND4,ND6...～ND24
+			eChGenerateJD1 = 32,				// JCSAT-3A/JCSAT-4B JD1～JD16
+			eChGenerateJD17A = 33,				// JCSAT-3A JD17～JD28
+			eChGenerateJD17B = 34,				// JCSAT-4B JD17～JD32
+			eChGenerateOpticast = 64,			// SKY PerfecTV! Premium Service Hikari H001～H058
+			eChGenerateOpticast_11Plus = 72,	// SKY PerfecTV! Premium Service Hikari H011+～H012+
+			eChGenerateOpticast_26Plus = 73,	// SKY PerfecTV! Premium Service Hikari H026+～H028+
 		};
 
 		// チャンネル自動生成用パラメータ
@@ -1875,21 +1885,27 @@ void CBonTuner::ReadIniFile(void)
 			enumChGenerate Space;
 			unsigned int Offset;			// 開始オフセット
 			unsigned int Count;				// 作成CH数
+			unsigned int RelativeTS;		// 相対TS作成数
 			unsigned int ModulationNumber;	// 変調方式番号
 			unsigned int SatelliteNumber;	// 衛星番号
 			unsigned int StartCh;			// 先頭チャンネル番号
 			unsigned int TuningFreq;		// チューニング周波数オフセット
 			std::wstring NameFormat;		// チャンネル名フォーマット
-			unsigned int NameOffset;		// チャンネル名オフセット
+			unsigned int NameOffset;		// チャンネル名に使用するチャンネル番号オフセット
+			unsigned int NameStep;			// チャンネル名に使用するチャンネル番号ステップ
+			unsigned int NameOffsetTS;		// チャンネル名に使用するTS番号オフセット
 			ChGenerate(void)
 				: Space(eChGenerateNone),
 				Offset(0),
 				Count(0),
+				RelativeTS(0),
 				ModulationNumber(0),
 				SatelliteNumber(0),
 				StartCh(0),
 				TuningFreq(0),
-				NameOffset(0)
+				NameOffset(0),
+				NameStep(1),
+				NameOffsetTS(0)
 			{
 			};
 			~ChGenerate(void)
@@ -1911,7 +1927,10 @@ void CBonTuner::ReadIniFile(void)
 		BOOL bOptH26Plus = FALSE;
 		BOOL bOptOnlySD = FALSE;
 		BOOL bOptOnlyHD = FALSE;
+		BOOL bOptSpinel = FALSE;
 		BOOL bOptAll = FALSE;
+		std::wstring sOptRelativeTS = L"";
+		std::wstring sOptRelativeTS64QAM = L"";
 		{
 			// カンマ区切りで7つに分解
 			std::wstring t(chAutoOpt);
@@ -1942,8 +1961,20 @@ void CBonTuner::ReadIniFile(void)
 				else if (opt == L"ONLYHD") {
 					bOptOnlyHD = TRUE;
 				}
+				else if (opt == L"SPINEL") {
+					bOptSpinel = TRUE;
+				}
 				else if (opt == L"ALL") {
 					bOptAll = TRUE;
+				}
+				else if (opt.substr(0, 11) == L"RELATIVETS:") {
+					sOptRelativeTS = opt.substr(11);
+				}
+				else if (opt.substr(0, 18) == L"RELATIVETS-256QAM:") {
+					sOptRelativeTS = opt.substr(18);
+				}
+				else if (opt.substr(0, 17) == L"RELATIVETS-64QAM:") {
+					sOptRelativeTS64QAM = opt.substr(17);
 				}
 				if (pos == std::wstring::npos)
 					break;
@@ -1960,123 +1991,191 @@ void CBonTuner::ReadIniFile(void)
 		}
 		else if (chAuto == L"CATV") {
 			int num = 0;
-			ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
-			ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			if (bOptAll || !bOptVHFPlus) {
+				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-L:0:9," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			if (bOptAll || !bOptC24Plus) {
+				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-H:0:1," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-H:5," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
 			if (bOptAll) {
 				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
 				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
-			}
-			else {
-				if (bOptVHFPlus) {
-					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,9,143";
-				}
-				if (bOptC24Plus) {
-					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,11,143";
-				}
 			}
 		}
 		else if (chAuto == L"PASSTHROUGH") {
 			int num = 0;
 			ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
-			ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			if (bOptAll || !bOptVHFPlus) {
+				ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"VHF-H:4," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
 			ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberISDBT) + L",,,143";
-			ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
-			ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			if (bOptAll || !bOptVHFPlus) {
+				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-L:0:9," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			if (bOptAll || !bOptC24Plus) {
+				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-H:0:1," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-H:5," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
 			if (bOptAll) {
 				ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
 				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
 				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
 			}
-			else {
-				if (bOptVHFPlus) {
-					ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberISDBT) + L",,3,143";
-					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,71,143";
-				}
-				if (bOptC24Plus) {
-					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,73,143";
-				}
-			}
 		}
 		else if (chAuto == L"TRANSMODULATION") {
+			std::wstring sRelative64;
+			std::wstring sRelative256;
+			if (sOptRelativeTS64QAM != L"") {
+				sRelative64 = L":" + sOptRelativeTS64QAM;
+			}
+			if (sOptRelativeTS != L"") {
+				sRelative256 = L":" + sOptRelativeTS;
+			}
 			int num = 0;
 			unsigned int startCh = 0;
 			if (!bOptOnly256QAM) {
-				ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberJ83C64QAM) + L",," + std::to_wstring(startCh) + L",0";
-				ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-				ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-				if (bOptAll) {
-					ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
-					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				ChannelGenerate[num++] = L"VHF-L::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",," + std::to_wstring(startCh) + L",0";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"VHF-H::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
 				}
 				else {
-					if (bOptVHFPlus) {
-						ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,3,0";
-						ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,71,0";
-					}
-					if (bOptC24Plus) {
-						ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C64QAM) + L",,73,0";
-					}
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"VHF-H:4:" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
 				}
-				startCh += 200;
+				ChannelGenerate[num++] = L"UHF::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"CATV-L::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-L:0:9" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				}
+				if (bOptAll || !bOptC24Plus) {
+					ChannelGenerate[num++] = L"CATV-H::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-H:0:1" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-H:5:" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+				}
+				startCh += max(common::WStringToLong(sOptRelativeTS64QAM), 1) * (12 + 50 + 51);
+				if (bOptAll) {
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0";
+					startCh += max(common::WStringToLong(sOptRelativeTS64QAM), 1) * (3 + 1 + 4);
+				}
+				startCh = ((startCh + 99) / 100) * 100;
 			}
 			if (!bOptOnly64QAM) {
-				ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberJ83C256QAM) + L",," + std::to_wstring(startCh) + L",0,%dch/256QAM";
-				ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch/256QAM";
-				ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch/256QAM";
-				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch/256QAM";
-				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch/256QAM";
-				if (bOptAll) {
-					ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,%dch+/256QAM";
-					ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch+/256QAM";
-					ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,C%dch+/256QAM";
+				ChannelGenerate[num++] = L"VHF-L::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",," + std::to_wstring(startCh) + L",0";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"VHF-H::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
 				}
 				else {
-					if (bOptVHFPlus) {
-						ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,203,0,%dch+/256QAM";
-						ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,271,0,C%dch+/256QAM";
-					}
-					if (bOptC24Plus) {
-						ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberJ83C256QAM) + L",,273,0,C%dch+/256QAM";
-					}
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+					ChannelGenerate[num++] = L"VHF-H:4:" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+				}
+				ChannelGenerate[num++] = L"UHF::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"CATV-L::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-L:0:9" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+				}
+				if (bOptAll || !bOptC24Plus) {
+					ChannelGenerate[num++] = L"CATV-H::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-H:0:1" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-H:5:" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+				}
+				if (bOptAll) {
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0";
 				}
 			}
 		}
-		else if (chAuto == L"SPHD") {
+		else if (chAuto == L"BS") {
+			std::wstring sRelative;
+			if (sOptRelativeTS != L"") {
+				sRelative = L":" + sOptRelativeTS;
+			}
 			int num = 0;
+			ChannelGenerate[num++] = L"BS1::" + sRelative + L"," + std::to_wstring(modulationNumberISDBS) + L"," + std::to_wstring(satelliteNumberBSCS110R) + L",,,BS%02d/TS%d,1,2,0";
+		}
+		else if (chAuto == L"CS110") {
+			int num = 0;
+			ChannelGenerate[num++] = L"ND2," + std::to_wstring(modulationNumberISDBS) + L"," + std::to_wstring(satelliteNumberBSCS110R) + L",,,ND%02d/TS0,2,2";
+		}
+		else if (chAuto == L"SPHD") {
+		std::wstring sName4 = bOptSpinel ? L"JCSAT4A-TP%02d" : L"JCSAT4B-TP%02d";
+		int num = 0;
 			unsigned int startCh = 1;
 			if (!bOptOnlyHD) {
 				ChannelGenerate[num++] = L"JD17A," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L"," + std::to_wstring(startCh) + L",,JCSAT3A-TP%02d,1";
 				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L",,,JCSAT3A-TP%02d,13";
 				startCh += 100;
-				ChannelGenerate[num++] = L"JD17B," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L"," + std::to_wstring(startCh) + L",,JCSAT4B-TP%02d,1";
-				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L",,,JCSAT4B-TP%02d,17";
+				ChannelGenerate[num++] = L"JD17B," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L"," + std::to_wstring(startCh) + L",," + sName4 + L",1";
+				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L",,," + sName4 + L",17";
 				startCh += 100;
 			}
 			if (!bOptOnlySD) {
 				ChannelGenerate[num++] = L"JD17A," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L"," + std::to_wstring(startCh) + L",,JCSAT3A-TP%02d,1";
 				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L",,,JCSAT3A-TP%02d,13";
 				startCh += 100;
-				ChannelGenerate[num++] = L"JD17B," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L"," + std::to_wstring(startCh) + L",,JCSAT4B-TP%02d,1";
-				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L",,,JCSAT4B-TP%02d,17";
+				ChannelGenerate[num++] = L"JD17B," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L"," + std::to_wstring(startCh) + L",," + sName4 + L",1";
+				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L",,," + sName4 + L",17";
 			}
 		}
 		else if (chAuto == L"OPTICAST") {
 			int num = 0;
-			ChannelGenerate[num++] = L"OPTICAST," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			if (bOptAll || (!bOptH11Plus && !bOptH26Plus)) {
+				ChannelGenerate[num++] = L"OPTICAST," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			}
+			else if (bOptH11Plus && !bOptH26Plus) {
+				ChannelGenerate[num++] = L"OPTICAST:0:10," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-11+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:12," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			}
+			else if (!bOptH11Plus && bOptH26Plus) {
+				ChannelGenerate[num++] = L"OPTICAST:0:25," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-26+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:28," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			} else {
+				ChannelGenerate[num++] = L"OPTICAST:0:10," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-11+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:12:13," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-26+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:28," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			}
 			if (bOptAll) {
 				ChannelGenerate[num++] = L"OPTICAST-11+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
 				ChannelGenerate[num++] = L"OPTICAST-26+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
-			}
-			else {
-				if (bOptH11Plus) {
-					ChannelGenerate[num++] = L"OPTICAST-11+," + std::to_wstring(modulationNumberOpticast) + L",,10,0";
-				}
-				if (bOptH26Plus) {
-					ChannelGenerate[num++] = L"OPTICAST-26+," + std::to_wstring(modulationNumberOpticast) + L",,25,0";
-				}
 			}
 		}
 
@@ -2089,17 +2188,17 @@ void CBonTuner::ReadIniFile(void)
 			ChannelGenerate[i] = IniFileAccess.ReadKeySSectionData(key, ChannelGenerate[i]);
 			if (ChannelGenerate[i].length() == 0)
 				break;
-			// カンマ区切りで7つに分解
+			// カンマ区切りで9つに分解
 			std::wstring t(ChannelGenerate[i]);
-			std::wstring buf[7];
-			for (int n = 0; n < 7; n++) {
+			std::wstring buf[9];
+			for (int n = 0; n < 9; n++) {
 				if (std::wstring::npos == common::WStringSplit(&t, L',', &buf[n]))
 					break;
 			}
-			// 作成空間:開始オフセット:作成CH数 を分解
+			// 作成空間:開始オフセット:作成CH数:相対TS作成数 を分解
 			std::wstring t2(buf[0]);
-			std::wstring buf2[3];
-			for (int n = 0; n < 3; n++) {
+			std::wstring buf2[4];
+			for (int n = 0; n < 4; n++) {
 				if (std::wstring::npos == common::WStringSplit(&t2, L':', &buf2[n]))
 					break;
 			}
@@ -2109,10 +2208,12 @@ void CBonTuner::ReadIniFile(void)
 			if (count < 1) {
 				count = 999;
 			}
+			unsigned int relativeTS = 0;
+			std::wstring postfix = L"/TS%d";
 			if (genSpace == L"VHF-L") {
 				Generate.Space = eChGenerateVHF_L;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 3UL);
+				Generate.Offset = min(offset, 3UL - 1UL);
+				Generate.Count = min(count, 3UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"%dch";
@@ -2120,8 +2221,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"VHF-H") {
 				Generate.Space = eChGenerateVHF_H;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 9UL);
+				Generate.Offset = min(offset, 9UL - 1UL);
+				Generate.Count = min(count, 9UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"%dch";
@@ -2129,8 +2230,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"VHF-4+") {
 				Generate.Space = eChGenerateVHF_4Plus;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 4UL);
+				Generate.Offset = min(offset, 4UL - 1UL);
+				Generate.Count = min(count, 4UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"%dch+";
@@ -2138,8 +2239,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"UHF") {
 				Generate.Space = eChGenerateUHF;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 50UL);
+				Generate.Offset = min(offset, 50UL - 1UL);
+				Generate.Count = min(count, 50UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"%dch";
@@ -2147,8 +2248,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"CATV-L") {
 				Generate.Space = eChGenerateCATV_L;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 10UL);
+				Generate.Offset = min(offset, 10UL - 1UL);
+				Generate.Count = min(count, 10UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"C%dch";
@@ -2156,8 +2257,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"CATV-22+") {
 				Generate.Space = eChGenerateCATV_22Plus;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 1UL);
+				Generate.Offset = min(offset, 1UL - 1UL);
+				Generate.Count = min(count, 1UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"C%dch+";
@@ -2165,8 +2266,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"CATV-H") {
 				Generate.Space = eChGenerateCATV_H;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 41UL);
+				Generate.Offset = min(offset, 41UL - 1UL);
+				Generate.Count = min(count, 41UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"C%dch";
@@ -2174,17 +2275,44 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"CATV-24+") {
 				Generate.Space = eChGenerateCATV_24Plus;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 4UL);
+				Generate.Offset = min(offset, 4UL - 1UL);
+				Generate.Count = min(count, 4UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"C%dch+";
 				Generate.NameOffset = 24UL;
 			}
+			else if (genSpace == L"BS1") {
+				Generate.Space = eChGenerateBS1;
+				Generate.Offset = min(offset, 12UL - 1UL);
+				Generate.Count = min(count, 12UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.SatelliteNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"BS%02d/TS%d";
+				postfix = L"";
+				Generate.NameOffset = 1UL;
+				Generate.NameStep = 2UL;
+				Generate.NameOffsetTS = 0UL;
+				relativeTS = 3UL;
+			}
+			else if (genSpace == L"ND2") {
+				Generate.Space = eChGenerateND2;
+				Generate.Offset = min(offset, 12UL - 1UL);
+				Generate.Count = min(count, 12UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.SatelliteNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"ND%02d/TS%d";
+				postfix = L"";
+				Generate.NameOffset = 2UL;
+				Generate.NameStep = 2UL;
+				Generate.NameOffsetTS = 0UL;
+			}
 			else if (genSpace == L"JD17A") {
 				Generate.Space = eChGenerateJD17A;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 12UL);
+				Generate.Offset = min(offset, 12UL - 1UL);
+				Generate.Count = min(count, 12UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.SatelliteNumber = 0UL;
 				Generate.TuningFreq = 0UL;
@@ -2193,8 +2321,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"JD17B") {
 				Generate.Space = eChGenerateJD17B;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 16UL);
+				Generate.Offset = min(offset, 16UL - 1UL);
+				Generate.Count = min(count, 16UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.SatelliteNumber = 0UL;
 				Generate.TuningFreq = 0UL;
@@ -2203,8 +2331,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"JD1") {
 				Generate.Space = eChGenerateJD1;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 16UL);
+				Generate.Offset = min(offset, 16UL - 1UL);
+				Generate.Count = min(count, 16UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.SatelliteNumber = 0UL;
 				Generate.TuningFreq = 0UL;
@@ -2213,8 +2341,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"OPTICAST") {
 				Generate.Space = eChGenerateOpticast;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 58UL);
+				Generate.Offset = min(offset, 58UL - 1UL);
+				Generate.Count = min(count, 58UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"H%03d";
@@ -2222,8 +2350,8 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"OPTICAST-11+") {
 				Generate.Space = eChGenerateOpticast_11Plus;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 2UL);
+				Generate.Offset = min(offset, 2UL - 1UL);
+				Generate.Count = min(count, 2UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"H%03d+";
@@ -2231,13 +2359,22 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else if (genSpace == L"OPTICAST-26+") {
 				Generate.Space = eChGenerateOpticast_26Plus;
-				Generate.Offset = offset;
-				Generate.Count = min(count, 3UL);
+				Generate.Offset = min(offset, 3UL - 1UL);
+				Generate.Count = min(count, 3UL - offset);
 				Generate.ModulationNumber = 0UL;
 				Generate.TuningFreq = 0UL;
 				Generate.NameFormat = L"H%03d+";
 				Generate.NameOffset = 26UL;
 			}
+			// 相対TS作成数
+			if (buf2[3] != L"") {
+				Generate.RelativeTS = common::WStringToLong(buf2[3]);
+				Generate.NameFormat += postfix;
+			}
+			else {
+				Generate.RelativeTS = relativeTS;
+			}
+
 			// 変調方式番号
 			if (buf[1] != L"") {
 				Generate.ModulationNumber = common::WStringToLong(buf[1]);
@@ -2265,53 +2402,53 @@ void CBonTuner::ReadIniFile(void)
 			if (buf[6] != L"") {
 				Generate.NameOffset = common::WStringToLong(buf[6]);
 			}
-			// 次の自動先頭チャンネル番号
-			nextCh = max(nextCh, Generate.StartCh + max(Generate.Count - Generate.Offset, 0UL));
 			
-			unsigned int freqBase = 0UL;
-			unsigned int freqStep = 0UL;
-			unsigned int polarisastionType = 0UL;
+			unsigned int freqBase = 0UL;			// 先頭チャンネルの周波数
+			unsigned int freqStep = 0UL;			// 周波数ステップ
+			unsigned int polarisastionType = 0UL;	// 偏波タイプ 0 .. 使用しない, 1 .. V/Hの繰り返し, 8 .. R固定
 
 			switch (Generate.Space) {
 			case eChGenerateVHF_L:
 				freqBase = 93000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateVHF_H:
 				freqBase = 171000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateVHF_4Plus:
 				freqBase = 173000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateUHF:
 				freqBase = 473000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateCATV_L:
 				freqBase = 111000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateCATV_22Plus:
 				freqBase = 167000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateCATV_H:
 				freqBase = 225000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateCATV_24Plus:
 				freqBase = 233000UL;
 				freqStep = 6000UL;
-				polarisastionType = 0UL;
+				break;
+			case eChGenerateBS1:
+				freqBase = 11727480UL;
+				freqStep = 38360UL;
+				polarisastionType = 8UL;
+				break;
+			case eChGenerateND2:
+				freqBase = 12291000UL;
+				freqStep = 40000UL;
+				polarisastionType = 8UL;
 				break;
 			case eChGenerateJD1:
 				freqBase = 12508000UL;
@@ -2331,46 +2468,55 @@ void CBonTuner::ReadIniFile(void)
 			case eChGenerateOpticast:
 				freqBase = 93250UL;
 				freqStep = 6500UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateOpticast_11Plus:
 				freqBase = 159250UL;
 				freqStep = 6500UL;
-				polarisastionType = 0UL;
 				break;
 			case eChGenerateOpticast_26Plus:
 				freqBase = 259750UL;
 				freqStep = 6500UL;
-				polarisastionType = 0UL;
 				break;
 			}
 
 			if (Generate.Count && freqBase) {
 				bReserveUnusedCh = TRUE;
-				unsigned int ch;
-				for (ch = Generate.Offset; ch < Generate.Count; ch++) {
-					itCh = itSpace->second->Channels.find(ch + Generate.StartCh);
-					if (itCh == itSpace->second->Channels.end()) {
-						ChData *chData = new ChData();
-						itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(ch + Generate.StartCh, chData));
+				unsigned int tsCount = max(Generate.RelativeTS, 1);
+				unsigned int chNum = Generate.StartCh;
+				for (unsigned int ch = Generate.Offset; ch < Generate.Offset + Generate.Count; ch++) {
+					for (unsigned int ts = 0; ts < tsCount; ts++) {
+						itCh = itSpace->second->Channels.find(chNum);
+						if (itCh == itSpace->second->Channels.end()) {
+							ChData *chData = new ChData();
+							itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(chNum, chData));
+						}
+						else {
+							OutputDebug(L"    Replaced to :\n");
+						}
+						switch (polarisastionType) {
+						case 1UL:
+							itCh->second->Polarisation = (ch % 2UL) ? 1UL : 2UL;
+							break;
+						case 8UL:
+							itCh->second->Polarisation = 4UL;
+							break;
+						default:
+							itCh->second->Polarisation = 0UL;
+							break;
+						}
+						itCh->second->ModulationType = Generate.ModulationNumber;
+						itCh->second->Satellite = Generate.SatelliteNumber;
+						itCh->second->Frequency = freqBase + freqStep * ch + Generate.TuningFreq;
+						if (Generate.RelativeTS) {
+							itCh->second->TSID = ts;
+						}
+						itCh->second->sServiceName = common::TStringPrintf(common::WStringToTString(Generate.NameFormat).c_str(), ch * Generate.NameStep + Generate.NameOffset, ts + Generate.NameOffsetTS);
+						OutputDebug(L"%s: (auto) CH%03ld=%ld,%ld.%03ld,%c,%ld,%s,%ld,%ld,%ld,%ld,%ld\n", section.c_str(), itCh->first, itCh->second->Satellite, itCh->second->Frequency / 1000L,
+							itCh->second->Frequency % 1000L, PolarisationChar[itCh->second->Polarisation], itCh->second->ModulationType, itCh->second->sServiceName.c_str(), itCh->second->SID, 
+							itCh->second->TSID, itCh->second->ONID, itCh->second->MajorChannel, itCh->second->SourceID);
+						chNum++;
+						nextCh = max(nextCh, chNum);
 					}
-					else {
-						OutputDebug(L"    Replaced to :\n");
-					}
-					switch (polarisastionType) {
-					case 1UL:
-						itCh->second->Polarisation = (ch % 2UL) ? 1UL : 2UL;
-						break;
-					default:
-						itCh->second->Polarisation = 0UL;
-						break;
-					}
-					itCh->second->ModulationType = Generate.ModulationNumber;
-					itCh->second->Satellite = Generate.SatelliteNumber;
-					itCh->second->Frequency = freqBase + freqStep * ch + Generate.TuningFreq;
-					itCh->second->sServiceName = common::TStringPrintf(common::WStringToTString(Generate.NameFormat).c_str(), ch + Generate.NameOffset);
-					OutputDebug(L"%s: (auto) CH%03ld=%ld,%ld.%03ld,%c,%ld,%s\n", section.c_str(), itCh->first, itCh->second->Satellite, itCh->second->Frequency / 1000L,
-						itCh->second->Frequency % 1000L, PolarisationChar[itCh->second->Polarisation], itCh->second->ModulationType, itCh->second->sServiceName.c_str());
 				}
 				OutputDebug(L".\n");
 			}
@@ -2572,14 +2718,11 @@ void CBonTuner::ReadIniFile(void)
 			}
 			else {
 				// ChannelLockTwiceTargetの指定が無い場合はすべてのCHが対象
-				for (DWORD ch = 0; ch < itSpace->second->dwNumChannel - 1; ch++) {
-					itCh = itSpace->second->Channels.find(ch);
-					if (itCh != itSpace->second->Channels.end()) {
-						itCh->second->LockTwiceTarget = TRUE;
-					}
+				for (auto itCh2 = itSpace->second->Channels.begin(); itCh2 != itSpace->second->Channels.end(); itCh2++) {
+					itCh->second->LockTwiceTarget = TRUE;
 				}
 			}
-		} // if (m_bLockTwice)
+		}
 	}
 
 	// チューニング空間番号0を探す
