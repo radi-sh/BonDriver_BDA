@@ -2600,7 +2600,7 @@ void CBonTuner::ReadIniFile(void)
 						itCh->second->Polarisation = it->second;
 					}
 					else
-						OutputDebug(L"Format Error in readIniFile; Wrong Polarization.\n");
+						OutputDebug(L"Format Error in readIniFile; Wrong Polarisation.\n");
 
 					// •Ï’²•ûŽ®
 					val = common::WStringToLong(buf[3]);
