@@ -3015,6 +3015,9 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			if (pTuningParam->Antenna->DiSEqC >= BDA_LNB_SOURCE_A) {
 				pIDVBSLocator2->put_DiseqLNBSource((LNB_Source)(pTuningParam->Antenna->DiSEqC));
 			}
+			else {
+				pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
+			}
 		}
 	}
 
