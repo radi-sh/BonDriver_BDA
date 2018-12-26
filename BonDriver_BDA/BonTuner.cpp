@@ -1535,35 +1535,29 @@ void CBonTuner::ReadIniFile(void)
 		if (sateliteSettingsAuto[satellite] == L"JCSAT-3") {
 			// JCSAT-3A
 			satelliteNumberJCSAT3 = satellite;
-			m_sSatelliteName[satellite] = L"128.0E";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;
-			// ‚’¼•Î”gLNBü”g”
-			m_aSatellite[satellite].Polarisation[1].Tone = 0;				// ‚’¼•Î”gƒg[ƒ“M†
-			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;
-			// …•½•Î”gLNBü”g”
-			m_aSatellite[satellite].Polarisation[2].Tone = 0;				// …•½•Î”gƒg[ƒ“M†
+			m_sSatelliteName[satellite] = L"128.0E";																					// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
+			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;	// ‚’¼•Î”gLNBü”g”
+			m_aSatellite[satellite].Polarisation[1].Tone = 0;																			// ‚’¼•Î”gƒg[ƒ“M†
+			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;	// …•½•Î”gLNBü”g”
+			m_aSatellite[satellite].Polarisation[2].Tone = 0;																			// …•½•Î”gƒg[ƒ“M†
 		}
 		else if (sateliteSettingsAuto[satellite] == L"JCSAT-4") {
 			// JCSAT-4B
 			satelliteNumberJCSAT4 = satellite;
-			m_sSatelliteName[satellite] = L"124.0E";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;
-			// ‚’¼•Î”gLNBü”g”
-			m_aSatellite[satellite].Polarisation[1].Tone = 1;				// ‚’¼•Î”gƒg[ƒ“M†
-			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;
-			// …•½•Î”gLNBü”g”
-			m_aSatellite[satellite].Polarisation[2].Tone = 1;				// …•½•Î”gƒg[ƒ“M†
+			m_sSatelliteName[satellite] = L"124.0E";																					// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
+			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;	// ‚’¼•Î”gLNBü”g”
+			m_aSatellite[satellite].Polarisation[1].Tone = 1;																			// ‚’¼•Î”gƒg[ƒ“M†
+			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;	// …•½•Î”gLNBü”g”
+			m_aSatellite[satellite].Polarisation[2].Tone = 1;																			// …•½•Î”gƒg[ƒ“M†
 		}
 		else if (sateliteSettingsAuto[satellite] == L"BS/CS110") {
-			// BS/CS110
+			// BS/CS110 ‰Eù‰~•Î”g‚Æ¶ù‰~•Î”g
 			satelliteNumberBSCS110R = satellite;
-			m_sSatelliteName[satellite] = L"BS/CS110";						// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
-			m_aSatellite[satellite].Polarisation[3].HighOscillator = m_aSatellite[satellite].Polarisation[3].LowOscillator = 10678000;
-			// ‚’¼•Î”gLNBü”g”
-			m_aSatellite[satellite].Polarisation[3].Tone = 0;				// ‚’¼•Î”gƒg[ƒ“M†
-			m_aSatellite[satellite].Polarisation[4].HighOscillator = m_aSatellite[satellite].Polarisation[4].LowOscillator = 10678000;
-			// …•½•Î”gLNBü”g”
-			m_aSatellite[satellite].Polarisation[4].Tone = 0;				// …•½•Î”gƒg[ƒ“M†
+			m_sSatelliteName[satellite] = L"BS/CS110";																					// ƒ`ƒƒƒ“ƒlƒ‹–¼¶¬—p‰q¯–¼Ì
+			m_aSatellite[satellite].Polarisation[3].HighOscillator = m_aSatellite[satellite].Polarisation[3].LowOscillator = 9505000;	// ¶ù‰~•Î”gLNBü”g”
+			m_aSatellite[satellite].Polarisation[3].Tone = 0;																			// ¶ù‰~•Î”g•Î”gƒg[ƒ“M†
+			m_aSatellite[satellite].Polarisation[4].HighOscillator = m_aSatellite[satellite].Polarisation[4].LowOscillator = 10678000;	// ‰Eù‰~•Î”gLNBü”g”
+			m_aSatellite[satellite].Polarisation[4].Tone = 0;																			// ‰Eù‰~•Î”g•Î”gƒg[ƒ“M†
 		}
 
 		// ƒT[ƒrƒX•\¦—p‰q¯–¼Ì
