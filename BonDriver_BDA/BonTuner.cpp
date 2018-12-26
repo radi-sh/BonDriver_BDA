@@ -1561,7 +1561,7 @@ void CBonTuner::ReadIniFile(void)
 			m_aSatellite[satellite].Polarisation[3].HighOscillator = m_aSatellite[satellite].Polarisation[3].LowOscillator = 10678000;
 			// ‚’¼•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[3].Tone = 0;				// ‚’¼•Î”gƒg[ƒ“M†
-			m_aSatellite[1].Polarisation[4].HighOscillator = m_aSatellite[satellite].Polarisation[4].LowOscillator = 10678000;
+			m_aSatellite[satellite].Polarisation[4].HighOscillator = m_aSatellite[satellite].Polarisation[4].LowOscillator = 10678000;
 			// …•½•Î”gLNBü”g”
 			m_aSatellite[satellite].Polarisation[4].Tone = 0;				// …•½•Î”gƒg[ƒ“M†
 		}
