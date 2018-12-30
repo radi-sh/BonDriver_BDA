@@ -1176,12 +1176,12 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyTuningSpace = {
-		{ L"AUTO", eTuningSpaceAuto },
-		{ L"DVBTUNINGSPACE", eTuningSpaceDVB },
-		{ L"DVBSTUNINGSPACE", eTuningSpaceDVBS },
-		{ L"ANALOGTVTUNINGSPACE", eTuningSpaceAnalogTV },
-		{ L"ATSCTUNINGSPACE",	eTuningSpaceATSC },
-		{ L"DIGITALCABLETUNINGSPACE",  eTuningSpaceDigitalCable },
+		{ L"AUTO",                     enumTuningSpace::eTuningSpaceAuto },
+		{ L"DVBTUNINGSPACE",           enumTuningSpace::eTuningSpaceDVB },
+		{ L"DVBSTUNINGSPACE",          enumTuningSpace::eTuningSpaceDVBS },
+		{ L"ANALOGTVTUNINGSPACE",      enumTuningSpace::eTuningSpaceAnalogTV },
+		{ L"ATSCTUNINGSPACE",	       enumTuningSpace::eTuningSpaceATSC },
+		{ L"DIGITALCABLETUNINGSPACE",  enumTuningSpace::eTuningSpaceDigitalCable },
 	};
 
 	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyLocator = {
@@ -1196,7 +1196,7 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyITuningSpaceNetworkType = {
-		{ L"AUTO", eNetworkProviderAuto },
+		{ L"AUTO",                                       enumNetworkType::eNetworkTypeAuto },
 		{ L"STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE",     enumNetworkType::eNetworkTypeDVBT },
 		{ L"STATIC_DVB_SATELLITE_TV_NETWORK_TYPE",       enumNetworkType::eNetworkTypeDVBS },
 		{ L"STATIC_DVB_CABLE_TV_NETWORK_TYPE",           enumNetworkType::eNetworkTypeDVBC },
@@ -1227,7 +1227,7 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int, std::less<>> mapNetworkProvider = {
-		{ L"AUTO",                                                           enumNetworkProvider::eNetworkProviderAuto },
+		{ L"AUTO",                             enumNetworkProvider::eNetworkProviderAuto },
 		{ L"MICROSOFT NETWORK PROVIDER",       enumNetworkProvider::eNetworkProviderGeneric },
 		{ L"MICROSOFT DVB-S NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBS },
 		{ L"MICROSOFT DVB-T NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBT },
@@ -1236,15 +1236,15 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int, std::less<>> mapDefaultNetwork = {
-		{ L"NONE",     eDefaultNetworkNone },
-		{ L"SPHD",     eDefaultNetworkSPHD },
-		{ L"BS/CS110", eDefaultNetworkBSCS },
-		{ L"BS",       eDefaultNetworkBSCS },
-		{ L"CS110",    eDefaultNetworkBSCS },
-		{ L"UHF/CATV", eDefaultNetworkUHF },
-		{ L"UHF",      eDefaultNetworkUHF },
-		{ L"CATV",     eDefaultNetworkUHF },
-		{ L"DUAL",     eDefaultNetworkDual },
+		{ L"NONE",     enumDefaultNetwork::eDefaultNetworkNone },
+		{ L"SPHD",     enumDefaultNetwork::eDefaultNetworkSPHD },
+		{ L"BS/CS110", enumDefaultNetwork::eDefaultNetworkBSCS },
+		{ L"BS",       enumDefaultNetwork::eDefaultNetworkBSCS },
+		{ L"CS110",    enumDefaultNetwork::eDefaultNetworkBSCS },
+		{ L"UHF/CATV", enumDefaultNetwork::eDefaultNetworkUHF },
+		{ L"UHF",      enumDefaultNetwork::eDefaultNetworkUHF },
+		{ L"CATV",     enumDefaultNetwork::eDefaultNetworkUHF },
+		{ L"DUAL",     enumDefaultNetwork::eDefaultNetworkDual },
 	};
 
 	static const std::map<const std::wstring, const int, std::less<>> mapSignalLevelCalcType = {
@@ -1266,10 +1266,11 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	static const std::map<const std::wstring, const int, std::less<>> mapDiSEqC = {
-		{ L"PORT-A", 1 },
-		{ L"PORT-B", 2 },
-		{ L"PORT-C", 3 },
-		{ L"PORT-D", 4 },
+		{ L"",       LNB_Source::BDA_LNB_SOURCE_NOT_SET },
+		{ L"PORT-A", LNB_Source::BDA_LNB_SOURCE_A },
+		{ L"PORT-B", LNB_Source::BDA_LNB_SOURCE_B },
+		{ L"PORT-C", LNB_Source::BDA_LNB_SOURCE_C },
+		{ L"PORT-D", LNB_Source::BDA_LNB_SOURCE_D },
 	};
 
 	// 偏波種類毎のiniファイルでの記号 逆引き用
