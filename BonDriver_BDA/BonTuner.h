@@ -433,7 +433,7 @@ protected:
 
 	// INI ファイルで指定するチューナパラメータ
 	struct TunerParam {
-		std::map<unsigned int, TunerSearchData*> Tuner;
+		std::map<unsigned int, TunerSearchData> Tuner;
 												// TunerとCaptureのGUID/FriendlyName指定
 		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
@@ -446,9 +446,6 @@ protected:
 		}
 		~TunerParam(void)
 		{
-			for (auto it = Tuner.begin(); it != Tuner.end(); it++) {
-				SAFE_DELETE(it->second);
-			}
 			Tuner.clear();
 		}
 	};
@@ -608,7 +605,7 @@ protected:
 		std::basic_string<TCHAR> sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
 		long FrequencyOffset;							// 周波数オフセット値
 		unsigned int DVBSystemTypeNumber;				// TuningSpaceの種類番号
-		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
+		std::map<unsigned int, ChData> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;								// チャンネル数
 		TuningSpaceData(void)
 			: FrequencyOffset(0),
@@ -617,16 +614,13 @@ protected:
 		};
 		~TuningSpaceData(void)
 		{
-			for (auto it = Channels.begin(); it != Channels.end(); it++) {
-				SAFE_DELETE(it->second);
-			}
 			Channels.clear();
 		};
 	};
 
 	// チューニングスペース一覧
 	struct TuningData {
-		std::map<unsigned int, TuningSpaceData*> Spaces;	// チューニングスペース番号とデータ
+		std::map<unsigned int, TuningSpaceData> Spaces;		// チューニングスペース番号とデータ
 		DWORD dwNumSpace;									// チューニングスペース数
 		TuningData(void)
 			: dwNumSpace(0)
@@ -634,9 +628,6 @@ protected:
 		};
 		~TuningData(void)
 		{
-			for (auto it = Spaces.begin(); it != Spaces.end(); it++) {
-				SAFE_DELETE(it->second);
-			}
 			Spaces.clear();
 		};
 	};
@@ -1009,7 +1000,7 @@ protected:
 
 	// TuningSpaceの種類データベース
 	struct DVBSystemTypeDB {
-		std::map<unsigned int, DVBSystemTypeData*> SystemType;	// TuningSpaceの種類番号とTuningSpaceの種類データ
+		std::map<unsigned int, DVBSystemTypeData> SystemType;	// TuningSpaceの種類番号とTuningSpaceの種類データ
 		unsigned int nNumType;									// TuningSpaceの種類数
 		DVBSystemTypeDB(void)
 			: nNumType(0)
@@ -1017,9 +1008,6 @@ protected:
 		}
 		~DVBSystemTypeDB(void)
 		{
-			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
-				SAFE_DELETE(it->second);
-			}
 			SystemType.clear();
 		}
 		BOOL IsExist(unsigned int number)
@@ -1027,14 +1015,14 @@ protected:
 			auto it = SystemType.find(number);
 			if (it == SystemType.end())
 				return FALSE;
-			if (!it->second->pITuningSpace)
+			if (!it->second.pITuningSpace)
 				return FALSE;
 			return TRUE;
 		}
 		void ReleaseAll(void)
 		{
 			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
-				it->second->pITuningSpace.Release();
+				it->second.pITuningSpace.Release();
 			}
 		}
 	};
@@ -1139,7 +1127,7 @@ protected:
 	};
 
 	// チャンネル名自動生成 inline 関数
-	inline std::basic_string<TCHAR> MakeChannelName(CBonTuner::ChData* pChData)
+	inline std::basic_string<TCHAR> MakeChannelName(const CBonTuner::ChData* const pChData)
 	{
 		std::basic_string<TCHAR> format;
 		long m = pChData->Frequency / 1000;
