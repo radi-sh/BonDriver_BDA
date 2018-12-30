@@ -56,9 +56,6 @@ std::list<CBonTuner*> CBonTuner::st_InstanceList;
 // st_InstanceList操作用
 CRITICAL_SECTION CBonTuner::st_LockInstanceList;
 
-// 偏波種類毎のiniファイルでの記号 逆引き用
-std::multimap<WCHAR, int> CBonTuner::PolarisationCharMap;
-
 // 必要な静的変数初期化
 void CBonTuner::Init(HMODULE hModule)
 {
@@ -1274,6 +1271,12 @@ void CBonTuner::ReadIniFile(void)
 		{ L"PORT-C", 3 },
 		{ L"PORT-D", 4 },
 	};
+
+	// 偏波種類毎のiniファイルでの記号 逆引き用
+	std::map<const WCHAR, const int> PolarisationCharMap;
+	for (unsigned int i = 0; i < POLARISATION_SIZE; i++) {
+		PolarisationCharMap.try_emplace(PolarisationChar[i], i);
+	}
 
 	// INIファイルのファイル名取得
 	std::wstring tempPath = common::GetModuleName(st_hModule);

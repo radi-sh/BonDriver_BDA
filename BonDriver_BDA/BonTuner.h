@@ -667,9 +667,6 @@ protected:
 		L'R'
 	};
 
-	// 偏波種類毎のiniファイルでの記号 逆引き用
-	static std::multimap<WCHAR, int> PolarisationCharMap;
-
 	// iniファイルで設定できる最大衛星数 + 1
 	static constexpr unsigned int MAX_SATELLITE = 10U;
 
