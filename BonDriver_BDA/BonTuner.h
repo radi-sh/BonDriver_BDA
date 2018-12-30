@@ -1009,7 +1009,6 @@ protected:
 
 	// TuningSpaceの種類データベース
 	struct DVBSystemTypeDB {
-		std::basic_string<TCHAR> sTuningSpaceName;				// EnumTuningSpaceで返すTuning Space名
 		std::map<unsigned int, DVBSystemTypeData*> SystemType;	// TuningSpaceの種類番号とTuningSpaceの種類データ
 		unsigned int nNumType;									// TuningSpaceの種類数
 		DVBSystemTypeDB(void)
