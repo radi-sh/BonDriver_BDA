@@ -2,7 +2,7 @@
 
 #include "CIniFileAccess.h"
 
-static const std::map<const std::wstring, const int> mapBool = {
+static const std::map<const std::wstring, const int, std::less<>> mapBool = {
 	{ L"NO",    0 },
 	{ L"YES",   1 },
 	{ L"FALSE", 0 },
@@ -58,12 +58,12 @@ BOOL CIniFileAccess::ReadKeyB(const std::wstring SectionName, const std::wstring
 	return ReadKeyIValueMap(SectionName, KeyName, default, mapBool);
 }
 
-int CIniFileAccess::ReadKeyIValueMap(const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap)
+int CIniFileAccess::ReadKeyIValueMap(const std::wstring KeyName, int default, const std::map<const std::wstring, const int, std::less<>> ValueMap)
 {
 	return CIniFileAccess::ReadKeyIValueMap(m_SectionName, KeyName, default, ValueMap);
 }
 
-int CIniFileAccess::ReadKeyIValueMap(const std::wstring SectionName, const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap)
+int CIniFileAccess::ReadKeyIValueMap(const std::wstring SectionName, const std::wstring KeyName, int default, const std::map<const std::wstring, const int, std::less<>> ValueMap)
 {
 	WCHAR buf[_MAX_PATH + 1];
 	::GetPrivateProfileStringW(SectionName.c_str(), KeyName.c_str(), L"", buf, sizeof(buf) / sizeof(buf[0]), m_IniFilePath.c_str());
@@ -207,7 +207,7 @@ BOOL CIniFileAccess::ReadKeyBSectionData(const std::wstring KeyName, BOOL defaul
 	return ReadKeyIValueMapSectionData(KeyName, default, mapBool);
 }
 
-int CIniFileAccess::ReadKeyIValueMapSectionData(const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap)
+int CIniFileAccess::ReadKeyIValueMapSectionData(const std::wstring KeyName, int default, const std::map<const std::wstring, const int, std::less<>> ValueMap)
 {
 	std::wstring s = ReadKeySSectionData(KeyName, L"");
 	if (s.length() == 0)
