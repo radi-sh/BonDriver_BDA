@@ -265,7 +265,7 @@ protected:
 			hEndEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 			hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 			::InitializeCriticalSection(&csLock);
-		};
+		}
 		
 		~COMProc(void)
 		{
@@ -273,7 +273,7 @@ protected:
 			SAFE_CLOSE_HANDLE(hEndEvent);
 			SAFE_CLOSE_HANDLE(hTerminateRequest);
 			::DeleteCriticalSection(&csLock);
-		};
+		}
 		
 		inline BOOL CheckTick(void)
 		{
@@ -395,11 +395,11 @@ protected:
 			hTerminateRequest(NULL)
 		{
 			hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
-		};
+		}
 		~DecodeProc(void)
 		{
 			SAFE_CLOSE_HANDLE(hTerminateRequest);
-		};
+		}
 	};
 	DecodeProc m_aDecodeProc;
 
@@ -418,14 +418,14 @@ protected:
 		std::wstring CaptureFriendlyName;
 		TunerSearchData(void)
 		{
-		};
+		}
 		TunerSearchData(std::wstring tunerGuid, std::wstring tunerFriendlyName, std::wstring captureGuid, std::wstring captureFriendlyName)
 			: TunerFriendlyName(tunerFriendlyName),
 			  CaptureFriendlyName(captureFriendlyName)
 		{
 			TunerGUID = common::WStringToLowerCase(tunerGuid);
 			CaptureGUID = common::WStringToLowerCase(captureGuid);
-		};
+		}
 	};
 
 	// INI ファイルで指定するチューナパラメータ
@@ -440,14 +440,14 @@ protected:
 			: bNotExistCaptureDevice(TRUE),
 			  bCheckDeviceInstancePath(TRUE)
 		{
-		};
+		}
 		~TunerParam(void)
 		{
 			for (auto it = Tuner.begin(); it != Tuner.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			Tuner.clear();
-		};
+		}
 	};
 	TunerParam m_aTunerParam;
 
@@ -896,7 +896,7 @@ protected:
 			FriendlyName(_FriendlyName),
 			Order(_Order)
 		{
-		};
+		}
 	};
 
 	// ロードすべきチューナ・キャプチャのリスト
@@ -906,11 +906,11 @@ protected:
 		TunerCaptureList(std::wstring TunerGUID, std::wstring TunerFriendlyName, ULONG TunerOrder)
 			: Tuner(TunerGUID, TunerFriendlyName, TunerOrder)
 		{
-		};
+		}
 		TunerCaptureList(DSListData _Tuner)
 			: Tuner(_Tuner)
 		{
-		};
+		}
 	};
 	std::list<TunerCaptureList> m_UsableTunerCaptureList;
 
@@ -1000,11 +1000,11 @@ protected:
 			  nIDVBTuningSpaceSystemType(eDVBSystemTypeAuto),
 			  nIAnalogTVTuningSpaceInputType(eTunerInputTypeAuto)
 		{
-		};
+		}
 		~DVBSystemTypeData(void)
 		{
 			pITuningSpace.Release();
-		};
+		}
 	};
 
 	// TuningSpaceの種類データベース
@@ -1015,14 +1015,14 @@ protected:
 		DVBSystemTypeDB(void)
 			: nNumType(0)
 		{
-		};
+		}
 		~DVBSystemTypeDB(void)
 		{
 			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
 				SAFE_DELETE(it->second);
 			}
 			SystemType.clear();
-		};
+		}
 		BOOL IsExist(unsigned int number)
 		{
 			auto it = SystemType.find(number);
@@ -1031,13 +1031,13 @@ protected:
 			if (!it->second->pITuningSpace)
 				return FALSE;
 			return TRUE;
-		};
+		}
 		void ReleaseAll(void)
 		{
 			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
 				it->second->pITuningSpace.Release();
 			}
-		};
+		}
 	};
 	DVBSystemTypeDB m_DVBSystemTypeDB;
 
