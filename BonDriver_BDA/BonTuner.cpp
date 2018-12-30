@@ -1067,7 +1067,7 @@ void CBonTuner::StopRecv(void)
 
 void CBonTuner::ReadIniFile(void)
 {
-	static const std::map<const std::wstring, const int> mapThreadPriority = {
+	static const std::map<const std::wstring, const int, std::less<>> mapThreadPriority = {
 		{ L"",                              THREAD_PRIORITY_ERROR_RETURN },
 		{ L"THREAD_PRIORITY_IDLE",          THREAD_PRIORITY_IDLE },
 		{ L"THREAD_PRIORITY_LOWEST",        THREAD_PRIORITY_LOWEST },
@@ -1078,7 +1078,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"THREAD_PRIORITY_TIME_CRITICAL", THREAD_PRIORITY_TIME_CRITICAL },
 	};
 
-	static const std::map<const std::wstring, const int> mapModulationType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapModulationType = {
 		{ L"BDA_MOD_NOT_SET",          ModulationType::BDA_MOD_NOT_SET },
 		{ L"BDA_MOD_NOT_DEFINED",      ModulationType::BDA_MOD_NOT_DEFINED },
 		{ L"BDA_MOD_16QAM",            ModulationType::BDA_MOD_16QAM },
@@ -1118,7 +1118,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BDA_MOD_ISDB_S_TMCC",      ModulationType::BDA_MOD_ISDB_S_TMCC },
 	};
 
-	static const std::map<const std::wstring, const int> mapFECMethod = {
+	static const std::map<const std::wstring, const int, std::less<>> mapFECMethod = {
 		{ L"BDA_FEC_METHOD_NOT_SET",     FECMethod::BDA_FEC_METHOD_NOT_SET },
 		{ L"BDA_FEC_METHOD_NOT_DEFINED", FECMethod::BDA_FEC_METHOD_NOT_DEFINED },
 		{ L"BDA_FEC_VITERBI",            FECMethod::BDA_FEC_VITERBI },
@@ -1128,7 +1128,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BDA_FEC_RS_147_130",         FECMethod::BDA_FEC_RS_147_130 },
 	};
 
-	static const std::map<const std::wstring, const int> mapBinaryConvolutionCodeRate = {
+	static const std::map<const std::wstring, const int, std::less<>> mapBinaryConvolutionCodeRate = {
 		{ L"BDA_BCC_RATE_NOT_SET",     BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_SET },
 		{ L"BDA_BCC_RATE_NOT_DEFINED", BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_DEFINED },
 		{ L"BDA_BCC_RATE_1_2",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_2 },
@@ -1147,7 +1147,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BDA_BCC_RATE_9_10",        BinaryConvolutionCodeRate::BDA_BCC_RATE_9_10 },
 	};
 
-	static const std::map<const std::wstring, const int> mapTuningSpaceType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapTuningSpaceType = {
 		{ L"DVB-S/DVB-S2",  enumTunerType::eTunerTypeDVBS },
 		{ L"DVB-S2",        enumTunerType::eTunerTypeDVBS },
 		{ L"DVB-S",         enumTunerType::eTunerTypeDVBS },
@@ -1161,7 +1161,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DIGITAL CABLE", enumTunerType::eTunerTypeDigitalCable },
 	};
 
-	static const std::map<const std::wstring, const int> mapSpecifyTuningSpace = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyTuningSpace = {
 		{ L"AUTO", eTuningSpaceAuto },
 		{ L"DVBTUNINGSPACE", eTuningSpaceDVB },
 		{ L"DVBSTUNINGSPACE", eTuningSpaceDVBS },
@@ -1170,7 +1170,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DIGITALCABLETUNINGSPACE",  eTuningSpaceDigitalCable },
 	};
 
-	static const std::map<const std::wstring, const int> mapSpecifyLocator = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyLocator = {
 		{ L"AUTO", eLocatorAuto },
 		{ L"DVBTLOCATOR",         enumLocator::eLocatorDVBT },
 		{ L"DVBTLOCATOR2",        enumLocator::eLocatorDVBT2 },
@@ -1181,7 +1181,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DIGITALCABLELOCATOR", enumLocator::eLocatorDigitalCable },
 	};
 
-	static const std::map<const std::wstring, const int> mapSpecifyITuningSpaceNetworkType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyITuningSpaceNetworkType = {
 		{ L"AUTO", eNetworkProviderAuto },
 		{ L"STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE",     enumNetworkType::eNetworkTypeDVBT },
 		{ L"STATIC_DVB_SATELLITE_TV_NETWORK_TYPE",       enumNetworkType::eNetworkTypeDVBS },
@@ -1196,7 +1196,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE",  enumNetworkType::eNetworkTypeEchoStar },
 	};
 
-	static const std::map<const std::wstring, const int> mapSpecifyIDVBTuningSpaceSystemType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyIDVBTuningSpaceSystemType = {
 		{ L"AUTO",             enumDVBSystemType::eDVBSystemTypeAuto },
 		{ L"DVB_CABLE",        enumDVBSystemType::eDVBSystemTypeDVBC },
 		{ L"DVB_TERRESTRIAL",  enumDVBSystemType::eDVBSystemTypeDVBT },
@@ -1206,13 +1206,13 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 
-	static const std::map<const std::wstring, const int> mapSpecifyIAnalogTVTuningSpaceInputType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyIAnalogTVTuningSpaceInputType = {
 		{ L"AUTO",              enumTunerInputType::eTunerInputTypeAuto },
 		{ L"TUNERINPUTCABLE",   enumTunerInputType::eTunerInputTypeCable },
 		{ L"TUNERINPUTANTENNA", enumTunerInputType::eTunerInputTypeAntenna },
 	};
 
-	static const std::map<const std::wstring, const int> mapNetworkProvider = {
+	static const std::map<const std::wstring, const int, std::less<>> mapNetworkProvider = {
 		{ L"AUTO",                                                           enumNetworkProvider::eNetworkProviderAuto },
 		{ L"MICROSOFT NETWORK PROVIDER",       enumNetworkProvider::eNetworkProviderGeneric },
 		{ L"MICROSOFT DVB-S NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBS },
@@ -1221,7 +1221,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"MICROSOFT ATSC NETWORK PROVIDER",  enumNetworkProvider::eNetworkProviderATSC },
 	};
 
-	static const std::map<const std::wstring, const int> mapDefaultNetwork = {
+	static const std::map<const std::wstring, const int, std::less<>> mapDefaultNetwork = {
 		{ L"NONE",     eDefaultNetworkNone },
 		{ L"SPHD",     eDefaultNetworkSPHD },
 		{ L"BS/CS110", eDefaultNetworkBSCS },
@@ -1233,7 +1233,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DUAL",     eDefaultNetworkDual },
 	};
 
-	static const std::map<const std::wstring, const int> mapSignalLevelCalcType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSignalLevelCalcType = {
 		{ L"SSSTRENGTH",     0 },
 		{ L"SSQUALITY",      1 },
 		{ L"SSMUL",          2 },
@@ -1245,13 +1245,13 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BITRATE",      100 },
 	};
 
-	static const std::map<const std::wstring, const int> mapSignalLockedJudgeType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSignalLockedJudgeType = {
 		{ L"ALWAYS",        0 },
 		{ L"SSLOCKED",      1 },
 		{ L"TUNERSTRENGTH", 2 },
 	};
 
-	static const std::map<const std::wstring, const int> mapDiSEqC = {
+	static const std::map<const std::wstring, const int, std::less<>> mapDiSEqC = {
 		{ L"PORT-A", 1 },
 		{ L"PORT-B", 2 },
 		{ L"PORT-C", 3 },
