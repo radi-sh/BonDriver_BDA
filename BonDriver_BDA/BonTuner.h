@@ -411,7 +411,7 @@ protected:
 	////////////////////////////////////////
 
 	// INIファイルで指定できるGUID/FriendlyName最大数
-	static constexpr unsigned int MAX_GUID = 100;
+	static constexpr unsigned int MAX_GUID = 100U;
 
 	// チューナ・キャプチャ検索に使用するGUID文字列とFriendlyName文字列の組合せ
 	struct TunerSearchData {
@@ -647,7 +647,7 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルで受付ける偏波種類数
-	static constexpr unsigned int POLARISATION_SIZE = 5;
+	static constexpr unsigned int POLARISATION_SIZE = 5U;
 
 	// CBonTunerで使用する偏波種類番号とPolarisation型のMapping
 	static constexpr Polarisation PolarisationMapping[POLARISATION_SIZE] = {
@@ -671,7 +671,7 @@ protected:
 	static std::multimap<WCHAR, int> PolarisationCharMap;
 
 	// iniファイルで設定できる最大衛星数 + 1
-	static constexpr unsigned int MAX_SATELLITE = 10;
+	static constexpr unsigned int MAX_SATELLITE = 10U;
 
 	// 衛星受信設定データ
 	struct Satellite {
@@ -687,7 +687,7 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルで設定できる最大変調方式数
-	static constexpr unsigned int MAX_MODULATION = 10;
+	static constexpr unsigned int MAX_MODULATION = 10U;
 
 	// 変調方式設定データ
 	ModulationMethod m_aModulationType[MAX_MODULATION];
@@ -1045,7 +1045,7 @@ protected:
 	DVBSystemTypeDB m_DVBSystemTypeDB;
 
 	// iniファイルで定義できる最大TuningSpaceの種類データ数
-	static constexpr unsigned int MAX_DBV_SYSTEM_TYPE = 10;
+	static constexpr unsigned int MAX_DVB_SYSTEM_TYPE = 10U;
 
 	// チューナーに使用するNetworkProvider 
 	enum enumNetworkProvider {
@@ -1078,7 +1078,7 @@ protected:
 	DWORD m_dwCurSpace;
 
 	// チューニングスペース番号不明
-	static constexpr DWORD SPACE_INVALID = 0xFFFFFFFF;
+	static constexpr DWORD SPACE_INVALID = 0xFFFFFFFFUL;
 
 	// SetChannel()を試みたチャンネル番号
 	DWORD m_dwTargetChannel;
@@ -1087,13 +1087,13 @@ protected:
 	DWORD m_dwCurChannel;
 
 	// チャンネル番号不明
-	static constexpr DWORD CHANNEL_INVALID = 0xFFFFFFFF;
+	static constexpr DWORD CHANNEL_INVALID = 0xFFFFFFFFUL;
 
 	// 現在のトーン切替状態
 	long m_nCurTone; // current tone signal state
 
 	// トーン切替状態不明
-	static constexpr long TONE_UNKNOWN = -1;
+	static constexpr long TONE_UNKNOWN = -1L;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;
