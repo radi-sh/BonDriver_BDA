@@ -1421,7 +1421,7 @@ void CBonTuner::ReadIniFile(void)
 	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeTuner)
 		m_bSignalLockedJudgeTypeTuner = TRUE;
 
-	for (unsigned int i = 0; i < MAX_DBV_SYSTEM_TYPE; i++) {
+	for (unsigned int i = 0; i < MAX_DVB_SYSTEM_TYPE; i++) {
 		std::wstring key, prefix1;
 		DVBSystemTypeData typeData;
 		if (i == 0) {
