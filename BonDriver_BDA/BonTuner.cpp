@@ -59,11 +59,28 @@ CRITICAL_SECTION CBonTuner::st_LockInstanceList;
 // 偏波種類毎のiniファイルでの記号 逆引き用
 std::multimap<WCHAR, int> CBonTuner::PolarisationCharMap;
 
-void CBonTuner::Init(void) {
-	PolarisationCharMap.clear();
-	for (unsigned int polarisation = 0; polarisation < POLARISATION_SIZE; polarisation++) {
-		PolarisationCharMap.insert(std::pair<WCHAR, int>(PolarisationChar[polarisation], polarisation));
+// 必要な静的変数初期化
+void CBonTuner::Init(HMODULE hModule)
+{
+	st_hModule = hModule;
+	::InitializeCriticalSection(&st_LockInstanceList);
+	return;
+}
+
+// 静的変数の解放
+void CBonTuner::Finalize(void)
+{
+	// 未解放のインスタンスが残っていれば解放
+	for (auto it = st_InstanceList.begin(); it != st_InstanceList.end();) {
+		SAFE_RELEASE(*it);
+		it = st_InstanceList.erase(it);
 	}
+
+	::DeleteCriticalSection(&CBonTuner::st_LockInstanceList);
+
+	// デバッグログファイルのクローズ
+	CloseDebugLog();
+	return;
 }
 
 //////////////////////////////////////////////////////////////////////

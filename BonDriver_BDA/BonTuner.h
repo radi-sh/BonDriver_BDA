@@ -70,7 +70,10 @@ public:
 	////////////////////////////////////////
 
 	// 必要な静的変数初期化
-	static void Init(void);
+	static void Init(HMODULE hModule);
+
+	// 静的変数の解放
+	static void Finalize(void);
 
 	////////////////////////////////////////
 	// 静的メンバ変数

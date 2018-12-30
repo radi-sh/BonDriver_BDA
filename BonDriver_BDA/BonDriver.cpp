@@ -16,26 +16,11 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 {
     switch(ul_reason_for_call){
 		case DLL_PROCESS_ATTACH:
-			// モジュールハンドル保存
-			CBonTuner::st_hModule = hModule;
-			CBonTuner::Init();
-
-			::InitializeCriticalSection(&CBonTuner::st_LockInstanceList);
-
+			CBonTuner::Init(hModule);
 			break;
 	
 		case DLL_PROCESS_DETACH:
-			// 未解放のインスタンスが残っていれば解放
-			std::list<CBonTuner*>::iterator it;
-			while ((it = CBonTuner::st_InstanceList.begin()) != CBonTuner::st_InstanceList.end()) {
-				SAFE_RELEASE(*it);
-			}
-
-			::DeleteCriticalSection(&CBonTuner::st_LockInstanceList);
-
-			// デバッグログファイルのクローズ
-			CloseDebugLog();
-
+			CBonTuner::Finalize();
 			break;
 	}  
     return TRUE;
