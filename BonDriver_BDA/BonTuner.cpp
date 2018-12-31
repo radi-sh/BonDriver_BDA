@@ -655,6 +655,10 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_LastTuningParam.IniSpaceID = dwSpace;														// iniファイルで読込まれたチューニングスペース番号
 	m_LastTuningParam.IniChannelID = dwChannel;													// iniファイルで読込まれたチャンネル番号
 
+	// IBdaSpecialsで事前の処理が必要なら行う
+	if (m_pIBdaSpecials2)
+		hr = m_pIBdaSpecials2->PreLockChannel(&m_LastTuningParam);
+
 	BOOL bRet = LockChannel(&m_LastTuningParam, m_bLockTwice && Ch->LockTwiceTarget);
 
 	// IBdaSpecialsで追加の処理が必要なら行う
@@ -3257,7 +3261,7 @@ void CBonTuner::LoadTunerDependCode(void)
 
 	m_pIBdaSpecials = func(m_pTunerDevice);
 
-	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2a3 *>(m_pIBdaSpecials);
+	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b0 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
 		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 
