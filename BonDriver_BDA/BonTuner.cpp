@@ -2896,7 +2896,9 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			OutputDebug(L"  Set22KHz[Special2] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
-				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+				if (m_nToneWait) {
+					SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+				}
 			}
 		}
 		else {
@@ -2910,7 +2912,9 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			OutputDebug(L"  Set22KHz[Special] successfully.\n");
 			if (pTuningParam->Antenna->Tone != m_nCurTone) {
 				m_nCurTone = pTuningParam->Antenna->Tone;
-				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+				if (m_nToneWait) {
+					SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+				}
 			}
 		}
 		else {
@@ -3105,7 +3109,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		hr = m_pIBdaSpecials2->PreTuneRequest(pTuningParam, pITuneRequest);
 	}
 
-	if (pTuningParam->Antenna->Tone != m_nCurTone) {
+	if (pTuningParam->Antenna->Tone != m_nCurTone && m_nToneWait) {
 		//トーン切替ありの場合、先に一度TuneRequestしておく
 		OutputDebug(L"  Requesting pre tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
@@ -3114,9 +3118,9 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		}
 		OutputDebug(L"  Pre tune request complete.\n");
 
-		m_nCurTone = pTuningParam->Antenna->Tone;
 		SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 	}
+	m_nCurTone = pTuningParam->Antenna->Tone;
 
 	if (bLockTwice) {
 		// TuneRequestを強制的に2度行う
