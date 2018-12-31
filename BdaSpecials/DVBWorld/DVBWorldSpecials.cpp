@@ -155,15 +155,15 @@ const HRESULT CDVBWorldSpecials::LockChannel(BYTE bySatellite, BOOL bHorizontal,
 	return hr;
 }
 
-const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam *pTuningParm)
+const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam *pTuningParam)
 {
     Tuner_S_Param2 sTuneParam;
 	ZeroMemory(&sTuneParam, sizeof(sTuneParam));
 
 	sTuneParam.GUID_ID = GUID_TUNER_S_LOCK;
-	sTuneParam.frequency = pTuningParm->Frequency;
-	sTuneParam.symbol_rate = pTuningParm->Modulation->SymbolRate;
-	switch (pTuningParm->Polarisation) {
+	sTuneParam.frequency = pTuningParam->Frequency;
+	sTuneParam.symbol_rate = pTuningParam->Modulation->SymbolRate;
+	switch (pTuningParam->Polarisation) {
 	case BDA_POLARISATION_LINEAR_H:
 		sTuneParam.hv = 1;
 		break;
@@ -172,22 +172,22 @@ const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam *pTuningParm)
 		sTuneParam.hv = 0;
 		break;
 	}
-	if (pTuningParm->Antenna->LNBSwitch != -1) {
-		sTuneParam.b22k = (pTuningParm->Antenna->LNBSwitch >= pTuningParm->Frequency);
-		sTuneParam.lnb = sTuneParam.b22k ? pTuningParm->Antenna->HighOscillator : pTuningParm->Antenna->LowOscillator;
+	if (pTuningParam->Antenna->LNBSwitch != -1) {
+		sTuneParam.b22k = (pTuningParam->Antenna->LNBSwitch >= pTuningParam->Frequency);
+		sTuneParam.lnb = sTuneParam.b22k ? pTuningParam->Antenna->HighOscillator : pTuningParam->Antenna->LowOscillator;
 	}
 	else {
-		sTuneParam.lnb = pTuningParm->Antenna->HighOscillator;
-		sTuneParam.b22k = !!pTuningParm->Antenna->Tone;
+		sTuneParam.lnb = pTuningParam->Antenna->HighOscillator;
+		sTuneParam.b22k = !!pTuningParam->Antenna->Tone;
 	}
 	sTuneParam.Burst = DW_BURST_UNDEFINED;
-	if (pTuningParm->Antenna->DiSEqC >= 1 && pTuningParm->Antenna->DiSEqC <= 4) {
-		sTuneParam.diseqcPort = pTuningParm->Antenna->DiSEqC;
+	if (pTuningParam->Antenna->DiSEqC >= 1 && pTuningParam->Antenna->DiSEqC <= 4) {
+		sTuneParam.diseqcPort = pTuningParam->Antenna->DiSEqC;
 	} else {
 		sTuneParam.diseqcPort = DISEQC_PORT_A;
 	}
-	sTuneParam.FEC = pTuningParm->Modulation->InnerFECRate;
-	switch (pTuningParm->Modulation->Modulation) {
+	sTuneParam.FEC = pTuningParam->Modulation->InnerFECRate;
+	switch (pTuningParam->Modulation->Modulation) {
 	case BDA_MOD_NBC_QPSK:
 	case BDA_MOD_QPSK:
 		sTuneParam.Modulation = DW_MOD_DVBS1_QPSK;
@@ -242,14 +242,19 @@ const HRESULT CDVBWorldSpecials::GetSignalStrength(float *fVal)
 	return E_NOINTERFACE;
 }
 
-const HRESULT CDVBWorldSpecials::PreTuneRequest(const TuningParam *pTuningParm, ITuneRequest *pITuneRequest)
+const HRESULT CDVBWorldSpecials::PreLockChannel(const TuningParam *pTuningParam)
 {
-	return E_NOINTERFACE;
+	return S_OK;
 }
 
-const HRESULT CDVBWorldSpecials::PostLockChannel(const TuningParam *pTuningParm)
+const HRESULT CDVBWorldSpecials::PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest)
 {
-	return E_NOINTERFACE;
+	return S_OK;
+}
+
+const HRESULT CDVBWorldSpecials::PostLockChannel(const TuningParam *pTuningParam)
+{
+	return S_OK;
 }
 
 void CDVBWorldSpecials::Release(void)
