@@ -1277,12 +1277,6 @@ void CBonTuner::ReadIniFile(void)
 		{ L"PORT-D", LNB_Source::BDA_LNB_SOURCE_D },
 	};
 
-	// 偏波種類毎のiniファイルでの記号 逆引き用
-	std::map<const WCHAR, const int> PolarisationCharMap;
-	for (unsigned int i = 0; i < POLARISATION_SIZE; i++) {
-		PolarisationCharMap.try_emplace(PolarisationChar[i], i);
-	}
-
 	// INIファイルのファイル名取得
 	std::wstring tempPath = common::GetModuleName(st_hModule);
 	m_sIniFilePath = tempPath + L"ini";
@@ -2606,9 +2600,9 @@ void CBonTuner::ReadIniFile(void)
 					if (c == L'\0') {
 						c = L' ';
 					}
-					auto it = PolarisationCharMap.find(c);
-					if (it != PolarisationCharMap.end()) {
-						itCh->second.Polarisation = it->second;
+					auto it = std::find(std::begin(PolarisationChar), std::end(PolarisationChar), c);
+					if (it != std::end(PolarisationChar)) {
+						itCh->second.Polarisation = (unsigned int)(it - std::begin(PolarisationChar));
 					}
 					else
 						OutputDebug(L"Format Error in readIniFile; Wrong Polarisation.\n");
