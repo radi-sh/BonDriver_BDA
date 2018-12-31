@@ -11,7 +11,7 @@
 const GUID KSPROPSETID_BdaTunerExtensionProperties =
 {0xfaa8f3e5, 0x31d4, 0x4e41, {0x88, 0xef, 0xd9, 0xeb, 0x71, 0x6f, 0x6e, 0xc9}};
 
-class CTBSSpecials : public IBdaSpecials2a3
+class CTBSSpecials : public IBdaSpecials2b0
 {
 public:
 	CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
@@ -26,13 +26,14 @@ public:
 	const HRESULT SetLNBPower(bool bActive);
 
 	const HRESULT Set22KHz(long nTone);
-	const HRESULT LockChannel(const TuningParam *pTuningParm);
+	const HRESULT LockChannel(const TuningParam *pTuningParam);
 	const HRESULT ReadIniFile(const WCHAR *szIniFilePath);
 	const HRESULT IsDecodingNeeded(BOOL *pbAns);
 	const HRESULT Decode(BYTE *pBuf, DWORD dwSize);
 	const HRESULT GetSignalStrength(float *fVal);
-	const HRESULT PreTuneRequest(const TuningParam *pTuningParm, ITuneRequest *pITuneRequest);
-	const HRESULT PostLockChannel(const TuningParam *pTuningParm);
+	const HRESULT PreLockChannel(const TuningParam *pTuningParam);
+	const HRESULT PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest);
+	const HRESULT PostLockChannel(const TuningParam *pTuningParam);
 
 	virtual void Release(void);
 

@@ -155,7 +155,7 @@ const HRESULT CTBSSpecials::LockChannel(BYTE bySatellite, BOOL bHorizontal, unsi
 	return E_NOINTERFACE;
 }
 
-const HRESULT CTBSSpecials::LockChannel(const TuningParam *pTuningParm)
+const HRESULT CTBSSpecials::LockChannel(const TuningParam *pTuningParam)
 {
 	return E_NOINTERFACE;
 }
@@ -201,14 +201,19 @@ const HRESULT CTBSSpecials::GetSignalStrength(float *fVal)
 	return E_NOINTERFACE;
 }
 
-const HRESULT CTBSSpecials::PreTuneRequest(const TuningParam *pTuningParm, ITuneRequest *pITuneRequest)
+const HRESULT CTBSSpecials::PreLockChannel(const TuningParam *pTuningParam)
 {
-	return E_NOINTERFACE;
+	return S_OK;
 }
 
-const HRESULT CTBSSpecials::PostLockChannel(const TuningParam *pTuningParm)
+const HRESULT CTBSSpecials::PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest)
 {
-	return E_NOINTERFACE;
+	return S_OK;
+}
+
+const HRESULT CTBSSpecials::PostLockChannel(const TuningParam *pTuningParam)
+{
+	return S_OK;
 }
 
 void CTBSSpecials::Release(void)
