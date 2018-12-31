@@ -2937,10 +2937,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                Å® IAnalogRadioTuningSpace Å® IAnalogRadioTuningSpace2
 	//                Å® IAuxInTuningSpace Å® IAuxInTuningSpace2
 
+	OutputDebug(L"    IDVBTuningSpace\n");
 	// IDVBSTuningSpaceì¡óL
 	{
 		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace);
 		if (pIDVBSTuningSpace) {
+			OutputDebug(L"    ->IDVBSTuningSpace\n");
 			// LNB é¸îgêîÇê›íË
 			if (pTuningParam->Antenna->HighOscillator != -1) {
 				pIDVBSTuningSpace->put_HighOscillator(pTuningParam->Antenna->HighOscillator);
@@ -2979,6 +2981,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		return FALSE;
 	}
 
+	OutputDebug(L"    ILocator\n");
 	// RF êMçÜÇÃé¸îgêîÇê›íË
 	pILocator->put_CarrierFrequency(pTuningParam->Frequency);
 
@@ -3007,6 +3010,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
 		if (pIDVBSLocator) {
+			OutputDebug(L"    ->IDVBSLocator\n");
 			// êMçÜÇÃïŒîgÇê›íË
 			pIDVBSLocator->put_SignalPolarisation(pTuningParam->Polarisation);
 		}
@@ -3016,6 +3020,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
 		if (pIDVBSLocator2) {
+			OutputDebug(L"    ->IDVBSLocator2\n");
 			// DiSEqCÇê›íË
 			if (pTuningParam->Antenna->DiSEqC >= BDA_LNB_SOURCE_A) {
 				pIDVBSLocator2->put_DiseqLNBSource((LNB_Source)(pTuningParam->Antenna->DiSEqC));
@@ -3030,6 +3035,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
 		if (pIDVBTLocator) {
+			OutputDebug(L"    ->IDVBTLocator\n");
 			// é¸îgêîÇÃë—àÊïù (MHz)Çê›íË
 			if (pTuningParam->Modulation->BandWidth != -1) {
 				pIDVBTLocator->put_Bandwidth(pTuningParam->Modulation->BandWidth);
@@ -3041,6 +3047,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
 		if (pIATSCLocator) {
+			OutputDebug(L"    ->IATSCLocator\n");
 			// ATSC PhysicalChannel
 			if (pTuningParam->PhysicalChannel != -1) {
 				pIATSCLocator->put_PhysicalChannel(pTuningParam->PhysicalChannel);
@@ -3061,6 +3068,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		return FALSE;
 	}
 
+	OutputDebug(L"    ITuneRequest\n");
 	// ITuneRequestÇ…ILocatorÇê›íË
 	hr = pITuneRequest->put_Locator(pILocator);
 
@@ -3068,6 +3076,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDVBTuneRequest> pIDVBTuneRequest(pITuneRequest);
 		if (pIDVBTuneRequest) {
+			OutputDebug(L"    ->IDVBTuneRequest\n");
 			// DVB Triplet IDÇÃê›íË
 			pIDVBTuneRequest->put_ONID(pTuningParam->ONID);
 			pIDVBTuneRequest->put_TSID(pTuningParam->TSID);
@@ -3079,6 +3088,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IChannelTuneRequest> pIChannelTuneRequest(pITuneRequest);
 		if (pIChannelTuneRequest) {
+			OutputDebug(L"    ->IChannelTuneRequest\n");
 			// ATSC Channel
 			pIChannelTuneRequest->put_Channel(pTuningParam->Channel);
 		}
@@ -3088,6 +3098,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IATSCChannelTuneRequest> pIATSCChannelTuneRequest(pITuneRequest);
 		if (pIATSCChannelTuneRequest) {
+			OutputDebug(L"    ->IATSCChannelTuneRequest\n");
 			// ATSC MinorChannel
 			pIATSCChannelTuneRequest->put_MinorChannel(pTuningParam->MinorChannel);
 		}
@@ -3097,6 +3108,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDigitalCableTuneRequest> pIDigitalCableTuneRequest(pITuneRequest);
 		if (pIDigitalCableTuneRequest) {
+			OutputDebug(L"    ->IDigitalCableTuneRequest\n");
 			// Digital Cable MinorChannel
 			pIDigitalCableTuneRequest->put_MajorChannel(pTuningParam->MinorChannel);
 			// Digital Cable SourceID
