@@ -2936,11 +2936,16 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                Å® IAnalogTVTuningSpace Å® IATSCTuningSpace Å® IDigitalCableTuningSpace
 	//                Å® IAnalogRadioTuningSpace Å® IAnalogRadioTuningSpace2
 	//                Å® IAuxInTuningSpace Å® IAuxInTuningSpace2
+	CComPtr<ITuningSpace> pITuningSpace(m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace);
+	if (!pITuningSpace) {
+		OutputDebug(L"  Fail to get ITuningSpace.\n");
+		return FALSE;
+	}
 
 	OutputDebug(L"    ITuningSpace\n");
 	// IDVBSTuningSpaceì¡óL
 	{
-		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace);
+		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(pITuningSpace);
 		if (pIDVBSTuningSpace) {
 			OutputDebug(L"    ->IDVBSTuningSpace\n");
 			// LNB é¸îgêîÇê›íË
@@ -2976,7 +2981,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                               Å® IATSCLocator Å® IATSCLocator2 Å® IDigitalCableLocator
 	//            Å® IAnalogLocator
 	CComPtr<ILocator> pILocator;
-	if (FAILED(hr = m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace->get_DefaultLocator(&pILocator))) {
+	if (FAILED(hr = pITuningSpace->get_DefaultLocator(&pILocator))) {
 		OutputDebug(L"  Fail to get ILocator. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
@@ -3063,7 +3068,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                Å® IChannelIDTuneRequest
 	//                Å® IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
-	if (FAILED(hr = m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
+	if (FAILED(hr = pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
 		OutputDebug(L"  Fail to create ITuneRequest. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
@@ -3967,8 +3972,8 @@ HRESULT CBonTuner::InitTuningSpace(void)
 			}
 		}
 
-		m_pITuner->put_TuningSpace(m_DVBSystemTypeDB.SystemType[0].pITuningSpace);
-		m_pITuner->put_TuneRequest(pITuneRequest);
+		hr = m_pITuner->put_TuningSpace(m_DVBSystemTypeDB.SystemType[0].pITuningSpace);
+		hr = m_pITuner->put_TuneRequest(pITuneRequest);
 
 		// ëSÇƒê¨å˜
 		return S_OK;
