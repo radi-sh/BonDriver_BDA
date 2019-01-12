@@ -2937,7 +2937,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
 	//                → IAuxInTuningSpace → IAuxInTuningSpace2
 
-	OutputDebug(L"    IDVBTuningSpace\n");
+	OutputDebug(L"    ITuningSpace\n");
 	// IDVBSTuningSpace特有
 	{
 		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace);
@@ -2977,7 +2977,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//            → IAnalogLocator
 	CComPtr<ILocator> pILocator;
 	if (FAILED(hr = m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace->get_DefaultLocator(&pILocator))) {
-		OutputDebug(L"  Fail to get ILocator.\n");
+		OutputDebug(L"  Fail to get ILocator. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
 
@@ -3064,7 +3064,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
 	if (FAILED(hr = m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
-		OutputDebug(L"  Fail to create ITuneRequest.\n");
+		OutputDebug(L"  Fail to create ITuneRequest. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
 
@@ -3125,7 +3125,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		//トーン切替ありの場合、先に一度TuneRequestしておく
 		OutputDebug(L"  Requesting pre tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"  Fail to put pre tune request.\n");
+			OutputDebug(L"  Fail to put pre tune request.  hr=0x%08lx\n", hr);
 			return FALSE;
 		}
 		OutputDebug(L"  Pre tune request complete.\n");
@@ -3138,7 +3138,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// TuneRequestを強制的に2度行う
 		OutputDebug(L"  Requesting 1st twice tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"  Fail to put 1st twice tune request.\n");
+			OutputDebug(L"  Fail to put 1st twice tune request. hr=0x%08lx\n", hr);
 			return FALSE;
 		}
 		OutputDebug(L"  1st Twice tune request complete.\n");
@@ -3150,7 +3150,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	do {
 		OutputDebug(L"  Requesting tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"  Fail to put tune request.\n");
+			OutputDebug(L"  Fail to put tune request. hr=0x%08lx\n", hr);
 			return FALSE;
 		}
 		OutputDebug(L"  Tune request complete.\n");
