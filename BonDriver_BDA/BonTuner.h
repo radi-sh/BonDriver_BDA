@@ -914,6 +914,7 @@ protected:
 		eTunerTypeDVBT2 = 4,			// DVB-T2
 		eTunerTypeISDBS = 11,			// ISDB-S
 		eTunerTypeISDBT = 12,			// ISDB-T
+		eTunerTypeISDBC = 13,			// ISDB-C
 		eTunerTypeATSC_Antenna = 21,	// ATSC
 		eTunerTypeATSC_Cable = 22,		// ATSC Cable
 		eTunerTypeDigitalCable = 23,	// Digital Cable

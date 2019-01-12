@@ -1174,6 +1174,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DVB-T2",        enumTunerType::eTunerTypeDVBT2 },
 		{ L"ISDB-S",        enumTunerType::eTunerTypeISDBS },
 		{ L"ISDB-T",        enumTunerType::eTunerTypeISDBT },
+		{ L"ISDB-C",        enumTunerType::eTunerTypeISDBC },
 		{ L"ATSC",          enumTunerType::eTunerTypeATSC_Antenna },
 		{ L"ATSC CABLE",    enumTunerType::eTunerTypeATSC_Cable },
 		{ L"DIGITAL CABLE", enumTunerType::eTunerTypeDigitalCable },
@@ -3525,6 +3526,16 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyLocator = eLocatorDVBT;
 			specifyITuningSpaceNetworkType = eNetworkTypeISDBT;
 			dvbSystemType = ISDB_Terrestrial;
+			networkID = -1;
+			break;
+
+		case eTunerTypeISDBC:
+			bstrUniqueName = L"ISDB-C";
+			bstrFriendlyName = L"Local ISDB-C Digital Cable";
+			specifyTuningSpace = eTuningSpaceDVB;
+			specifyLocator = eLocatorDVBC;
+			specifyITuningSpaceNetworkType = eNetworkTypeISDBC;
+			dvbSystemType = DVB_Cable;
 			networkID = -1;
 			break;
 
