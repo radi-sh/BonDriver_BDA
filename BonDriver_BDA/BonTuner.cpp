@@ -3418,31 +3418,78 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 {
 	for (auto it = m_DVBSystemTypeDB.SystemType.begin(); it != m_DVBSystemTypeDB.SystemType.end(); it++) {
 		OutputDebug(L"[CreateTuningSpace] Processing number %ld.\n", it->first);
-		enumTuningSpace specifyTuningSpace = eTuningSpaceAuto;
-		enumLocator specifyLocator = eLocatorAuto;
-		enumNetworkType specifyITuningSpaceNetworkType = eNetworkTypeAuto;
-		CLSID clsidTuningSpace = CLSID_NULL;
-		CLSID clsidLocator = CLSID_NULL;
-		IID iidNetworkType = IID_NULL;
-		ModulationType modulationType = BDA_MOD_NOT_SET;
-		_bstr_t bstrUniqueName;
-		_bstr_t bstrFriendlyName;
-		DVBSystemType dvbSystemType = DVB_Satellite;
-		long networkID = -1;
-		long highOscillator = -1;
-		long lowOscillator = -1;
-		long lnbSwitch = -1;
-		TunerInputType tunerInputType = TunerInputCable;
-		long minChannel = 0;
-		long maxChannel = 0;
-		long minPhysicalChannel = 0;
-		long maxPhysicalChannel = 0;
-		long minMinorChannel = 0;
-		long maxMinorChannel = 0;
-		long minMajorChannel = 0;
-		long maxMajorChannel = 0;
-		long minSourceID = 0;
-		long maxSourceID = 0;
+
+		// オブジェクト作成用変数
+		enumTuningSpace specifyTuningSpace = eTuningSpaceAuto;					// 使用するTuningSpaceオブジェクト
+		CLSID clsidTuningSpace = CLSID_NULL;									// TuningSpaceオブジェクトのクラスid
+		enumLocator specifyLocator = eLocatorAuto;								// 使用するLocatorオブジェクト
+		CLSID clsidLocator = CLSID_NULL;										// Locatorオブジェクトのクラスid
+
+		// TuningSpace設定用変数
+		// ITuningSpace
+		_bstr_t bstrUniqueName;													// ITuningSpaceに設定するUniqueName
+		_bstr_t bstrFriendlyName;												// ITuningSpaceに設定するFriendlyName
+		enumNetworkType specifyITuningSpaceNetworkType = eNetworkTypeAuto;		// ITuningSpaceに設定するNetworkType
+		IID iidNetworkType = IID_NULL;											// ITuningSpaceに設定するNetworkTypeのGUID
+		// IDVBTuningSpace
+		DVBSystemType dvbSystemType = DVB_Satellite;							// DVBのシステムタイプ
+		// IDVBTuningSpace2
+		long networkID = -1;													// Network ID
+		// IDVBSTuningSpace
+		long highOscillator = -1;												// High側Oscillator周波数
+		long lowOscillator = -1;												// Low側Oscillator周波数
+		long lnbSwitch = -1;													// LNBスイッチ周波数
+		SpectralInversion spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;	// スペクトル反転
+		// IAnalogTVTuningSpace
+		TunerInputType inputType = TunerInputCable;								// アンテナ・ケーブルの入力タイプ
+		long countryCode = 0;													// 国・地域コード
+		long minChannel = 0;													// Channel番号の最小値
+		long maxChannel = 0;													// Channel番号の最大値
+		// IATSCTuningSpace
+		long minPhysicalChannel = 0;											// Physical Channel番号の最小値
+		long maxPhysicalChannel = 0;											// Physical Channel番号の最大値
+		long minMinorChannel = 0;												// Minor Channel番号の最小値
+		long maxMinorChannel = 0;												// Minor Channel番号の最大値
+		// IDigitalCableTuningSpace
+		long minMajorChannel = 0;												// Major Channel番号の最小値
+		long maxMajorChannel = 0;												// Major Channel番号の最大値
+		long minSourceID = 0;													// Source IDの最小値
+		long maxSourceID = 0;													// Source IDの最大値
+
+		// Default Locator設定用変数
+		// ILocator
+		long frequency = -1;													// RF信号の周波数
+		long symbolRate = -1;													// シンボルレート
+		FECMethod innerFECMethod = BDA_FEC_METHOD_NOT_SET;						// 内部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate innerFECRate = BDA_BCC_RATE_NOT_SET;			// 内部FECレート
+		FECMethod outerFECMethod = BDA_FEC_METHOD_NOT_SET;						// 外部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate outerFECRate = BDA_BCC_RATE_NOT_SET;			// 外部FECレート
+		ModulationType modulationType = BDA_MOD_NOT_SET;						// 変調タイプ
+		// IDVBSLocator
+		VARIANT_BOOL westPosition = VARIANT_TRUE;								// 衛星の経度を西経と東経のどちらで表現するか(Trueで西経)
+		long orbitalPosition = -1;												// 衛星の経度(1/10°)
+		long elevation = -1;													// 衛星の仰角(1/10°)
+		long azimuth = -1;														// 衛星の方位角(1/10°)
+		Polarisation polarisation = BDA_POLARISATION_NOT_SET;					// 偏波値
+		// IDVBSLocator2
+		LNB_Source diseqLNBSource = BDA_LNB_SOURCE_NOT_SET;						// DiSeqC LNB入力ソース
+		Pilot pilot = BDA_PILOT_NOT_SET;										// DVB-S2パイロットモード
+		RollOff rollOff = BDA_ROLL_OFF_NOT_SET;									// DVB-S2ロールオフ係数
+		// IDVBTLocator
+		long bandwidth = -1;													// 帯域幅(MHz)
+		GuardInterval guardInterval = BDA_GUARD_NOT_SET;						// ガードインターバル
+		HierarchyAlpha hierarchyAlpha = BDA_HALPHA_NOT_SET;						// 階層状アルファ
+		FECMethod lpInnerFECMethod = BDA_FEC_METHOD_NOT_SET;					// LPストリームの内部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate lpInnerFECRate = BDA_BCC_RATE_NOT_SET;		// LPストリームの内部FECレート
+		TransmissionMode transmissionMode = BDA_XMIT_MODE_NOT_SET;				// 伝送モード
+		VARIANT_BOOL otherFrequencyInUse = VARIANT_TRUE;						// 別のDVB-Tブロードキャスタで使われているかどうか
+		// IDVBTLocator2
+		long physicalLayerPipeId = -1;											// PLP ID
+		// IATSCLocator
+		long physicalChannel = -1;												// Physical Channel番号
+		long transportStreamID = -1;											// TSID
+		// IATSCLocator2
+		long programNumber = -1;												// Program Number
 
 		switch (it->second.nDVBSystemType) {
 		case eTunerTypeDVBT:
@@ -3457,7 +3504,6 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 				specifyLocator = eLocatorDVBT;
 			}
 			specifyITuningSpaceNetworkType = eNetworkTypeDVBT;
-			modulationType = BDA_MOD_NOT_SET;
 			dvbSystemType = DVB_Terrestrial;
 			networkID = 0;
 			break;
@@ -3468,7 +3514,6 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyTuningSpace = eTuningSpaceDVB;
 			specifyLocator = eLocatorDVBC;
 			specifyITuningSpaceNetworkType = eNetworkTypeDVBC;
-			modulationType = BDA_MOD_NOT_SET;
 			dvbSystemType = DVB_Cable;
 			networkID = 0;
 			break;
@@ -3479,7 +3524,6 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyTuningSpace = eTuningSpaceDVB;
 			specifyLocator = eLocatorDVBT;
 			specifyITuningSpaceNetworkType = eNetworkTypeISDBT;
-			modulationType = BDA_MOD_NOT_SET;
 			dvbSystemType = ISDB_Terrestrial;
 			networkID = -1;
 			break;
@@ -3490,12 +3534,12 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyTuningSpace = eTuningSpaceDVBS;
 			specifyLocator = eLocatorISDBS;
 			specifyITuningSpaceNetworkType = eNetworkTypeISDBS;
-			modulationType = BDA_MOD_NOT_SET;
 			dvbSystemType = ISDB_Satellite;
 			networkID = -1;
 			highOscillator = -1;
 			lowOscillator = -1;
 			lnbSwitch = -1;
+			spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
 			break;
 
 		case eTunerTypeATSC_Antenna:
@@ -3504,14 +3548,15 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyTuningSpace = eTuningSpaceATSC;
 			specifyLocator = eLocatorATSC;
 			specifyITuningSpaceNetworkType = eNetworkTypeATSC;
-			modulationType = BDA_MOD_128QAM;
-			tunerInputType = TunerInputAntenna;
+			inputType = TunerInputAntenna;
+			countryCode = 0;
 			minChannel = 1;
 			maxChannel = 99;
 			minPhysicalChannel = 2;
-			maxPhysicalChannel = 158;
+			maxPhysicalChannel = 69;
 			minMinorChannel = 0;
-			minMinorChannel = 999;
+			maxMinorChannel = 999;
+			modulationType = BDA_MOD_128QAM;
 			break;
 
 		case eTunerTypeATSC_Cable:
@@ -3520,14 +3565,15 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyTuningSpace = eTuningSpaceATSC;
 			specifyLocator = eLocatorATSC;
 			specifyITuningSpaceNetworkType = eNetworkTypeATSC;
-			modulationType = BDA_MOD_128QAM;
-			tunerInputType = TunerInputCable;
+			inputType = TunerInputCable;
+			countryCode = 0;
 			minChannel = 1;
 			maxChannel = 99;
 			minPhysicalChannel = 1;
 			maxPhysicalChannel = 158;
 			minMinorChannel = 0;
-			minMinorChannel = 999;
+			maxMinorChannel = 999;
+			modulationType = BDA_MOD_128QAM;
 			break;
 
 		case eTunerTypeDigitalCable:
@@ -3536,16 +3582,16 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyTuningSpace = eTuningSpaceDigitalCable;
 			specifyLocator = eLocatorDigitalCable;
 			specifyITuningSpaceNetworkType = eNetworkTypeDigitalCable;
-			modulationType = BDA_MOD_NOT_SET;
-			tunerInputType = TunerInputCable;
+			inputType = TunerInputCable;
+			countryCode = 0;
 			minChannel = 2;
 			maxChannel = 9999;
 			minPhysicalChannel = 2;
 			maxPhysicalChannel = 158;
 			minMinorChannel = 0;
-			minMinorChannel = 999;
+			maxMinorChannel = 999;
 			minMajorChannel = 1;
-			minMajorChannel = 99;
+			maxMajorChannel = 99;
 			minSourceID = 0;
 			maxSourceID = 0x7fffffff;
 			break;
@@ -3557,12 +3603,13 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			specifyTuningSpace = eTuningSpaceDVBS;
 			specifyLocator = eLocatorDVBS;
 			specifyITuningSpaceNetworkType = eNetworkTypeDVBS;
-			modulationType = BDA_MOD_NOT_SET;
 			dvbSystemType = DVB_Satellite;
 			networkID = -1;
 			highOscillator = 10600000;
 			lowOscillator = 9750000;
 			lnbSwitch = 11700000;
+			spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
+			westPosition = VARIANT_FALSE;
 			break;
 		}
 
@@ -3658,7 +3705,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		}
 
 		if (it->second.nIAnalogTVTuningSpaceInputType != enumTunerInputType::eTunerInputTypeAuto) {
-			tunerInputType = (tagTunerInputType)it->second.nIAnalogTVTuningSpaceInputType;
+			inputType = (tagTunerInputType)it->second.nIAnalogTVTuningSpaceInputType;
 		}
 
 		HRESULT hr;
@@ -3713,7 +3760,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 						pIDVBSTuningSpace->put_HighOscillator(highOscillator);
 						pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
 						pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
-						pIDVBSTuningSpace->put_SpectralInversion(BDA_SPECTRAL_INVERSION_NOT_SET);
+						pIDVBSTuningSpace->put_SpectralInversion(spectralInversion);
 						OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
 					}
 				}
@@ -3722,10 +3769,10 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 				{
 					CComQIPtr<IAnalogTVTuningSpace> pIAnalogTVTuningSpace(pITuningSpace);
 					if (pIAnalogTVTuningSpace) {
-						pIAnalogTVTuningSpace->put_InputType(tunerInputType);
+						pIAnalogTVTuningSpace->put_InputType(inputType);
 						pIAnalogTVTuningSpace->put_MinChannel(minChannel);
 						pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
-						pIAnalogTVTuningSpace->put_CountryCode(0);
+						pIAnalogTVTuningSpace->put_CountryCode(countryCode);
 						OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
 					}
 				}
@@ -3768,13 +3815,14 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 					OutputDebug(L"[CreateTuningSpace] Failed to get ILocator interface.\n");
 				}
 				else {
+					// Default Locatorの値を作成 
 					// ILocator
-					pILocator->put_CarrierFrequency(-1);
-					pILocator->put_SymbolRate(-1);
-					pILocator->put_InnerFEC(BDA_FEC_METHOD_NOT_SET);
-					pILocator->put_InnerFECRate(BDA_BCC_RATE_NOT_SET);
-					pILocator->put_OuterFEC(BDA_FEC_METHOD_NOT_SET);
-					pILocator->put_OuterFECRate(BDA_BCC_RATE_NOT_SET);
+					pILocator->put_CarrierFrequency(frequency);
+					pILocator->put_SymbolRate(symbolRate);
+					pILocator->put_InnerFEC(innerFECMethod);
+					pILocator->put_InnerFECRate(innerFECRate);
+					pILocator->put_OuterFEC(outerFECMethod);
+					pILocator->put_OuterFECRate(outerFECRate);
 					pILocator->put_Modulation(modulationType);
 					OutputDebug(L"  ILocator is initialized.\n");
 
@@ -3790,11 +3838,11 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 					{
 						CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
 						if (pIDVBSLocator) {
-							pIDVBSLocator->put_WestPosition(FALSE);
-							pIDVBSLocator->put_OrbitalPosition(-1);
-							pIDVBSLocator->put_Elevation(-1);
-							pIDVBSLocator->put_Azimuth(-1);
-							pIDVBSLocator->put_SignalPolarisation(BDA_POLARISATION_NOT_SET);
+							pIDVBSLocator->put_WestPosition(westPosition);
+							pIDVBSLocator->put_OrbitalPosition(orbitalPosition);
+							pIDVBSLocator->put_Elevation(elevation);
+							pIDVBSLocator->put_Azimuth(azimuth);
+							pIDVBSLocator->put_SignalPolarisation(polarisation);
 							OutputDebug(L"  IDVBSLocator is initialized.\n");
 						}
 					}
@@ -3807,9 +3855,9 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 							pIDVBSLocator2->put_LocalOscillatorOverrideLow(-1);
 							pIDVBSLocator2->put_LocalLNBSwitchOverride(-1);
 							pIDVBSLocator2->put_LocalSpectralInversionOverride(BDA_SPECTRAL_INVERSION_NOT_SET);
-							pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
-							pIDVBSLocator2->put_SignalPilot(BDA_PILOT_NOT_SET);
-							pIDVBSLocator2->put_SignalRollOff(BDA_ROLL_OFF_NOT_SET);
+							pIDVBSLocator2->put_DiseqLNBSource(diseqLNBSource);
+							pIDVBSLocator2->put_SignalPilot(pilot);
+							pIDVBSLocator2->put_SignalRollOff(rollOff);
 							OutputDebug(L"  IDVBSLocator2 is initialized.\n");
 						}
 					}
@@ -3826,13 +3874,13 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 					{
 						CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
 						if (pIDVBTLocator) {
-							pIDVBTLocator->put_Bandwidth(-1);
-							pIDVBTLocator->put_Guard(BDA_GUARD_NOT_SET);
-							pIDVBTLocator->put_HAlpha(BDA_HALPHA_NOT_SET);
-							pIDVBTLocator->put_LPInnerFEC(BDA_FEC_METHOD_NOT_SET);
-							pIDVBTLocator->put_LPInnerFECRate(BDA_BCC_RATE_NOT_SET);
-							pIDVBTLocator->put_Mode(BDA_XMIT_MODE_NOT_SET);
-							pIDVBTLocator->put_OtherFrequencyInUse(VARIANT_FALSE);
+							pIDVBTLocator->put_Bandwidth(bandwidth);
+							pIDVBTLocator->put_Guard(guardInterval);
+							pIDVBTLocator->put_HAlpha(hierarchyAlpha);
+							pIDVBTLocator->put_LPInnerFEC(lpInnerFECMethod);
+							pIDVBTLocator->put_LPInnerFECRate(lpInnerFECRate);
+							pIDVBTLocator->put_Mode(transmissionMode);
+							pIDVBTLocator->put_OtherFrequencyInUse(otherFrequencyInUse);
 							OutputDebug(L"  IDVBTLocator is initialized.\n");
 						}
 					}
@@ -3841,7 +3889,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 					{
 						CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
 						if (pIDVBTLocator2) {
-							pIDVBTLocator2->put_PhysicalLayerPipeId(-1);
+							pIDVBTLocator2->put_PhysicalLayerPipeId(physicalLayerPipeId);
 							OutputDebug(L"  IDVBTLocator2 is initialized.\n");
 						}
 					}
@@ -3858,8 +3906,8 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 					{
 						CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
 						if (pIATSCLocator) {
-							pIATSCLocator->put_PhysicalChannel(-1);
-							pIATSCLocator->put_TSID(-1);
+							pIATSCLocator->put_PhysicalChannel(physicalChannel);
+							pIATSCLocator->put_TSID(transportStreamID);
 							OutputDebug(L"  IATSCLocator is initialized.\n");
 						}
 					}
@@ -3868,7 +3916,7 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 					{
 						CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
 						if (pIATSCLocator2) {
-							pIATSCLocator2->put_ProgramNumber(-1);
+							pIATSCLocator2->put_ProgramNumber(programNumber);
 							OutputDebug(L"  IATSCLocator2 is initialized.\n");
 						}
 					}
