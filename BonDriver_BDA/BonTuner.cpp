@@ -2620,41 +2620,31 @@ void CBonTuner::ReadIniFile(void)
 					// SID / PhysicalChannel
 					if (buf[5] != L"") {
 						val = common::WStringToLong(buf[5]);
-						if (val != 0) {
-							itCh->second.SID = val;
-						}
+						itCh->second.SID = val;
 					}
 
 					// TSID / Channel
 					if (buf[6] != L"") {
 						val = common::WStringToLong(buf[6]);
-						if (val != 0) {
-							itCh->second.TSID = val;
-						}
+						itCh->second.TSID = val;
 					}
 
 					// ONID / MinorChannel
 					if (buf[7] != L"") {
 						val = common::WStringToLong(buf[7]);
-						if (val != 0) {
-							itCh->second.ONID = val;
-						}
+						itCh->second.ONID = val;
 					}
 
 					// MajorChannel
 					if (buf[8] != L"") {
 						val = common::WStringToLong(buf[8]);
-						if (val != 0) {
-							itCh->second.MajorChannel = val;
-						}
+						itCh->second.MajorChannel = val;
 					}
 
 					// SourceID
 					if (buf[9] != L"") {
 						val = common::WStringToLong(buf[9]);
-						if (val != 0) {
-							itCh->second.SourceID = val;
-						}
+						itCh->second.SourceID = val;
 					}
 					OutputDebug(L"%s: (manual) CH%03ld=%ld,%ld.%03ld,%c,%ld,%s,%ld,%ld,%ld,%ld,%ld\n", section.c_str(), itCh->first, itCh->second.Satellite, itCh->second.Frequency / 1000L,
 						itCh->second.Frequency % 1000L, PolarisationChar[itCh->second.Polarisation], itCh->second.ModulationType, itCh->second.sServiceName.c_str(), itCh->second.SID,
