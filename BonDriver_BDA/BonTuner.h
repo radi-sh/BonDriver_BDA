@@ -690,12 +690,6 @@ protected:
 	// iniファイルのPath
 	std::wstring m_sIniFilePath;
 
-	// TSバッファ操作用
-	CRITICAL_SECTION m_csTSBuff;
-
-	// Decode処理後TSバッファ操作用
-	CRITICAL_SECTION m_csDecodedTSBuff;
-
 	// 受信イベント
 	HANDLE m_hOnStreamEvent;
 

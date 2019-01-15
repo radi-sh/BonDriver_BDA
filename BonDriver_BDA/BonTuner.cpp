@@ -157,9 +157,6 @@ CBonTuner::CBonTuner()
 
 	setlocale(LC_CTYPE, "ja_JP.SJIS");
 
-	::InitializeCriticalSection(&m_csTSBuff);
-	::InitializeCriticalSection(&m_csDecodedTSBuff);
-
 	HANDLE h = ::GetCurrentProcess();
 	::DuplicateHandle(h, h, h, &m_hProcess, 0, FALSE, DUPLICATE_SAME_ACCESS);
 
@@ -191,9 +188,6 @@ CBonTuner::~CBonTuner()
 
 	SAFE_CLOSE_HANDLE(m_hStreamThread);
 	SAFE_CLOSE_HANDLE(m_hProcess);
-
-	::DeleteCriticalSection(&m_csDecodedTSBuff);
-	::DeleteCriticalSection(&m_csTSBuff);
 
 	// インスタンスリストから自身を削除
 	::EnterCriticalSection(&st_LockInstanceList);
