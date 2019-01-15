@@ -146,6 +146,7 @@ CBonTuner::CBonTuner()
 	m_dwTargetChannel(CBonTuner::CHANNEL_INVALID),
 	m_dwCurChannel(CBonTuner::CHANNEL_INVALID),
 	m_nCurTone(CBonTuner::TONE_UNKNOWN),
+	m_bIsEnabledTSMF(FALSE),
 	m_hModuleTunerSpecials(NULL),
 	m_pIBdaSpecials(NULL),
 	m_pIBdaSpecials2(NULL)
@@ -661,6 +662,23 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 	SleepWithMessageLoop(100);
 	PurgeTsStream();
+
+	// TSMF処理設定
+	switch (itSpace->second.TSMFMode) {
+	case 0:		// OFF
+		m_TSMFParser.Disable();
+		m_bIsEnabledTSMF = FALSE;
+		break;
+	case 1:		// TSID
+		m_TSMFParser.SetTSID((WORD)Ch->ONID, (WORD)Ch->TSID, FALSE);
+		m_bIsEnabledTSMF = TRUE;
+		break;
+	case 2:		// Relative
+		m_TSMFParser.SetTSID(0xffff, (WORD)Ch->TSID, TRUE);
+		m_bIsEnabledTSMF = TRUE;
+		break;
+	}
+
 	m_bRecvStarted = TRUE;
 
 	// SetChannel()を試みたチューニングスペース番号とチャンネル番号
@@ -1018,7 +1036,21 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 					}
 
 					// 取得したバッファをデコード済みバッファに追加
-					pSys->m_DecodedTsBuff.Add(pBuff);
+					if (pSys->m_bIsEnabledTSMF) {
+						// TSMFの処理を行う
+						BYTE * newBuf = NULL;
+						size_t newBufSize = 0;
+						pSys->m_TSMFParser.ParseTsBuffer(pBuff->pbyBuff, pBuff->dwSize, &newBuf, &newBufSize);
+						if (newBuf) {
+							TS_DATA * pNewTS = new TS_DATA(newBuf, (DWORD)newBufSize, FALSE);
+							pSys->m_DecodedTsBuff.Add(pNewTS);
+						}
+						SAFE_DELETE(pBuff);
+					}
+					else {
+						// TSMFの処理を行わない場合はそのまま追加
+						pSys->m_DecodedTsBuff.Add(pBuff);
+					}
 
 					// 受信イベントセット
 					if (pSys->m_DecodedTsBuff.Size() >= pSys->m_nWaitTsCount)
@@ -1270,6 +1302,12 @@ void CBonTuner::ReadIniFile(void)
 		{ L"PORT-B", LNB_Source::BDA_LNB_SOURCE_B },
 		{ L"PORT-C", LNB_Source::BDA_LNB_SOURCE_C },
 		{ L"PORT-D", LNB_Source::BDA_LNB_SOURCE_D },
+	};
+
+	static const std::map<const std::wstring, const int, std::less<>> mapTSMFMode = {
+		{ L"OFF",      0 },
+		{ L"TSID",     1 },
+		{ L"RELATIVE", 2 },
 	};
 
 	// INIファイルのファイル名取得
@@ -2528,6 +2566,9 @@ void CBonTuner::ReadIniFile(void)
 
 		// TuningSpaceの種類番号
 		itSpace->second.DVBSystemTypeNumber = IniFileAccess.ReadKeyISectionData(L"DVBSystemTypeNumber", 0);
+
+		// TSMFの処理モード
+		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, mapTSMFMode);
 
 		// CH設定
 		//    チャンネル番号 = 衛星番号,周波数,偏波,変調方式[,チャンネル名[,SID/MinorChannel[,TSID/Channel[,ONID/PhysicalChannel[,MajorChannel[,SourceID]]]]]]

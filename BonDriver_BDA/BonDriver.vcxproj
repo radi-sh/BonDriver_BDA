@@ -455,14 +455,17 @@
   <ItemGroup>
     <ClCompile Include="..\common\CIniFileAccess.cpp" />
     <ClCompile Include="..\common\common.cpp" />
+    <ClCompile Include="..\common\crc32.cpp" />
     <ClCompile Include="..\common\DSFilterEnum.cpp" />
     <ClCompile Include="BonDriver.cpp" />
     <ClCompile Include="BonTuner.cpp" />
+    <ClCompile Include="TSMF.cpp" />
     <ClCompile Include="tswriter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\CIniFileAccess.h" />
     <ClInclude Include="..\common\common.h" />
+    <ClInclude Include="..\common\crc32.h" />
     <ClInclude Include="..\common\DSFilterEnum.h" />
     <ClInclude Include="..\common\IBdaSpecials.h" />
     <ClInclude Include="..\common\IBdaSpecials2.h" />
@@ -471,6 +474,7 @@
     <ClInclude Include="BonTuner.h" />
     <ClInclude Include="IBonDriver.h" />
     <ClInclude Include="IBonDriver2.h" />
+    <ClInclude Include="TSMF.h" />
     <ClInclude Include="tswriter.h" />
   </ItemGroup>
   <ItemGroup>

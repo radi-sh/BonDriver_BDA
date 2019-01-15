@@ -17,6 +17,7 @@
 #include "IBonDriver2.h"
 #include "LockChannel.h"
 #include "DSFilterEnum.h"
+#include "TSMF.h"
 
 struct ITsWriter;
 
@@ -605,6 +606,7 @@ protected:
 		std::basic_string<TCHAR> sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
 		long FrequencyOffset;							// 周波数オフセット値
 		unsigned int DVBSystemTypeNumber;				// TuningSpaceの種類番号
+		unsigned int TSMFMode;							// TSMFの処理モード
 		std::map<unsigned int, ChData> Channels;		// チャンネル番号とチャンネルデータ
 		DWORD dwNumChannel;								// チャンネル数
 		TuningSpaceData(void)
@@ -845,6 +847,9 @@ protected:
 	};
 	BitRate m_BitRate;
 
+	// TSNF処理用
+	CTSMFParser m_TSMFParser;
+
 	////////////////////////////////////////
 	// チューナ関連
 	////////////////////////////////////////
@@ -1073,6 +1078,9 @@ protected:
 
 	// トーン切替状態不明
 	static constexpr long TONE_UNKNOWN = -1L;
+
+	// TSMF処理が必要
+	BOOL m_bIsEnabledTSMF;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;
