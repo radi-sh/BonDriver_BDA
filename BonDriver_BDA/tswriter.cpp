@@ -58,7 +58,7 @@ HRESULT CTsWriter::Write(PBYTE pbData, LONG lDataLength)
 	{
 		CAutoLock lock_it(&m_Lock);
 		if (m_pRecv != NULL) {
-			m_pRecv(m_pParam, pbData, lDataLength);
+			m_pRecv(m_pParam, pbData, (size_t)lDataLength);
 		}
 	}
     return S_OK;

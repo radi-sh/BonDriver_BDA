@@ -3,7 +3,7 @@
 #include <streams.h>
 #include <initguid.h>
 
-typedef int (CALLBACK * RECV_PROC)(void * pParam, BYTE * pbData, DWORD dwSize);
+typedef int (CALLBACK * RECV_PROC)(void * pParam, BYTE * pbData, size_t size);
 
 // define a IID for ITsWriter interface
 // {57FE9CC4-DD3A-4FB3-9873-E7F3E41467D9}

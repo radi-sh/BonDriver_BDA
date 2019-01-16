@@ -461,6 +461,7 @@
     <ClCompile Include="BonTuner.cpp" />
     <ClCompile Include="TSMF.cpp" />
     <ClCompile Include="tswriter.cpp" />
+    <ClCompile Include="TS_BUFF.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\CIniFileAccess.h" />
@@ -476,6 +477,7 @@
     <ClInclude Include="IBonDriver2.h" />
     <ClInclude Include="TSMF.h" />
     <ClInclude Include="tswriter.h" />
+    <ClInclude Include="TS_BUFF.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\doc\BonDriver_BDA-BSCS-sample.ini" />

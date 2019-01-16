@@ -11,8 +11,8 @@
 #include <list>
 #include <vector>
 #include <map>
-#include <queue>
 
+#include "TS_BUFF.h"
 #include "IBdaSpecials2.h"
 #include "IBonDriver2.h"
 #include "LockChannel.h"
@@ -101,7 +101,7 @@ protected:
 	static DWORD WINAPI DecodeProcThread(LPVOID lpParameter);
 
 	// TsWriter コールバック関数
-	static int CALLBACK RecvProc(void* pParam, BYTE* pbData, DWORD dwSize);
+	static int CALLBACK RecvProc(void* pParam, BYTE* pbData, size_t size);
 
 	// データ受信スタート・停止
 	void StartRecv(void);
@@ -537,10 +537,10 @@ protected:
 	////////////////////////////////////////
 
 	// バッファ1個あたりのサイズ
-	DWORD m_dwBuffSize;
+	size_t m_nBuffSize;
 
 	// 最大バッファ数
-	DWORD m_dwMaxBuffCount;
+	size_t m_nMaxBuffCount;
 
 	// m_hOnDecodeEventをセットするデータバッファ個数
 	unsigned int m_nWaitTsCount;
@@ -697,50 +697,6 @@ protected:
 
 	// デコードイベント
 	HANDLE m_hOnDecodeEvent;
-
-	// 受信TSデータバッファ
-	struct TS_DATA {
-		BYTE* pbyBuff;
-		DWORD dwSize;
-		TS_DATA(void)
-			: pbyBuff(NULL),
-			  dwSize(0)
-		{
-		};
-		TS_DATA(BYTE* data, DWORD size, BOOL copy = FALSE)
-		{
-			if (copy) {
-				pbyBuff = new BYTE[size];
-				memcpy(pbyBuff, data, size);
-			}
-			else {
-				pbyBuff = data;
-			}
-			dwSize = size;
-		};
-		~TS_DATA(void) {
-			SAFE_DELETE_ARRAY(pbyBuff);
-		};
-	};
-
-	class TS_BUFF {
-	private:
-		std::queue<TS_DATA *> List;
-		BYTE *TempBuff;
-		DWORD TempOffset;
-		DWORD BuffSize;
-		DWORD MaxCount;
-		CRITICAL_SECTION cs;
-	public:
-		TS_BUFF(void);
-		~TS_BUFF(void);
-		void SetSize(DWORD dwBuffSize, DWORD dwMaxCount);
-		void Purge(void);
-		void Add(TS_DATA *pItem);
-		BOOL AddData(BYTE *pbyData, DWORD dwSize);
-		TS_DATA * Get(void);
-		size_t Size(void);
-	};
 
 	// 受信TSデータバッファ
 	TS_BUFF m_TsBuff;
