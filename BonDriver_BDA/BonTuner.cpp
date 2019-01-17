@@ -128,6 +128,7 @@ CBonTuner::CBonTuner()
 	m_nThreadPriorityCOM(THREAD_PRIORITY_ERROR_RETURN),
 	m_nThreadPriorityDecode(THREAD_PRIORITY_ERROR_RETURN),
 	m_nThreadPriorityStream(THREAD_PRIORITY_ERROR_RETURN),
+	m_nPeriodicTimer(0),
 	m_sIniFilePath(L""),
 	m_hOnStreamEvent(NULL),
 	m_hOnDecodeEvent(NULL),
@@ -173,12 +174,24 @@ CBonTuner::CBonTuner()
 	if (m_aCOMProc.hThread != NULL && m_nThreadPriorityCOM != THREAD_PRIORITY_ERROR_RETURN) {
 		::SetThreadPriority(m_aCOMProc.hThread, m_nThreadPriorityCOM);
 	}
+
+	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
+	if (m_nPeriodicTimer != 0) {
+		if (timeBeginPeriod(m_nPeriodicTimer) == TIMERR_NOCANDO) {
+			m_nPeriodicTimer = 0;
+		}
+	}
 }
 
 CBonTuner::~CBonTuner()
 {
 	OutputDebug(L"~CBonTuner called.\n");
 	CloseTuner();
+
+	// timeBeginPeriod()の後始末
+	if (m_nPeriodicTimer != 0) {
+		timeEndPeriod(m_nPeriodicTimer);
+	}
 
 	// COM処理専用スレッド終了
 	if (m_aCOMProc.hThread) {
@@ -1537,6 +1550,9 @@ void CBonTuner::ReadIniFile(void)
 
 	// ストリームスレッドプライオリティ
 	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
+
+	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
+	m_nPeriodicTimer = IniFileAccess.ReadKeyISectionData(L"PeriodicTimer", 0);
 
 	//
 	// Satellite セクション

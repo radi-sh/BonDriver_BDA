@@ -560,6 +560,9 @@ protected:
 	// ストリームスレッドプライオリティ
 	int m_nThreadPriorityStream;
 
+	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
+	unsigned int m_nPeriodicTimer;
+
 	////////////////////////////////////////
 	// チャンネルパラメータ
 	////////////////////////////////////////
