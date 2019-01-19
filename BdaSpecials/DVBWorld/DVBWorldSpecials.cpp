@@ -242,12 +242,17 @@ const HRESULT CDVBWorldSpecials::GetSignalStrength(float *fVal)
 	return E_NOINTERFACE;
 }
 
-const HRESULT CDVBWorldSpecials::PreLockChannel(const TuningParam *pTuningParam)
+const HRESULT CDVBWorldSpecials::PreLockChannel(TuningParam *pTuningParam)
 {
 	return S_OK;
 }
 
 const HRESULT CDVBWorldSpecials::PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest)
+{
+	return S_OK;
+}
+
+const HRESULT CDVBWorldSpecials::PostTuneRequest(const TuningParam * pTuningParam)
 {
 	return S_OK;
 }

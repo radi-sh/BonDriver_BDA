@@ -13,7 +13,7 @@
 DEFINE_GUID( GUID_TUNER_S_LOCK,
 0x8bed860a, 0xa7b4, 0x4e90, 0x9d, 0xf4, 0x13, 0x20, 0xc9, 0x49, 0x22, 0x61 ) ;
 
-class CDVBWorldSpecials : public IBdaSpecials2b0
+class CDVBWorldSpecials : public IBdaSpecials2b1
 {
 public:
 	CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
@@ -34,8 +34,9 @@ public:
 	const HRESULT IsDecodingNeeded(BOOL *pbAns);
 	const HRESULT Decode(BYTE *pBuf, DWORD dwSize);
 	const HRESULT GetSignalStrength(float *fVal);
-	const HRESULT PreLockChannel(const TuningParam *pTuningParam);
+	const HRESULT PreLockChannel(TuningParam *pTuningParam);
 	const HRESULT PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest);
+	const HRESULT PostTuneRequest(const TuningParam *pTuningParam);
 	const HRESULT PostLockChannel(const TuningParam *pTuningParam);
 
 	virtual void Release(void);
