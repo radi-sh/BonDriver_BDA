@@ -201,12 +201,17 @@ const HRESULT CTBSSpecials::GetSignalStrength(float *fVal)
 	return E_NOINTERFACE;
 }
 
-const HRESULT CTBSSpecials::PreLockChannel(const TuningParam *pTuningParam)
+const HRESULT CTBSSpecials::PreLockChannel(TuningParam *pTuningParam)
 {
 	return S_OK;
 }
 
 const HRESULT CTBSSpecials::PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest)
+{
+	return S_OK;
+}
+
+const HRESULT CTBSSpecials::PostTuneRequest(const TuningParam * pTuningParam)
 {
 	return S_OK;
 }
