@@ -653,8 +653,8 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	ChData * Ch = &itCh->second;
 	m_LastTuningParam.Frequency = Ch->Frequency + TuningSpace->FrequencyOffset;					// 周波数(MHz)
 	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];						// 信号の偏波
-	m_LastTuningParam.Antenna = &m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];	// アンテナ設定データ
-	m_LastTuningParam.Modulation = &m_aModulationType[Ch->ModulationType];						// 変調方式設定データ
+	m_LastTuningParam.Antenna = m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];		// アンテナ設定データ
+	m_LastTuningParam.Modulation = m_aModulationType[Ch->ModulationType];						// 変調方式設定データ
 	m_LastTuningParam.ONID = Ch->ONID;															// オリジナルネットワークID / PhysicalChannel (ATSC / Digital Cable)
 	m_LastTuningParam.TSID = Ch->TSID;															// トランスポートストリームID / Channel (ATSC / Digital Cable)
 	m_LastTuningParam.SID = Ch->SID;															// サービスID / MinorChannel (ATSC / Digital Cable)
@@ -2906,7 +2906,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// BonDriver_BDA改専用DLL
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
-		m_nCurTone = pTuningParam->Antenna->Tone;
+		m_nCurTone = pTuningParam->Antenna.Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"  TwiceLock 1st[Special2] SUCCESS.\n");
 			SleepWithMessageLoop(m_nLockTwiceDelay);
@@ -2921,17 +2921,17 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		}
 	}
 
-	if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
-			(pTuningParam->Modulation->Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation->Modulation == BDA_MOD_8PSK) ? TRUE : FALSE)) != E_NOINTERFACE) {
+	if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna.Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
+			(pTuningParam->Modulation.Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation.Modulation == BDA_MOD_8PSK) ? TRUE : FALSE)) != E_NOINTERFACE) {
 		// BonDriver_BDAオリジナル互換DLL
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
-		m_nCurTone = pTuningParam->Antenna->Tone;
+		m_nCurTone = pTuningParam->Antenna.Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
 			OutputDebug(L"  TwiceLock 1st[Special] SUCCESS.\n");
 			SleepWithMessageLoop(m_nLockTwiceDelay);
-			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
-					(pTuningParam->Modulation->Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation->Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
+			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna.Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
+					(pTuningParam->Modulation.Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation.Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
 		}
 		if (SUCCEEDED(hr)) {
 			OutputDebug(L"  LockChannel[Special] SUCCESS.\n");
@@ -2944,12 +2944,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 
 	// チューナ固有トーン制御関数があれば、それをここで呼び出す
-	if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->Set22KHz(pTuningParam->Antenna->Tone)) != E_NOINTERFACE) {
+	if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->Set22KHz(pTuningParam->Antenna.Tone)) != E_NOINTERFACE) {
 		// BonDriver_BDA改専用DLL
 		if (SUCCEEDED(hr)) {
 			OutputDebug(L"  Set22KHz[Special2] successfully.\n");
-			if (pTuningParam->Antenna->Tone != m_nCurTone) {
-				m_nCurTone = pTuningParam->Antenna->Tone;
+			if (pTuningParam->Antenna.Tone != m_nCurTone) {
+				m_nCurTone = pTuningParam->Antenna.Tone;
 				if (m_nToneWait) {
 					SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 				}
@@ -2960,12 +2960,12 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			// BDA generic な方法で切り替わるかもしれないので、メッセージだけ出して、そのまま続行
 		}
 	}
-	else if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->Set22KHz(pTuningParam->Antenna->Tone ? 1 : 0)) != E_NOINTERFACE) {
+	else if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->Set22KHz(pTuningParam->Antenna.Tone ? 1 : 0)) != E_NOINTERFACE) {
 		// BonDriver_BDAオリジナル互換DLL
 		if (SUCCEEDED(hr)) {
 			OutputDebug(L"  Set22KHz[Special] successfully.\n");
-			if (pTuningParam->Antenna->Tone != m_nCurTone) {
-				m_nCurTone = pTuningParam->Antenna->Tone;
+			if (pTuningParam->Antenna.Tone != m_nCurTone) {
+				m_nCurTone = pTuningParam->Antenna.Tone;
 				if (m_nToneWait) {
 					SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 				}
@@ -3003,21 +3003,21 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		if (pIDVBSTuningSpace) {
 			OutputDebug(L"    ->IDVBSTuningSpace\n");
 			// LNB 周波数を設定
-			if (pTuningParam->Antenna->HighOscillator != -1) {
-				pIDVBSTuningSpace->put_HighOscillator(pTuningParam->Antenna->HighOscillator);
+			if (pTuningParam->Antenna.HighOscillator != -1) {
+				pIDVBSTuningSpace->put_HighOscillator(pTuningParam->Antenna.HighOscillator);
 			}
-			if (pTuningParam->Antenna->LowOscillator != -1) {
-				pIDVBSTuningSpace->put_LowOscillator(pTuningParam->Antenna->LowOscillator);
+			if (pTuningParam->Antenna.LowOscillator != -1) {
+				pIDVBSTuningSpace->put_LowOscillator(pTuningParam->Antenna.LowOscillator);
 			}
 
 			// LNBスイッチの周波数を設定
-			if (pTuningParam->Antenna->LNBSwitch != -1) {
+			if (pTuningParam->Antenna.LNBSwitch != -1) {
 				// LNBSwitch周波数の設定がされている
-				pIDVBSTuningSpace->put_LNBSwitch(pTuningParam->Antenna->LNBSwitch);
+				pIDVBSTuningSpace->put_LNBSwitch(pTuningParam->Antenna.LNBSwitch);
 			}
 			else {
 				// 10GHzを設定しておけばHigh側に、20GHzを設定しておけばLow側に切替わるはず
-				pIDVBSTuningSpace->put_LNBSwitch((pTuningParam->Antenna->Tone != 0) ? 10000000 : 20000000);
+				pIDVBSTuningSpace->put_LNBSwitch((pTuningParam->Antenna.Tone != 0) ? 10000000 : 20000000);
 			}
 
 			// 位相変調スペクトル反転の種類
@@ -3045,25 +3045,25 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	pILocator->put_CarrierFrequency(pTuningParam->Frequency);
 
 	// 内部前方誤り訂正のタイプを設定
-	pILocator->put_InnerFEC(pTuningParam->Modulation->InnerFEC);
+	pILocator->put_InnerFEC(pTuningParam->Modulation.InnerFEC);
 
 	// 内部 FEC レートを設定
 	// 前方誤り訂正方式で使うバイナリ コンボルーションのコード レート DVB-Sは 3/4 S2は 3/5
-	pILocator->put_InnerFECRate(pTuningParam->Modulation->InnerFECRate);
+	pILocator->put_InnerFECRate(pTuningParam->Modulation.InnerFECRate);
 
 	// 変調タイプを設定
 	// DVB-SはQPSK、S2の場合は 8PSK
-	pILocator->put_Modulation(pTuningParam->Modulation->Modulation);
+	pILocator->put_Modulation(pTuningParam->Modulation.Modulation);
 
 	// 外部前方誤り訂正のタイプを設定
 	//	リード-ソロモン 204/188 (外部 FEC), DVB-S2でも同じ
-	pILocator->put_OuterFEC(pTuningParam->Modulation->OuterFEC);
+	pILocator->put_OuterFEC(pTuningParam->Modulation.OuterFEC);
 
 	// 外部 FEC レートを設定
-	pILocator->put_OuterFECRate(pTuningParam->Modulation->OuterFECRate);
+	pILocator->put_OuterFECRate(pTuningParam->Modulation.OuterFECRate);
 
 	// QPSK シンボル レートを設定
-	pILocator->put_SymbolRate(pTuningParam->Modulation->SymbolRate);
+	pILocator->put_SymbolRate(pTuningParam->Modulation.SymbolRate);
 
 	// IDVBSLocator特有
 	{
@@ -3081,8 +3081,8 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		if (pIDVBSLocator2) {
 			OutputDebug(L"    ->IDVBSLocator2\n");
 			// DiSEqCを設定
-			if (pTuningParam->Antenna->DiSEqC >= BDA_LNB_SOURCE_A) {
-				pIDVBSLocator2->put_DiseqLNBSource((LNB_Source)(pTuningParam->Antenna->DiSEqC));
+			if (pTuningParam->Antenna.DiSEqC >= BDA_LNB_SOURCE_A) {
+				pIDVBSLocator2->put_DiseqLNBSource((LNB_Source)(pTuningParam->Antenna.DiSEqC));
 			}
 			else {
 				pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
@@ -3096,8 +3096,8 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		if (pIDVBTLocator) {
 			OutputDebug(L"    ->IDVBTLocator\n");
 			// 周波数の帯域幅 (MHz)を設定
-			if (pTuningParam->Modulation->BandWidth != -1) {
-				pIDVBTLocator->put_Bandwidth(pTuningParam->Modulation->BandWidth);
+			if (pTuningParam->Modulation.BandWidth != -1) {
+				pIDVBTLocator->put_Bandwidth(pTuningParam->Modulation.BandWidth);
 			}
 		}
 	}
@@ -3180,7 +3180,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		hr = m_pIBdaSpecials2->PreTuneRequest(pTuningParam, pITuneRequest);
 	}
 
-	if (pTuningParam->Antenna->Tone != m_nCurTone && m_nToneWait) {
+	if (pTuningParam->Antenna.Tone != m_nCurTone && m_nToneWait) {
 		//トーン切替ありの場合、先に一度TuneRequestしておく
 		OutputDebug(L"  Requesting pre tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
@@ -3195,7 +3195,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 
 		SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 	}
-	m_nCurTone = pTuningParam->Antenna->Tone;
+	m_nCurTone = pTuningParam->Antenna.Tone;
 
 	if (bLockTwice) {
 		// TuneRequestを強制的に2度行う
@@ -3342,7 +3342,7 @@ void CBonTuner::LoadTunerDependCode(void)
 
 	m_pIBdaSpecials = func(m_pTunerDevice);
 
-	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b1 *>(m_pIBdaSpecials);
+	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b2 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
 		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 
