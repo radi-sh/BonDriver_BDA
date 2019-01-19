@@ -162,7 +162,7 @@ const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam *pTuningParam)
 
 	sTuneParam.GUID_ID = GUID_TUNER_S_LOCK;
 	sTuneParam.frequency = pTuningParam->Frequency;
-	sTuneParam.symbol_rate = pTuningParam->Modulation->SymbolRate;
+	sTuneParam.symbol_rate = pTuningParam->Modulation.SymbolRate;
 	switch (pTuningParam->Polarisation) {
 	case BDA_POLARISATION_LINEAR_H:
 		sTuneParam.hv = 1;
@@ -172,22 +172,22 @@ const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam *pTuningParam)
 		sTuneParam.hv = 0;
 		break;
 	}
-	if (pTuningParam->Antenna->LNBSwitch != -1) {
-		sTuneParam.b22k = (pTuningParam->Antenna->LNBSwitch >= pTuningParam->Frequency);
-		sTuneParam.lnb = sTuneParam.b22k ? pTuningParam->Antenna->HighOscillator : pTuningParam->Antenna->LowOscillator;
+	if (pTuningParam->Antenna.LNBSwitch != -1) {
+		sTuneParam.b22k = (pTuningParam->Antenna.LNBSwitch >= pTuningParam->Frequency);
+		sTuneParam.lnb = sTuneParam.b22k ? pTuningParam->Antenna.HighOscillator : pTuningParam->Antenna.LowOscillator;
 	}
 	else {
-		sTuneParam.lnb = pTuningParam->Antenna->HighOscillator;
-		sTuneParam.b22k = !!pTuningParam->Antenna->Tone;
+		sTuneParam.lnb = pTuningParam->Antenna.HighOscillator;
+		sTuneParam.b22k = !!pTuningParam->Antenna.Tone;
 	}
 	sTuneParam.Burst = DW_BURST_UNDEFINED;
-	if (pTuningParam->Antenna->DiSEqC >= 1 && pTuningParam->Antenna->DiSEqC <= 4) {
-		sTuneParam.diseqcPort = pTuningParam->Antenna->DiSEqC;
+	if (pTuningParam->Antenna.DiSEqC >= 1 && pTuningParam->Antenna.DiSEqC <= 4) {
+		sTuneParam.diseqcPort = pTuningParam->Antenna.DiSEqC;
 	} else {
 		sTuneParam.diseqcPort = DISEQC_PORT_A;
 	}
-	sTuneParam.FEC = pTuningParam->Modulation->InnerFECRate;
-	switch (pTuningParam->Modulation->Modulation) {
+	sTuneParam.FEC = pTuningParam->Modulation.InnerFECRate;
+	switch (pTuningParam->Modulation.Modulation) {
 	case BDA_MOD_NBC_QPSK:
 	case BDA_MOD_QPSK:
 		sTuneParam.Modulation = DW_MOD_DVBS1_QPSK;
