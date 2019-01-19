@@ -1466,37 +1466,41 @@ void CBonTuner::ReadIniFile(void)
 		m_bSignalLockedJudgeTypeTuner = TRUE;
 
 	for (unsigned int i = 0; i < MAX_DVB_SYSTEM_TYPE; i++) {
-		std::wstring key, prefix1;
+		std::wstring key, prefix[2];
 		DVBSystemTypeData typeData;
 		if (i == 0) {
 			// チューナーの使用するTuningSpaceの種類
-			typeData.nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(L"DVBSystemType", enumTunerType::eTunerTypeDVBS, mapTuningSpaceType);
+			typeData.nDVBSystemType = enumTunerType::eTunerTypeDVBS;
 		}
 
-		prefix1 = L"DVBSystemType" + std::to_wstring(i);
-		// チューナーの使用するTuningSpaceの種類
-		key = prefix1;
-		typeData.nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nDVBSystemType, mapTuningSpaceType);
+		unsigned int st = i == 0 ? 0 : 1;
+		prefix[0] = L"DVBSystemType";
+		prefix[1] = L"DVBSystemType" + std::to_wstring(i);
+		for (unsigned int j = st; j < 2; j++) {
+			// チューナーの使用するTuningSpaceの種類
+			key = prefix[j];
+			typeData.nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nDVBSystemType, mapTuningSpaceType);
 
-		// 使用するITuningSpace interface
-		key = prefix1 + L"TuningSpace";
-		typeData.nTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nTuningSpace, mapSpecifyTuningSpace);
+			// 使用するITuningSpace interface
+			key = prefix[j] + L"TuningSpace";
+			typeData.nTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nTuningSpace, mapSpecifyTuningSpace);
 
-		// 使用するILocator interface
-		key = prefix1 + L"Locator";
-		typeData.nLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nLocator, mapSpecifyLocator);
+			// 使用するILocator interface
+			key = prefix[j] + L"Locator";
+			typeData.nLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nLocator, mapSpecifyLocator);
 
-		// ITuningSpaceに設定するNetworkType
-		key = prefix1 + L"ITuningSpaceNetworkType";
-		typeData.nITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nITuningSpaceNetworkType, mapSpecifyITuningSpaceNetworkType);
+			// ITuningSpaceに設定するNetworkType
+			key = prefix[j] + L"ITuningSpaceNetworkType";
+			typeData.nITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nITuningSpaceNetworkType, mapSpecifyITuningSpaceNetworkType);
 
-		// IDVBTuningSpaceに設定するSystemType
-		key = prefix1 + L"IDVBTuningSpaceSystemType";
-		typeData.nIDVBTuningSpaceSystemType = (enumDVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIDVBTuningSpaceSystemType, mapSpecifyIDVBTuningSpaceSystemType);
+			// IDVBTuningSpaceに設定するSystemType
+			key = prefix[j] + L"IDVBTuningSpaceSystemType";
+			typeData.nIDVBTuningSpaceSystemType = (enumDVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIDVBTuningSpaceSystemType, mapSpecifyIDVBTuningSpaceSystemType);
 
-		// IAnalogTVTuningSpaceに設定するInputType
-		key = prefix1 + L"IAnalogTVTuningSpaceInputType";
-		typeData.nIAnalogTVTuningSpaceInputType = (enumTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIAnalogTVTuningSpaceInputType, mapSpecifyIAnalogTVTuningSpaceInputType);
+			// IAnalogTVTuningSpaceに設定するInputType
+			key = prefix[j] + L"IAnalogTVTuningSpaceInputType";
+			typeData.nIAnalogTVTuningSpaceInputType = (enumTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIAnalogTVTuningSpaceInputType, mapSpecifyIAnalogTVTuningSpaceInputType);
+		}
 
 		if (typeData.nDVBSystemType == enumTunerType::eTunerTypeNone && (typeData.nTuningSpace == enumTuningSpace::eTuningSpaceAuto || typeData.nLocator == enumLocator::eLocatorAuto)) {
 			continue;
