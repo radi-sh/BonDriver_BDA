@@ -3176,6 +3176,10 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			return FALSE;
 		}
 		OutputDebug(L"  Pre tune request complete.\n");
+		if (m_pIBdaSpecials2) {
+			// m_pIBdaSpecialsでput_TuneRequestの後に何らかの処理が必要なら行う
+			hr = m_pIBdaSpecials2->PostTuneRequest(pTuningParam);
+		}
 
 		SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 	}
@@ -3189,6 +3193,10 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			return FALSE;
 		}
 		OutputDebug(L"  1st Twice tune request complete.\n");
+		if (m_pIBdaSpecials2) {
+			// m_pIBdaSpecialsでput_TuneRequestの後に何らかの処理が必要なら行う
+			hr = m_pIBdaSpecials2->PostTuneRequest(pTuningParam);
+		}
 		SleepWithMessageLoop(m_nLockTwiceDelay);
 	}
 
@@ -3201,6 +3209,10 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			return FALSE;
 		}
 		OutputDebug(L"  Tune request complete.\n");
+		if (m_pIBdaSpecials2) {
+			// m_pIBdaSpecialsでput_TuneRequestの後に何らかの処理が必要なら行う
+			hr = m_pIBdaSpecials2->PostTuneRequest(pTuningParam);
+		}
 
 		static constexpr int LockRetryTime = 50;
 		unsigned int nWaitRemain = m_nLockWait;
