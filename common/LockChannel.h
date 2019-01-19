@@ -42,8 +42,8 @@ struct ModulationMethod {
 struct TuningParam {
 	long Frequency;						// 周波数(MHz)
 	Polarisation Polarisation;			// 信号の偏波
-	const AntennaParam *Antenna;		// アンテナ設定データ
-	const ModulationMethod *Modulation;	// 変調方式設定データ
+	AntennaParam Antenna;				// アンテナ設定データ
+	ModulationMethod Modulation;		// 変調方式設定データ
 	union {
 		long ONID;						// オリジナルネットワークID
 		long PhysicalChannel;			// ATSC / Digital Cable用
@@ -63,8 +63,6 @@ struct TuningParam {
 	TuningParam(void)
 		: Frequency(-1),
 		  Polarisation(BDA_POLARISATION_NOT_SET),
-		  Antenna(NULL),
-		  Modulation(NULL),
 		  ONID(-1),
 		  TSID(-1),
 		  SID(-1),
