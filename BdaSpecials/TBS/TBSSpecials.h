@@ -11,7 +11,7 @@
 const GUID KSPROPSETID_BdaTunerExtensionProperties =
 {0xfaa8f3e5, 0x31d4, 0x4e41, {0x88, 0xef, 0xd9, 0xeb, 0x71, 0x6f, 0x6e, 0xc9}};
 
-class CTBSSpecials : public IBdaSpecials2b1
+class CTBSSpecials : public IBdaSpecials2b2
 {
 public:
 	CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
