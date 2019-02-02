@@ -156,5 +156,18 @@
 ・iniファイルでDefaultNetwork="Dual"の設定を可能にした
 ・iniファイルのUseSpecialのデフォルトを"AUTO"から""(使用しない)に変更
 ・一部の機種でITuner::get_SignalStrength()の値が不正になる不具合を修正
-※ 20180818より前のバージョンのBDASpecialプラグインは動作しませんのでご注意ください。
+
+【2019-02-02】
+・Logに"Format Error in readIniFile; Wrong Polarization."が不正に記録されてしまう不具合を修正
+・iniファイルで指定できる項目 Satellite1SettingsAuto ～ Satellite9SettingsAuto を追加
+・iniファイルで指定できる項目 ModulationType0SettingsAuto ～ ModulationType9SettingsAuto を追加
+・iniファイルで指定できる項目 ChannelSettingsAuto の内容の変更、関連オプションの追加
+・iniファイルで指定できる項目 ReserveUnusedCh をチューニング空間ごとに設定できるようにした
+・iniファイルで指定できる項目 ToneSignalWait に0が設定されている時はチューニング動作を2度行わないようにした
+・iniファイルで指定できる項目 DVBSystemType に設定できる値に"ISDB-C"を追加
+・iniファイルのCH定義 SID/TSID/ONID 等に 0 が設定されている時は 0 として認識するよう変更
+・iniファイルで指定できる項目 TSMFMode を追加
+・iniファイルで指定できる項目 PeriodicTimer を追加
+※ 20190202より前のバージョンのBDASpecialプラグインは動作しませんのでご注意ください。
 　 (Bon_SPHD_BDA_PATCH_2相当のBDASpecialプラグインを除く)
+
