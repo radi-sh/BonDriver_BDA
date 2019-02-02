@@ -41,7 +41,7 @@ __declspec(dllexport) IBdaSpecials * CreateBdaSpecials(CComPtr<IBaseFilter> pTun
 /////////////////////////////////////
 
 CTBSSpecials::CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice)
-: m_hMySelf(hMySelf), m_pTunerDevice(pTunerDevice), m_pPropsetTunerPin(NULL)
+: m_hMySelf(hMySelf), m_pTunerDevice(pTunerDevice)
 {
 	return;
 }
@@ -52,14 +52,6 @@ CTBSSpecials::CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice)
 CTBSSpecials::~CTBSSpecials()
 {
 	m_hMySelf = NULL;
-	if (m_pTunerDevice) {
-		m_pTunerDevice.Release();
-		m_pTunerDevice = NULL; 
-	}
-	if (m_pPropsetTunerPin) {
-		m_pPropsetTunerPin->Release();
-		m_pPropsetTunerPin = NULL;
-	}
 
 	return;
 }
@@ -80,22 +72,23 @@ const HRESULT CTBSSpecials::InitializeHook(void)
 
 	HRESULT hr;
 	if (m_pPropsetTunerPin == NULL) {
-		IEnumPins* pPinEnum = NULL;
+		CComPtr<IEnumPins> pPinEnum;
 
 		m_pTunerDevice->EnumPins(&pPinEnum);
 		if (pPinEnum)
 		{
-			IPin* pPin=NULL;
+			CComPtr<IPin> pPin;
 			while (!(m_pPropsetTunerPin) && SUCCEEDED(pPinEnum->Next(1, &pPin, NULL)))
 			{
 				PIN_DIRECTION dir;
 				if (SUCCEEDED(pPin->QueryDirection(&dir)))
-				{						
-					hr = pPin->QueryInterface(IID_IKsPropertySet, (void **) &m_pPropsetTunerPin);
+				{
+					CComQIPtr<IKsPropertySet> pPropsetTunerPin(pPin);
+					if (!pPropsetTunerPin) {
+						m_pPropsetTunerPin = pPropsetTunerPin;
+					}
 				}
-				pPin->Release();
 			}
-			pPinEnum->Release();
 		}
 		
 		DWORD TypeSupport=0;
@@ -148,14 +141,6 @@ const HRESULT CTBSSpecials::FinalizeHook(void)
 	}
 
 	m_hMySelf = NULL;
-	if (m_pTunerDevice) {
-		m_pTunerDevice.Release();
-		m_pTunerDevice = NULL; 
-	}
-	if (m_pPropsetTunerPin) {
-		m_pPropsetTunerPin->Release();
-		m_pPropsetTunerPin = NULL;
-	}
 
 	return S_OK;
 }
@@ -170,7 +155,7 @@ const HRESULT CTBSSpecials::LockChannel(BYTE bySatellite, BOOL bHorizontal, unsi
 	return E_NOINTERFACE;
 }
 
-const HRESULT CTBSSpecials::LockChannel(const TuningParam *pTuningParm)
+const HRESULT CTBSSpecials::LockChannel(const TuningParam *pTuningParam)
 {
 	return E_NOINTERFACE;
 }
@@ -216,14 +201,24 @@ const HRESULT CTBSSpecials::GetSignalStrength(float *fVal)
 	return E_NOINTERFACE;
 }
 
-const HRESULT CTBSSpecials::PreTuneRequest(const TuningParam *pTuningParm, ITuneRequest *pITuneRequest)
+const HRESULT CTBSSpecials::PreLockChannel(TuningParam *pTuningParam)
 {
-	return E_NOINTERFACE;
+	return S_OK;
 }
 
-const HRESULT CTBSSpecials::PostLockChannel(const TuningParam *pTuningParm)
+const HRESULT CTBSSpecials::PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest)
 {
-	return E_NOINTERFACE;
+	return S_OK;
+}
+
+const HRESULT CTBSSpecials::PostTuneRequest(const TuningParam * pTuningParam)
+{
+	return S_OK;
+}
+
+const HRESULT CTBSSpecials::PostLockChannel(const TuningParam *pTuningParam)
+{
+	return S_OK;
 }
 
 void CTBSSpecials::Release(void)

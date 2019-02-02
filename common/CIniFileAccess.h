@@ -18,8 +18,8 @@ public:
 	int ReadKeyI(const std::wstring SectionName, const std::wstring KeyName, int default);
 	BOOL ReadKeyB(const std::wstring KeyName, BOOL default);
 	BOOL ReadKeyB(const std::wstring SectionName, const std::wstring KeyName, BOOL default);
-	int ReadKeyIValueMap(const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap);
-	int ReadKeyIValueMap(const std::wstring SectionName, const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap);
+	int ReadKeyIValueMap(const std::wstring KeyName, int default, const std::map<const std::wstring, const int, std::less<>> ValueMap);
+	int ReadKeyIValueMap(const std::wstring SectionName, const std::wstring KeyName, int default, const std::map<const std::wstring, const int, std::less<>> ValueMap);
 	double ReadKeyF(const std::wstring KeyName, double default);
 	double ReadKeyF(const std::wstring SectionName, const std::wstring KeyName, double default);
 	std::wstring ReadKeyS(const std::wstring KeyName, std::wstring default);
@@ -31,7 +31,7 @@ public:
 	bool ReadSectionData(std::wstring *Key, std::wstring *Data);
 	int ReadKeyISectionData(const std::wstring KeyName, int default);
 	BOOL ReadKeyBSectionData(const std::wstring KeyName, BOOL default);
-	int ReadKeyIValueMapSectionData(const std::wstring KeyName, int default, const std::map<const std::wstring, const int> ValueMap);
+	int ReadKeyIValueMapSectionData(const std::wstring KeyName, int default, const std::map<const std::wstring, const int, std::less<>> ValueMap);
 	double ReadKeyFSectionData(const std::wstring KeyName, double default);
 	std::wstring ReadKeySSectionData(const std::wstring KeyName, std::wstring default);
 

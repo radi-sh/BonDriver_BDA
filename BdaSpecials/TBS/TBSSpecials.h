@@ -11,7 +11,7 @@
 const GUID KSPROPSETID_BdaTunerExtensionProperties =
 {0xfaa8f3e5, 0x31d4, 0x4e41, {0x88, 0xef, 0xd9, 0xeb, 0x71, 0x6f, 0x6e, 0xc9}};
 
-class CTBSSpecials : public IBdaSpecials2a2
+class CTBSSpecials : public IBdaSpecials2b2
 {
 public:
 	CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
@@ -26,35 +26,37 @@ public:
 	const HRESULT SetLNBPower(bool bActive);
 
 	const HRESULT Set22KHz(long nTone);
-	const HRESULT LockChannel(const TuningParam *pTuningParm);
+	const HRESULT LockChannel(const TuningParam *pTuningParam);
 	const HRESULT ReadIniFile(const WCHAR *szIniFilePath);
 	const HRESULT IsDecodingNeeded(BOOL *pbAns);
 	const HRESULT Decode(BYTE *pBuf, DWORD dwSize);
 	const HRESULT GetSignalStrength(float *fVal);
-	const HRESULT PreTuneRequest(const TuningParam *pTuningParm, ITuneRequest *pITuneRequest);
-	const HRESULT PostLockChannel(const TuningParam *pTuningParm);
+	const HRESULT PreLockChannel(TuningParam *pTuningParam);
+	const HRESULT PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest);
+ 	const HRESULT PostTuneRequest(const TuningParam *pTuningParam);
+	const HRESULT PostLockChannel(const TuningParam *pTuningParam);
 
 	virtual void Release(void);
 
 private:
 	HMODULE m_hMySelf;
-	IKsPropertySet *m_pPropsetTunerPin;
+	CComPtr<IKsPropertySet> m_pPropsetTunerPin;
 	CComPtr<IBaseFilter> m_pTunerDevice;
 
 	////////////////////////////////////////////////////
 	// Definitions for TBS
 	////////////////////////////////////////////////////
-	static const UCHAR HZ_22K_OFF = 0;
-	static const UCHAR HZ_22K_ON = 1;
-	static const UCHAR LNB_POWER_OFF = 0;
-	static const UCHAR LNB_POWER_ON = 1;
+	static constexpr UCHAR HZ_22K_OFF = 0;
+	static constexpr UCHAR HZ_22K_ON = 1;
+	static constexpr UCHAR LNB_POWER_OFF = 0;
+	static constexpr UCHAR LNB_POWER_ON = 1;
 
-	static const UCHAR Value_Data_Burst_ON = 1;
-	static const UCHAR Value_Tone_Burst_ON = 0;
-	static const UCHAR Value_Burst_OFF = 2;
+	static constexpr UCHAR Value_Data_Burst_ON = 1;
+	static constexpr UCHAR Value_Tone_Burst_ON = 0;
+	static constexpr UCHAR Value_Burst_OFF = 2;
 
-	static const BYTE DISEQC_TX_BUFFER_SIZE = 150; // 3 bytes per message * 50 messages
-	static const BYTE DISEQC_RX_BUFFER_SIZE = 8;   // reply fifo size, hardware limitation
+	static constexpr BYTE DISEQC_TX_BUFFER_SIZE = 150; // 3 bytes per message * 50 messages
+	static constexpr BYTE DISEQC_RX_BUFFER_SIZE = 8;   // reply fifo size, hardware limitation
 
 	typedef enum _TBSDVBSExtensionPropertiesCMDMode {
 		TBSDVBSCMD_LNBPOWER=0x00,

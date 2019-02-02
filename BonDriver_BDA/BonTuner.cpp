@@ -44,28 +44,6 @@
 FILE *g_fpLog = NULL;
 
 //////////////////////////////////////////////////////////////////////
-// 定数等定義
-//////////////////////////////////////////////////////////////////////
-
-// TS Writerの名称:AddFilter時に名前を登録するだけなので何でもよい
-static const WCHAR * const FILTER_GRAPH_NAME_TSWRITER	= L"TS Writer";
-
-// MPEG2 Demultiplexerの名称:AddFilter時に名前を登録するだけなので何でもよい
-static const WCHAR * const FILTER_GRAPH_NAME_DEMUX = L"MPEG2 Demultiplexer";
-
-// MPEG2 TIFの名称:CLSIDだけでは特定できないのでこの名前と一致するものを使用する
-static const WCHAR * const FILTER_GRAPH_NAME_TIF = L"BDA MPEG2 Transport Information Filter";
-
-// Network Provider
-static const WCHAR * const FILTER_GRAPH_NAME_NETWORK_PROVIDER[] = {
-	L"Microsoft Network Provider",
-	L"Microsoft DVB-S Network Provider",
-	L"Microsoft DVB-T Network Provider",
-	L"Microsoft DVB-C Network Provider",
-	L"Microsoft ATSC Network Provider",
-};
-
-//////////////////////////////////////////////////////////////////////
 // 静的メンバ変数
 //////////////////////////////////////////////////////////////////////
 
@@ -78,62 +56,28 @@ std::list<CBonTuner*> CBonTuner::st_InstanceList;
 // st_InstanceList操作用
 CRITICAL_SECTION CBonTuner::st_LockInstanceList;
 
-// 偏波種類毎のiniファイルでの記号 逆引き用
-std::multimap<WCHAR, int> CBonTuner::PolarisationCharMap;
+// 必要な静的変数初期化
+void CBonTuner::Init(HMODULE hModule)
+{
+	st_hModule = hModule;
+	::InitializeCriticalSection(&st_LockInstanceList);
+	return;
+}
 
-// CBonTunerで使用する偏波種類番号とPolarisation型のMapping
-const Polarisation CBonTuner::PolarisationMapping[] = {
-	BDA_POLARISATION_NOT_DEFINED,
-	BDA_POLARISATION_LINEAR_H,
-	BDA_POLARISATION_LINEAR_V,
-	BDA_POLARISATION_CIRCULAR_L,
-	BDA_POLARISATION_CIRCULAR_R
-};
-
-const WCHAR CBonTuner::PolarisationChar[] = {
-	L'\0',
-	L'H',
-	L'V',
-	L'L',
-	L'R'
-};
-
-const CBonTuner::TUNER_SPECIAL_DLL CBonTuner::aTunerSpecialData [] = {
-	// ここはプログラマしかいじらないと思うので、プログラム中でGUID を小文字に正規化しないので、
-	// 追加する場合は、GUIDは小文字で書いてください
-
-	/* TBS6980A */
-	{ L"{e9ead02c-8b8c-4d9b-97a2-2ec0324360b1}", L"TBS" },
-
-	/* TBS6980B, Prof 8000 */
-	{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
-
-	/* Prof 7300, 7301, TBS 8920 */ 
-	{ L"{91b0cc87-9905-4d65-a0d1-5861c6f22cbf}", L"TBS" },	// 7301 は固有関数でなくてもOKだった
-
-	/* TBS 6920 */
-	{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
-
-	/* Prof Prof 7500, Q-BOX II */ 
-	{ L"{b45b50ff-2d09-4bf2-a87c-ee4a7ef00857}", L"TBS" },
-
-	/* DVBWorld 2002, 2004, 2006 */
-	{ L"{4c807f36-2db7-44ce-9582-e1344782cb85}", L"DVBWorld" },
-
-	/* DVBWorld 210X, 2102X, 2104X */
-	{ L"{5a714cad-60f9-4124-b922-8a0557b8840e}", L"DVBWorld" },
-
-	/* DVBWorld 2005 */
-	{ L"{ede18552-45e6-469f-93b5-27e94296de38}", L"DVBWorld" }, // 2005 は固有関数は必要ないかも
-
-	{ L"", L"" }, // terminator
-};
-
-void CBonTuner::Init(void) {
-	PolarisationCharMap.clear();
-	for (unsigned int polarisation = 1; polarisation < POLARISATION_SIZE; polarisation++) {
-		PolarisationCharMap.insert(std::pair<WCHAR, int>(PolarisationChar[polarisation], polarisation));
+// 静的変数の解放
+void CBonTuner::Finalize(void)
+{
+	// 未解放のインスタンスが残っていれば解放
+	for (auto it = st_InstanceList.begin(); it != st_InstanceList.end();) {
+		SAFE_RELEASE(*it);
+		it = st_InstanceList.erase(it);
 	}
+
+	::DeleteCriticalSection(&CBonTuner::st_LockInstanceList);
+
+	// デバッグログファイルのクローズ
+	CloseDebugLog();
+	return;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -161,7 +105,7 @@ CBonTuner::CBonTuner()
 	m_nReOpenWhenGiveUpReLock(0),
 	m_bTryAnotherTuner(FALSE),
 	m_bBackgroundChannelLock(FALSE),
-	m_nSignalLevelCalcType(0),
+	m_nSignalLevelCalcType(eSignalLevelCalcTypeSSStrength),
 	m_bSignalLevelGetTypeSS(FALSE),
 	m_bSignalLevelGetTypeTuner(FALSE),
 	m_bSignalLevelGetTypeBR(FALSE),
@@ -173,18 +117,18 @@ CBonTuner::CBonTuner()
 	m_fQualityCoefficient(1),
 	m_fStrengthBias(0),
 	m_fQualityBias(0),
-	m_nSignalLockedJudgeType(1),
+	m_nSignalLockedJudgeType(eSignalLockedJudgeTypeSS),
 	m_bSignalLockedJudgeTypeSS(FALSE),
 	m_bSignalLockedJudgeTypeTuner(FALSE),
-	m_dwBuffSize(188 * 1024),
-	m_dwMaxBuffCount(512),
+	m_nBuffSize(188 * 1024),
+	m_nMaxBuffCount(512),
 	m_nWaitTsCount(1),
 	m_nWaitTsSleep(100),
 	m_bAlwaysAnswerLocked(FALSE),
 	m_nThreadPriorityCOM(THREAD_PRIORITY_ERROR_RETURN),
 	m_nThreadPriorityDecode(THREAD_PRIORITY_ERROR_RETURN),
 	m_nThreadPriorityStream(THREAD_PRIORITY_ERROR_RETURN),
-	m_bReserveUnusedCh(FALSE),
+	m_nPeriodicTimer(0),
 	m_sIniFilePath(L""),
 	m_hOnStreamEvent(NULL),
 	m_hOnDecodeEvent(NULL),
@@ -193,29 +137,17 @@ CBonTuner::CBonTuner()
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
-	m_pITuningSpace(NULL),
-	m_pITuner(NULL),
-	m_pNetworkProvider(NULL),
-	m_pTunerDevice(NULL),
-	m_pCaptureDevice(NULL),
-	m_pTsWriter(NULL),
-	m_pDemux(NULL),
-	m_pTif(NULL),
-	m_pIGraphBuilder(NULL),
-	m_pIMediaControl(NULL), 
-	m_pCTsWriter(NULL),
-	m_pIBDA_SignalStatistics(NULL),
 	m_pDSFilterEnumTuner(NULL),
 	m_pDSFilterEnumCapture(NULL),
-	m_nDVBSystemType(eTunerTypeDVBS),
 	m_nNetworkProvider(eNetworkProviderAuto),
-	m_nDefaultNetwork(1),
+	m_nDefaultNetwork(eDefaultNetworkSPHD),
 	m_bOpened(FALSE),
 	m_dwTargetSpace(CBonTuner::SPACE_INVALID),
 	m_dwCurSpace(CBonTuner::SPACE_INVALID),
 	m_dwTargetChannel(CBonTuner::CHANNEL_INVALID),
 	m_dwCurChannel(CBonTuner::CHANNEL_INVALID),
 	m_nCurTone(CBonTuner::TONE_UNKNOWN),
+	m_bIsEnabledTSMF(FALSE),
 	m_hModuleTunerSpecials(NULL),
 	m_pIBdaSpecials(NULL),
 	m_pIBdaSpecials2(NULL)
@@ -227,16 +159,13 @@ CBonTuner::CBonTuner()
 
 	setlocale(LC_CTYPE, "ja_JP.SJIS");
 
-	::InitializeCriticalSection(&m_csTSBuff);
-	::InitializeCriticalSection(&m_csDecodedTSBuff);
-
 	HANDLE h = ::GetCurrentProcess();
 	::DuplicateHandle(h, h, h, &m_hProcess, 0, FALSE, DUPLICATE_SAME_ACCESS);
 
 	ReadIniFile();
 
-	m_TsBuff.SetSize(m_dwBuffSize, m_dwMaxBuffCount);
-	m_DecodedTsBuff.SetSize(0, m_dwMaxBuffCount);
+	m_TsBuff.SetSize(m_nBuffSize, m_nMaxBuffCount);
+	m_DecodedTsBuff.SetSize(0, m_nMaxBuffCount);
 
 	// COM処理専用スレッド起動
 	m_aCOMProc.hThread = ::CreateThread(NULL, 0, CBonTuner::COMProcThread, this, 0, NULL);
@@ -245,12 +174,24 @@ CBonTuner::CBonTuner()
 	if (m_aCOMProc.hThread != NULL && m_nThreadPriorityCOM != THREAD_PRIORITY_ERROR_RETURN) {
 		::SetThreadPriority(m_aCOMProc.hThread, m_nThreadPriorityCOM);
 	}
+
+	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
+	if (m_nPeriodicTimer != 0) {
+		if (timeBeginPeriod(m_nPeriodicTimer) == TIMERR_NOCANDO) {
+			m_nPeriodicTimer = 0;
+		}
+	}
 }
 
 CBonTuner::~CBonTuner()
 {
 	OutputDebug(L"~CBonTuner called.\n");
 	CloseTuner();
+
+	// timeBeginPeriod()の後始末
+	if (m_nPeriodicTimer != 0) {
+		timeEndPeriod(m_nPeriodicTimer);
+	}
 
 	// COM処理専用スレッド終了
 	if (m_aCOMProc.hThread) {
@@ -261,9 +202,6 @@ CBonTuner::~CBonTuner()
 
 	SAFE_CLOSE_HANDLE(m_hStreamThread);
 	SAFE_CLOSE_HANDLE(m_hProcess);
-
-	::DeleteCriticalSection(&m_csDecodedTSBuff);
-	::DeleteCriticalSection(&m_csTSBuff);
 
 	// インスタンスリストから自身を削除
 	::EnterCriticalSection(&st_LockInstanceList);
@@ -562,7 +500,7 @@ const BOOL CBonTuner::GetTsStream(BYTE **ppDst, DWORD *pdwSize, DWORD *pdwRemain
 	BOOL bRet = TRUE;
 	m_LastBuff = m_DecodedTsBuff.Get();
 	if (m_LastBuff) {
-		*pdwSize = m_LastBuff->dwSize;
+		*pdwSize = (DWORD)m_LastBuff->Size;
 		*ppDst = m_LastBuff->pbyBuff;
 		*pdwRemain = (DWORD)m_DecodedTsBuff.Size();
 	}
@@ -627,9 +565,9 @@ const BOOL CBonTuner::_IsTunerOpening(void)
 LPCTSTR CBonTuner::EnumTuningSpace(const DWORD dwSpace)
 {
 	if (dwSpace < m_TuningData.dwNumSpace) {
-		auto it = m_TuningData.Spaces.find(dwSpace);
-		if (it != m_TuningData.Spaces.end())
-			return it->second->sTuningSpaceName.c_str();
+		auto itSpace = m_TuningData.Spaces.find(dwSpace);
+		if (itSpace != m_TuningData.Spaces.end())
+			return itSpace->second.sTuningSpaceName.c_str();
 		else
 			return _T("-");
 	}
@@ -638,12 +576,12 @@ LPCTSTR CBonTuner::EnumTuningSpace(const DWORD dwSpace)
 
 LPCTSTR CBonTuner::EnumChannelName(const DWORD dwSpace, const DWORD dwChannel)
 {
-	auto it = m_TuningData.Spaces.find(dwSpace);
-	if (it != m_TuningData.Spaces.end()) {
-		if (dwChannel < it->second->dwNumChannel) {
-			auto it2 = it->second->Channels.find(dwChannel);
-			if (it2 != it->second->Channels.end())
-				return it2->second->sServiceName.c_str();
+	auto itSpace = m_TuningData.Spaces.find(dwSpace);
+	if (itSpace != m_TuningData.Spaces.end()) {
+		if (dwChannel < itSpace->second.dwNumChannel) {
+			auto itCh = itSpace->second.Channels.find(dwChannel);
+			if (itCh != itSpace->second.Channels.end())
+				return itCh->second.sServiceName.c_str();
 			else
 				return _T("----");
 		}
@@ -687,19 +625,19 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_dwTargetSpace = m_dwCurSpace = CBonTuner::SPACE_INVALID;
 	m_dwTargetChannel = m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
 
-	auto it = m_TuningData.Spaces.find(dwSpace);
-	if (it == m_TuningData.Spaces.end()) {
+	auto itSpace = m_TuningData.Spaces.find(dwSpace);
+	if (itSpace == m_TuningData.Spaces.end()) {
 		OutputDebug(L"    Invalid channel space.\n");
 		return FALSE;
 	}
 
-	if (dwChannel >= it->second->dwNumChannel) {
+	if (dwChannel >= itSpace->second.dwNumChannel) {
 		OutputDebug(L"    Invalid channel number.\n");
 		return FALSE;
 	}
 
-	auto it2 = it->second->Channels.find(dwChannel);
-	if (it2 == it->second->Channels.end()) {
+	auto itCh = itSpace->second.Channels.find(dwChannel);
+	if (itCh == itSpace->second.Channels.end()) {
 		OutputDebug(L"    Reserved channel number.\n");
 		return FALSE;
 	}
@@ -711,15 +649,23 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 	m_bRecvStarted = FALSE;
 	PurgeTsStream();
-	TuningSpaceData * TuningSpace = it->second;
-	ChData * Ch = it2->second;
-	m_LastTuningParam.Frequency = Ch->Frequency + TuningSpace->FrequencyOffset;
-	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];
-	m_LastTuningParam.Antenna = &m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];
-	m_LastTuningParam.Modulation = &m_aModulationType[Ch->ModulationType];
-	m_LastTuningParam.ONID = Ch->ONID;
-	m_LastTuningParam.TSID = Ch->TSID;
-	m_LastTuningParam.SID = Ch->SID;
+	TuningSpaceData * TuningSpace = &itSpace->second;
+	ChData * Ch = &itCh->second;
+	m_LastTuningParam.Frequency = Ch->Frequency + TuningSpace->FrequencyOffset;					// 周波数(MHz)
+	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];						// 信号の偏波
+	m_LastTuningParam.Antenna = m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];		// アンテナ設定データ
+	m_LastTuningParam.Modulation = m_aModulationType[Ch->ModulationType];						// 変調方式設定データ
+	m_LastTuningParam.ONID = Ch->ONID;															// オリジナルネットワークID / PhysicalChannel (ATSC / Digital Cable)
+	m_LastTuningParam.TSID = Ch->TSID;															// トランスポートストリームID / Channel (ATSC / Digital Cable)
+	m_LastTuningParam.SID = Ch->SID;															// サービスID / MinorChannel (ATSC / Digital Cable)
+	m_LastTuningParam.MajorChannel = Ch->MajorChannel;											// MajorChannel (Digital Cable)
+	m_LastTuningParam.SourceID = Ch->SourceID;													// SourceID (Digital Cable)
+	m_LastTuningParam.IniSpaceID = dwSpace;														// iniファイルで読込まれたチューニングスペース番号
+	m_LastTuningParam.IniChannelID = dwChannel;													// iniファイルで読込まれたチャンネル番号
+
+	// IBdaSpecialsで事前の処理が必要なら行う
+	if (m_pIBdaSpecials2)
+		hr = m_pIBdaSpecials2->PreLockChannel(&m_LastTuningParam);
 
 	BOOL bRet = LockChannel(&m_LastTuningParam, m_bLockTwice && Ch->LockTwiceTarget);
 
@@ -729,6 +675,23 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 	SleepWithMessageLoop(100);
 	PurgeTsStream();
+
+	// TSMF処理設定
+	switch (itSpace->second.TSMFMode) {
+	case 0:		// OFF
+		m_TSMFParser.Disable();
+		m_bIsEnabledTSMF = FALSE;
+		break;
+	case 1:		// TSID
+		m_TSMFParser.SetTSID((WORD)Ch->ONID, (WORD)Ch->TSID, FALSE);
+		m_bIsEnabledTSMF = TRUE;
+		break;
+	case 2:		// Relative
+		m_TSMFParser.SetTSID(0xffff, (WORD)Ch->TSID, TRUE);
+		m_bIsEnabledTSMF = TRUE;
+		break;
+	}
+
 	m_bRecvStarted = TRUE;
 
 	// SetChannel()を試みたチューニングスペース番号とチャンネル番号
@@ -1082,11 +1045,25 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 				while (TS_DATA *pBuff = pSys->m_TsBuff.Get()) {
 					// 必要ならばIBdaSpecialsによるデコード処理を行う
 					if (bNeedDecode) {
-						pSys->m_pIBdaSpecials2->Decode(pBuff->pbyBuff, pBuff->dwSize);
+						pSys->m_pIBdaSpecials2->Decode(pBuff->pbyBuff, (DWORD)pBuff->Size);
 					}
 
 					// 取得したバッファをデコード済みバッファに追加
-					pSys->m_DecodedTsBuff.Add(pBuff);
+					if (pSys->m_bIsEnabledTSMF) {
+						// TSMFの処理を行う
+						BYTE * newBuf = NULL;
+						size_t newBufSize = 0;
+						pSys->m_TSMFParser.ParseTsBuffer(pBuff->pbyBuff, pBuff->Size, &newBuf, &newBufSize);
+						if (newBuf) {
+							TS_DATA * pNewTS = new TS_DATA(newBuf, (DWORD)newBufSize, FALSE);
+							pSys->m_DecodedTsBuff.Add(pNewTS);
+						}
+						SAFE_DELETE(pBuff);
+					}
+					else {
+						// TSMFの処理を行わない場合はそのまま追加
+						pSys->m_DecodedTsBuff.Add(pBuff);
+					}
 
 					// 受信イベントセット
 					if (pSys->m_DecodedTsBuff.Size() >= pSys->m_nWaitTsCount)
@@ -1111,7 +1088,7 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 	return 0;
 }
 
-int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, DWORD dwSize)
+int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, size_t size)
 {
 	CBonTuner* pSys = (CBonTuner*)pParam;
 
@@ -1120,10 +1097,10 @@ int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, DWORD dwSize)
 		pSys->m_bIsSetStreamThread = TRUE;
 	}
 
-	pSys->m_BitRate.AddRate(dwSize);
+	pSys->m_BitRate.AddRate((DWORD)size);
 
 	if (pSys->m_bRecvStarted) {
-		if (pSys->m_TsBuff.AddData(pbData, dwSize)) {
+		if (pSys->m_TsBuff.AddData(pbData, size)) {
 			::SetEvent(pSys->m_hOnStreamEvent);
 		}
 	}
@@ -1133,135 +1110,188 @@ int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, DWORD dwSize)
 
 void CBonTuner::StartRecv(void)
 {
-	if (m_pCTsWriter)
-		m_pCTsWriter->SetCallBackRecv(RecvProc, this);
+	if (m_pITsWriter)
+		m_pITsWriter->SetCallBackRecv(RecvProc, this);
 	m_bRecvStarted = TRUE;
 }
 
 void CBonTuner::StopRecv(void)
 {
-	if (m_pCTsWriter)
-		m_pCTsWriter->SetCallBackRecv(NULL, this);
+	if (m_pITsWriter)
+		m_pITsWriter->SetCallBackRecv(NULL, this);
 	m_bRecvStarted = FALSE;
 }
 
 void CBonTuner::ReadIniFile(void)
 {
-	static const std::map<const std::wstring, const int> mapThreadPriority = {
-		{ L"", THREAD_PRIORITY_ERROR_RETURN },
-		{ L"THREAD_PRIORITY_IDLE", THREAD_PRIORITY_IDLE },
-		{ L"THREAD_PRIORITY_LOWEST", THREAD_PRIORITY_LOWEST },
-		{ L"THREAD_PRIORITY_BELOW_NORMAL", THREAD_PRIORITY_BELOW_NORMAL },
-		{ L"THREAD_PRIORITY_NORMAL", THREAD_PRIORITY_NORMAL },
-		{ L"THREAD_PRIORITY_ABOVE_NORMAL", THREAD_PRIORITY_ABOVE_NORMAL },
-		{ L"THREAD_PRIORITY_HIGHEST", THREAD_PRIORITY_HIGHEST },
+	static const std::map<const std::wstring, const int, std::less<>> mapThreadPriority = {
+		{ L"",                              THREAD_PRIORITY_ERROR_RETURN },
+		{ L"THREAD_PRIORITY_IDLE",          THREAD_PRIORITY_IDLE },
+		{ L"THREAD_PRIORITY_LOWEST",        THREAD_PRIORITY_LOWEST },
+		{ L"THREAD_PRIORITY_BELOW_NORMAL",  THREAD_PRIORITY_BELOW_NORMAL },
+		{ L"THREAD_PRIORITY_NORMAL",        THREAD_PRIORITY_NORMAL },
+		{ L"THREAD_PRIORITY_ABOVE_NORMAL",  THREAD_PRIORITY_ABOVE_NORMAL },
+		{ L"THREAD_PRIORITY_HIGHEST",       THREAD_PRIORITY_HIGHEST },
 		{ L"THREAD_PRIORITY_TIME_CRITICAL", THREAD_PRIORITY_TIME_CRITICAL },
 	};
 
-	static const std::map<const std::wstring, const int> mapModulationType = {
-		{ L"BDA_MOD_NOT_SET", BDA_MOD_NOT_SET },
-		{ L"BDA_MOD_NOT_DEFINED", BDA_MOD_NOT_DEFINED },
-		{ L"BDA_MOD_16QAM", BDA_MOD_16QAM },
-		{ L"BDA_MOD_32QAM", BDA_MOD_32QAM },
-		{ L"BDA_MOD_64QAM", BDA_MOD_64QAM },
-		{ L"BDA_MOD_80QAM", BDA_MOD_80QAM },
-		{ L"BDA_MOD_96QAM", BDA_MOD_96QAM },
-		{ L"BDA_MOD_112QAM", BDA_MOD_112QAM },
-		{ L"BDA_MOD_128QAM", BDA_MOD_128QAM },
-		{ L"BDA_MOD_160QAM", BDA_MOD_160QAM },
-		{ L"BDA_MOD_192QAM", BDA_MOD_192QAM },
-		{ L"BDA_MOD_224QAM", BDA_MOD_224QAM },
-		{ L"BDA_MOD_256QAM", BDA_MOD_256QAM },
-		{ L"BDA_MOD_320QAM", BDA_MOD_320QAM },
-		{ L"BDA_MOD_384QAM", BDA_MOD_384QAM },
-		{ L"BDA_MOD_448QAM", BDA_MOD_448QAM },
-		{ L"BDA_MOD_512QAM", BDA_MOD_512QAM },
-		{ L"BDA_MOD_640QAM", BDA_MOD_640QAM },
-		{ L"BDA_MOD_768QAM", BDA_MOD_768QAM },
-		{ L"BDA_MOD_896QAM", BDA_MOD_896QAM },
-		{ L"BDA_MOD_1024QAM", BDA_MOD_1024QAM },
-		{ L"BDA_MOD_QPSK", BDA_MOD_QPSK },
-		{ L"BDA_MOD_BPSK", BDA_MOD_BPSK },
-		{ L"BDA_MOD_OQPSK", BDA_MOD_OQPSK },
-		{ L"BDA_MOD_8VSB", BDA_MOD_8VSB },
-		{ L"BDA_MOD_16VSB", BDA_MOD_16VSB },
-		{ L"BDA_MOD_ANALOG_AMPLITUDE", BDA_MOD_ANALOG_AMPLITUDE },
-		{ L"BDA_MOD_ANALOG_FREQUENCY", BDA_MOD_ANALOG_FREQUENCY },
-		{ L"BDA_MOD_8PSK", BDA_MOD_8PSK },
-		{ L"BDA_MOD_RF", BDA_MOD_RF },
-		{ L"BDA_MOD_16APSK", BDA_MOD_16APSK },
-		{ L"BDA_MOD_32APSK", BDA_MOD_32APSK },
-		{ L"BDA_MOD_NBC_QPSK", BDA_MOD_NBC_QPSK },
-		{ L"BDA_MOD_NBC_8PSK", BDA_MOD_NBC_8PSK },
-		{ L"BDA_MOD_DIRECTV", BDA_MOD_DIRECTV },
-		{ L"BDA_MOD_ISDB_T_TMCC", BDA_MOD_ISDB_T_TMCC },
-		{ L"BDA_MOD_ISDB_S_TMCC", BDA_MOD_ISDB_S_TMCC },
+	static const std::map<const std::wstring, const int, std::less<>> mapModulationType = {
+		{ L"BDA_MOD_NOT_SET",          ModulationType::BDA_MOD_NOT_SET },
+		{ L"BDA_MOD_NOT_DEFINED",      ModulationType::BDA_MOD_NOT_DEFINED },
+		{ L"BDA_MOD_16QAM",            ModulationType::BDA_MOD_16QAM },
+		{ L"BDA_MOD_32QAM",            ModulationType::BDA_MOD_32QAM },
+		{ L"BDA_MOD_64QAM",            ModulationType::BDA_MOD_64QAM },
+		{ L"BDA_MOD_80QAM",            ModulationType::BDA_MOD_80QAM },
+		{ L"BDA_MOD_96QAM",            ModulationType::BDA_MOD_96QAM },
+		{ L"BDA_MOD_112QAM",           ModulationType::BDA_MOD_112QAM },
+		{ L"BDA_MOD_128QAM",           ModulationType::BDA_MOD_128QAM },
+		{ L"BDA_MOD_160QAM",           ModulationType::BDA_MOD_160QAM },
+		{ L"BDA_MOD_192QAM",           ModulationType::BDA_MOD_192QAM },
+		{ L"BDA_MOD_224QAM",           ModulationType::BDA_MOD_224QAM },
+		{ L"BDA_MOD_256QAM",           ModulationType::BDA_MOD_256QAM },
+		{ L"BDA_MOD_320QAM",           ModulationType::BDA_MOD_320QAM },
+		{ L"BDA_MOD_384QAM",           ModulationType::BDA_MOD_384QAM },
+		{ L"BDA_MOD_448QAM",           ModulationType::BDA_MOD_448QAM },
+		{ L"BDA_MOD_512QAM",           ModulationType::BDA_MOD_512QAM },
+		{ L"BDA_MOD_640QAM",           ModulationType::BDA_MOD_640QAM },
+		{ L"BDA_MOD_768QAM",           ModulationType::BDA_MOD_768QAM },
+		{ L"BDA_MOD_896QAM",           ModulationType::BDA_MOD_896QAM },
+		{ L"BDA_MOD_1024QAM",          ModulationType::BDA_MOD_1024QAM },
+		{ L"BDA_MOD_QPSK",             ModulationType::BDA_MOD_QPSK },
+		{ L"BDA_MOD_BPSK",             ModulationType::BDA_MOD_BPSK },
+		{ L"BDA_MOD_OQPSK",            ModulationType::BDA_MOD_OQPSK },
+		{ L"BDA_MOD_8VSB",             ModulationType::BDA_MOD_8VSB },
+		{ L"BDA_MOD_16VSB",            ModulationType::BDA_MOD_16VSB },
+		{ L"BDA_MOD_ANALOG_AMPLITUDE", ModulationType::BDA_MOD_ANALOG_AMPLITUDE },
+		{ L"BDA_MOD_ANALOG_FREQUENCY", ModulationType::BDA_MOD_ANALOG_FREQUENCY },
+		{ L"BDA_MOD_8PSK",             ModulationType::BDA_MOD_8PSK },
+		{ L"BDA_MOD_RF",               ModulationType::BDA_MOD_RF },
+		{ L"BDA_MOD_16APSK",           ModulationType::BDA_MOD_16APSK },
+		{ L"BDA_MOD_32APSK",           ModulationType::BDA_MOD_32APSK },
+		{ L"BDA_MOD_NBC_QPSK",         ModulationType::BDA_MOD_NBC_QPSK },
+		{ L"BDA_MOD_NBC_8PSK",         ModulationType::BDA_MOD_NBC_8PSK },
+		{ L"BDA_MOD_DIRECTV",          ModulationType::BDA_MOD_DIRECTV },
+		{ L"BDA_MOD_ISDB_T_TMCC",      ModulationType::BDA_MOD_ISDB_T_TMCC },
+		{ L"BDA_MOD_ISDB_S_TMCC",      ModulationType::BDA_MOD_ISDB_S_TMCC },
 	};
 
-	static const std::map<const std::wstring, const int> mapFECMethod = {
-		{ L"BDA_FEC_METHOD_NOT_SET", BDA_FEC_METHOD_NOT_SET },
-		{ L"BDA_FEC_METHOD_NOT_DEFINED", BDA_FEC_METHOD_NOT_DEFINED },
-		{ L"BDA_FEC_VITERBI", BDA_FEC_VITERBI },
-		{ L"BDA_FEC_RS_204_188", BDA_FEC_RS_204_188 },
-		{ L"BDA_FEC_LDPC", BDA_FEC_LDPC },
-		{ L"BDA_FEC_BCH", BDA_FEC_BCH },
-		{ L"BDA_FEC_RS_147_130", BDA_FEC_RS_147_130 },
+	static const std::map<const std::wstring, const int, std::less<>> mapFECMethod = {
+		{ L"BDA_FEC_METHOD_NOT_SET",     FECMethod::BDA_FEC_METHOD_NOT_SET },
+		{ L"BDA_FEC_METHOD_NOT_DEFINED", FECMethod::BDA_FEC_METHOD_NOT_DEFINED },
+		{ L"BDA_FEC_VITERBI",            FECMethod::BDA_FEC_VITERBI },
+		{ L"BDA_FEC_RS_204_188",         FECMethod::BDA_FEC_RS_204_188 },
+		{ L"BDA_FEC_LDPC",               FECMethod::BDA_FEC_LDPC },
+		{ L"BDA_FEC_BCH",                FECMethod::BDA_FEC_BCH },
+		{ L"BDA_FEC_RS_147_130",         FECMethod::BDA_FEC_RS_147_130 },
 	};
 
-	static const std::map<const std::wstring, const int> mapBinaryConvolutionCodeRate = {
-		{ L"BDA_BCC_RATE_NOT_SET", BDA_BCC_RATE_NOT_SET },
-		{ L"BDA_BCC_RATE_NOT_DEFINED", BDA_BCC_RATE_NOT_DEFINED },
-		{ L"BDA_BCC_RATE_1_2", BDA_BCC_RATE_1_2 },
-		{ L"BDA_BCC_RATE_2_3", BDA_BCC_RATE_2_3 },
-		{ L"BDA_BCC_RATE_3_4", BDA_BCC_RATE_3_4 },
-		{ L"BDA_BCC_RATE_3_5", BDA_BCC_RATE_3_5 },
-		{ L"BDA_BCC_RATE_4_5", BDA_BCC_RATE_4_5 },
-		{ L"BDA_BCC_RATE_5_6", BDA_BCC_RATE_5_6 },
-		{ L"BDA_BCC_RATE_5_11", BDA_BCC_RATE_5_11 },
-		{ L"BDA_BCC_RATE_7_8", BDA_BCC_RATE_7_8 },
-		{ L"BDA_BCC_RATE_1_4", BDA_BCC_RATE_1_4 },
-		{ L"BDA_BCC_RATE_1_3", BDA_BCC_RATE_1_3 },
-		{ L"BDA_BCC_RATE_2_5", BDA_BCC_RATE_2_5 },
-		{ L"BDA_BCC_RATE_6_7", BDA_BCC_RATE_6_7 },
-		{ L"BDA_BCC_RATE_8_9", BDA_BCC_RATE_8_9 },
-		{ L"BDA_BCC_RATE_9_10", BDA_BCC_RATE_9_10 },
+	static const std::map<const std::wstring, const int, std::less<>> mapBinaryConvolutionCodeRate = {
+		{ L"BDA_BCC_RATE_NOT_SET",     BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_SET },
+		{ L"BDA_BCC_RATE_NOT_DEFINED", BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_DEFINED },
+		{ L"BDA_BCC_RATE_1_2",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_2 },
+		{ L"BDA_BCC_RATE_2_3",         BinaryConvolutionCodeRate::BDA_BCC_RATE_2_3 },
+		{ L"BDA_BCC_RATE_3_4",         BinaryConvolutionCodeRate::BDA_BCC_RATE_3_4 },
+		{ L"BDA_BCC_RATE_3_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_3_5 },
+		{ L"BDA_BCC_RATE_4_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_4_5 },
+		{ L"BDA_BCC_RATE_5_6",         BinaryConvolutionCodeRate::BDA_BCC_RATE_5_6 },
+		{ L"BDA_BCC_RATE_5_11",        BinaryConvolutionCodeRate::BDA_BCC_RATE_5_11 },
+		{ L"BDA_BCC_RATE_7_8",         BinaryConvolutionCodeRate::BDA_BCC_RATE_7_8 },
+		{ L"BDA_BCC_RATE_1_4",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_4 },
+		{ L"BDA_BCC_RATE_1_3",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_3 },
+		{ L"BDA_BCC_RATE_2_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_2_5 },
+		{ L"BDA_BCC_RATE_6_7",         BinaryConvolutionCodeRate::BDA_BCC_RATE_6_7 },
+		{ L"BDA_BCC_RATE_8_9",         BinaryConvolutionCodeRate::BDA_BCC_RATE_8_9 },
+		{ L"BDA_BCC_RATE_9_10",        BinaryConvolutionCodeRate::BDA_BCC_RATE_9_10 },
 	};
 
-	static const std::map<const std::wstring, const int> mapTuningSpaceType = {
-		{ L"DVB-S/DVB-S2",   1 },
-		{ L"DVB-S2",         1 },
-		{ L"DVB-S",          1 },
-		{ L"DVB-T",          2 },
-		{ L"DVB-C",          3 },
-		{ L"DVB-T2",         4 },
-		{ L"ISDB-S",        11 },
-		{ L"ISDB-T",        12 },
-		{ L"ATSC",          21 },
-		{ L"ATSC CABLE",    22 },
-		{ L"DIGITAL CABLE", 23 },
+	static const std::map<const std::wstring, const int, std::less<>> mapTuningSpaceType = {
+		{ L"DVB-S/DVB-S2",  enumTunerType::eTunerTypeDVBS },
+		{ L"DVB-S2",        enumTunerType::eTunerTypeDVBS },
+		{ L"DVB-S",         enumTunerType::eTunerTypeDVBS },
+		{ L"DVB-T",         enumTunerType::eTunerTypeDVBT },
+		{ L"DVB-C",         enumTunerType::eTunerTypeDVBC },
+		{ L"DVB-T2",        enumTunerType::eTunerTypeDVBT2 },
+		{ L"ISDB-S",        enumTunerType::eTunerTypeISDBS },
+		{ L"ISDB-T",        enumTunerType::eTunerTypeISDBT },
+		{ L"ISDB-C",        enumTunerType::eTunerTypeISDBC },
+		{ L"ATSC",          enumTunerType::eTunerTypeATSC_Antenna },
+		{ L"ATSC CABLE",    enumTunerType::eTunerTypeATSC_Cable },
+		{ L"DIGITAL CABLE", enumTunerType::eTunerTypeDigitalCable },
 	};
 
-	static const std::map<const std::wstring, const int> mapNetworkProvider = {
-		{ L"AUTO", 0 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[0]), 1 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[1]), 2 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[2]), 3 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[3]), 4 },
-		{ common::WStringToUpperCase(FILTER_GRAPH_NAME_NETWORK_PROVIDER[4]), 5 },
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyTuningSpace = {
+		{ L"AUTO",                     enumTuningSpace::eTuningSpaceAuto },
+		{ L"DVBTUNINGSPACE",           enumTuningSpace::eTuningSpaceDVB },
+		{ L"DVBSTUNINGSPACE",          enumTuningSpace::eTuningSpaceDVBS },
+		{ L"ANALOGTVTUNINGSPACE",      enumTuningSpace::eTuningSpaceAnalogTV },
+		{ L"ATSCTUNINGSPACE",	       enumTuningSpace::eTuningSpaceATSC },
+		{ L"DIGITALCABLETUNINGSPACE",  enumTuningSpace::eTuningSpaceDigitalCable },
 	};
 
-	static const std::map<const std::wstring, const int> mapDefaultNetwork = {
-		{ L"SPHD",     1 },
-		{ L"BS/CS110", 2 },
-		{ L"BS",       2 },
-		{ L"CS110",    2 },
-		{ L"UHF/CATV", 3 },
-		{ L"UHF",      3 },
-		{ L"CATV",     3 },
-		{ L"DUAL",     4 },
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyLocator = {
+		{ L"AUTO", eLocatorAuto },
+		{ L"DVBTLOCATOR",         enumLocator::eLocatorDVBT },
+		{ L"DVBTLOCATOR2",        enumLocator::eLocatorDVBT2 },
+		{ L"DVBSLOCATOR",         enumLocator::eLocatorDVBS },
+		{ L"DVBCLOCATOR",         enumLocator::eLocatorDVBC },
+		{ L"ISDBSLOCATOR",        enumLocator::eLocatorISDBS },
+		{ L"ATSCLOCATOR",         enumLocator::eLocatorATSC },
+		{ L"DIGITALCABLELOCATOR", enumLocator::eLocatorDigitalCable },
 	};
 
-	static const std::map<const std::wstring, const int> mapSignalLevelCalcType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyITuningSpaceNetworkType = {
+		{ L"AUTO",                                       enumNetworkType::eNetworkTypeAuto },
+		{ L"STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE",     enumNetworkType::eNetworkTypeDVBT },
+		{ L"STATIC_DVB_SATELLITE_TV_NETWORK_TYPE",       enumNetworkType::eNetworkTypeDVBS },
+		{ L"STATIC_DVB_CABLE_TV_NETWORK_TYPE",           enumNetworkType::eNetworkTypeDVBC },
+		{ L"STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE",    enumNetworkType::eNetworkTypeISDBT },
+		{ L"STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE",      enumNetworkType::eNetworkTypeISDBS },
+		{ L"STATIC_ISDB_CABLE_TV_NETWORK_TYPE",          enumNetworkType::eNetworkTypeISDBC },
+		{ L"STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE",    enumNetworkType::eNetworkTypeATSC },
+		{ L"STATIC_DIGITAL_CABLE_NETWORK_TYPE",          enumNetworkType::eNetworkTypeDigitalCable },
+		{ L"STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE",   enumNetworkType::eNetworkTypeBSkyB },
+		{ L"STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE", enumNetworkType::eNetworkTypeDIRECTV },
+		{ L"STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE",  enumNetworkType::eNetworkTypeEchoStar },
+	};
+
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyIDVBTuningSpaceSystemType = {
+		{ L"AUTO",             enumDVBSystemType::eDVBSystemTypeAuto },
+		{ L"DVB_CABLE",        enumDVBSystemType::eDVBSystemTypeDVBC },
+		{ L"DVB_TERRESTRIAL",  enumDVBSystemType::eDVBSystemTypeDVBT },
+		{ L"DVB_SATELLITE",    enumDVBSystemType::eDVBSystemTypeDVBS },
+		{ L"ISDB_TERRESTRIAL", enumDVBSystemType::eDVBSystemTypeISDBT },
+		{ L"ISDB_SATELLITE",   enumDVBSystemType::eDVBSystemTypeISDBS },
+	};
+
+
+	static const std::map<const std::wstring, const int, std::less<>> mapSpecifyIAnalogTVTuningSpaceInputType = {
+		{ L"AUTO",              enumTunerInputType::eTunerInputTypeAuto },
+		{ L"TUNERINPUTCABLE",   enumTunerInputType::eTunerInputTypeCable },
+		{ L"TUNERINPUTANTENNA", enumTunerInputType::eTunerInputTypeAntenna },
+	};
+
+	static const std::map<const std::wstring, const int, std::less<>> mapNetworkProvider = {
+		{ L"AUTO",                             enumNetworkProvider::eNetworkProviderAuto },
+		{ L"MICROSOFT NETWORK PROVIDER",       enumNetworkProvider::eNetworkProviderGeneric },
+		{ L"MICROSOFT DVB-S NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBS },
+		{ L"MICROSOFT DVB-T NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBT },
+		{ L"MICROSOFT DVB-C NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBC },
+		{ L"MICROSOFT ATSC NETWORK PROVIDER",  enumNetworkProvider::eNetworkProviderATSC },
+	};
+
+	static const std::map<const std::wstring, const int, std::less<>> mapDefaultNetwork = {
+		{ L"NONE",     enumDefaultNetwork::eDefaultNetworkNone },
+		{ L"SPHD",     enumDefaultNetwork::eDefaultNetworkSPHD },
+		{ L"BS/CS110", enumDefaultNetwork::eDefaultNetworkBSCS },
+		{ L"BS",       enumDefaultNetwork::eDefaultNetworkBSCS },
+		{ L"CS110",    enumDefaultNetwork::eDefaultNetworkBSCS },
+		{ L"UHF/CATV", enumDefaultNetwork::eDefaultNetworkUHF },
+		{ L"UHF",      enumDefaultNetwork::eDefaultNetworkUHF },
+		{ L"CATV",     enumDefaultNetwork::eDefaultNetworkUHF },
+		{ L"DUAL",     enumDefaultNetwork::eDefaultNetworkDual },
+	};
+
+	static const std::map<const std::wstring, const int, std::less<>> mapSignalLevelCalcType = {
 		{ L"SSSTRENGTH",     0 },
 		{ L"SSQUALITY",      1 },
 		{ L"SSMUL",          2 },
@@ -1273,19 +1303,26 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BITRATE",      100 },
 	};
 
-	static const std::map<const std::wstring, const int> mapSignalLockedJudgeType = {
+	static const std::map<const std::wstring, const int, std::less<>> mapSignalLockedJudgeType = {
 		{ L"ALWAYS",        0 },
 		{ L"SSLOCKED",      1 },
 		{ L"TUNERSTRENGTH", 2 },
 	};
 
-	static const std::map<const std::wstring, const int> mapDiSEqC = {
-		{ L"PORT-A", 1 },
-		{ L"PORT-B", 2 },
-		{ L"PORT-C", 3 },
-		{ L"PORT-D", 4 },
+	static const std::map<const std::wstring, const int, std::less<>> mapDiSEqC = {
+		{ L"",       LNB_Source::BDA_LNB_SOURCE_NOT_SET },
+		{ L"PORT-A", LNB_Source::BDA_LNB_SOURCE_A },
+		{ L"PORT-B", LNB_Source::BDA_LNB_SOURCE_B },
+		{ L"PORT-C", LNB_Source::BDA_LNB_SOURCE_C },
+		{ L"PORT-D", LNB_Source::BDA_LNB_SOURCE_D },
 	};
-	
+
+	static const std::map<const std::wstring, const int, std::less<>> mapTSMFMode = {
+		{ L"OFF",      0 },
+		{ L"TSID",     1 },
+		{ L"RELATIVE", 2 },
+	};
+
 	// INIファイルのファイル名取得
 	std::wstring tempPath = common::GetModuleName(st_hModule);
 	m_sIniFilePath = tempPath + L"ini";
@@ -1294,7 +1331,7 @@ void CBonTuner::ReadIniFile(void)
 	int val;
 
 	// DebugLogを記録するかどうか
-	if (IniFileAccess.ReadKeyB(L"BONDRIVER", L"DebugLog", 0)) {
+	if (IniFileAccess.ReadKeyB(L"BONDRIVER", L"DebugLog", FALSE)) {
 		SetDebugLog(tempPath + L"log");
 	}
 
@@ -1327,18 +1364,18 @@ void CBonTuner::ReadIniFile(void)
 				captureGuid = IniFileAccess.ReadKeySSectionData(L"CaptureGUID", L"");
 				captureFriendlyName = IniFileAccess.ReadKeySSectionData(L"CaptureFriendlyName", L"");
 				// どれも指定されていない場合でも登録
-			} else
+			}
+			else
 				break;
 		}
-		TunerSearchData *sdata = new TunerSearchData(tunerGuid, tunerFriendlyName, captureGuid, captureFriendlyName);
-		m_aTunerParam.Tuner.insert(std::pair<unsigned int, TunerSearchData*>(i, sdata));
+		m_aTunerParam.Tuner.emplace(i, TunerSearchData(tunerGuid, tunerFriendlyName, captureGuid, captureFriendlyName));
 	}
 
 	// TunerデバイスのみでCaptureデバイスが存在しない
-	m_aTunerParam.bNotExistCaptureDevice = IniFileAccess.ReadKeyBSectionData(L"NotExistCaptureDevice", 0);
+	m_aTunerParam.bNotExistCaptureDevice = IniFileAccess.ReadKeyBSectionData(L"NotExistCaptureDevice", FALSE);
 
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-	m_aTunerParam.bCheckDeviceInstancePath = IniFileAccess.ReadKeyBSectionData(L"CheckDeviceInstancePath", 1);
+	m_aTunerParam.bCheckDeviceInstancePath = IniFileAccess.ReadKeyBSectionData(L"CheckDeviceInstancePath", TRUE);
 
 	// Tuner名: GetTunerNameで返すチューナ名 ... 指定されなければデフォルト名が
 	//   使われる。この場合、複数チューナを名前で区別する事はできない
@@ -1363,7 +1400,7 @@ void CBonTuner::ReadIniFile(void)
 	m_nLockWaitRetry = IniFileAccess.ReadKeyISectionData(L"ChannelLockWaitRetry", 0);
 
 	// CH切替動作を強制的に2度行うかどうか
-	m_bLockTwice = IniFileAccess.ReadKeyBSectionData(L"ChannelLockTwice", 0);
+	m_bLockTwice = IniFileAccess.ReadKeyBSectionData(L"ChannelLockTwice", FALSE);
 
 	// CH切替動作を強制的に2度行う場合のDelay時間
 	m_nLockTwiceDelay = IniFileAccess.ReadKeyISectionData(L"ChannelLockTwiceDelay", 100);
@@ -1378,40 +1415,31 @@ void CBonTuner::ReadIniFile(void)
 	m_nReOpenWhenGiveUpReLock = IniFileAccess.ReadKeyISectionData(L"ReOpenWhenGiveUpReLock", 0);
 
 	// チューナの再オープンを試みる場合に別のチューナを優先して検索するかどうか
-	m_bTryAnotherTuner = IniFileAccess.ReadKeyBSectionData(L"TryAnotherTuner", 0);
+	m_bTryAnotherTuner = IniFileAccess.ReadKeyBSectionData(L"TryAnotherTuner", FALSE);
 
 	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
-	m_bBackgroundChannelLock = IniFileAccess.ReadKeyBSectionData(L"BackgroundChannelLock", 0);
+	m_bBackgroundChannelLock = IniFileAccess.ReadKeyBSectionData(L"BackgroundChannelLock", FALSE);
 
 	// Tuning Space名（互換用）
 	std::wstring sTempTuningSpaceName = IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", L"スカパー");
 
 	// SignalLevel 算出方法
-	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//   3 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	//  13 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	// 100 .. ビットレート値(Mibps)
-	m_nSignalLevelCalcType = IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", 0, mapSignalLevelCalcType);
-	if (m_nSignalLevelCalcType >= 0 && m_nSignalLevelCalcType <= 9)
+	m_nSignalLevelCalcType = (enumSignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength, mapSignalLevelCalcType);
+	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeSSMax)
 		m_bSignalLevelGetTypeSS = TRUE;
-	if (m_nSignalLevelCalcType >= 10 && m_nSignalLevelCalcType <= 19)
+	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeTunerMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeTunerMax)
 		m_bSignalLevelGetTypeTuner = TRUE;
-	if (m_nSignalLevelCalcType == 100)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR)
 		m_bSignalLevelGetTypeBR = TRUE;
-	if (m_nSignalLevelCalcType == 0 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 3 ||
-			m_nSignalLevelCalcType == 10 || m_nSignalLevelCalcType == 12 || m_nSignalLevelCalcType == 13)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
 		m_bSignalLevelNeedStrength = TRUE;
-	if (m_nSignalLevelCalcType == 1 || m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 3 ||
-			m_nSignalLevelCalcType == 11 || m_nSignalLevelCalcType == 12 || m_nSignalLevelCalcType == 13)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
 		m_bSignalLevelNeedQuality = TRUE;
-	if (m_nSignalLevelCalcType == 2 || m_nSignalLevelCalcType == 12)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul)
 		m_bSignalLevelCalcTypeMul = TRUE;
-	if (m_nSignalLevelCalcType == 3 || m_nSignalLevelCalcType == 13)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
 		m_bSignalLevelCalcTypeAdd = TRUE;
 
 	// Strength 値補正係数
@@ -1431,42 +1459,66 @@ void CBonTuner::ReadIniFile(void)
 	m_fQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", 0.0);
 
 	// チューニング状態の判断方法
-	// 0 .. 常にチューニングに成功している状態として判断する
-	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
-	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
-	m_nSignalLockedJudgeType = IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", 1, mapSignalLockedJudgeType);
-	if (m_nSignalLockedJudgeType == 1)
+	m_nSignalLockedJudgeType = (enumSignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS, mapSignalLockedJudgeType);
+	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeSS)
 		m_bSignalLockedJudgeTypeSS = TRUE;
-	if (m_nSignalLockedJudgeType == 2)
+	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeTuner)
 		m_bSignalLockedJudgeTypeTuner = TRUE;
 
-	// チューナーの使用するTuningSpaceの種類
-	//    1 .. DVB-S/DVB-S2
-	//    2 .. DVB-T
-	//    3 .. DVB-C
-	//    4 .. DVB-T2
-	//   11 .. ISDB-S
-	//   12 .. ISDB-T
-	//   21 .. ATSC
-	//   22 .. ATSC Cable
-	//   23 .. Digital Cable
-	m_nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(L"DVBSystemType", 1, mapTuningSpaceType);
+	for (unsigned int i = 0; i < MAX_DVB_SYSTEM_TYPE; i++) {
+		std::wstring key, prefix[2];
+		DVBSystemTypeData typeData;
+		if (i == 0) {
+			// チューナーの使用するTuningSpaceの種類
+			typeData.nDVBSystemType = enumTunerType::eTunerTypeDVBS;
+		}
+
+		unsigned int st = i == 0 ? 0 : 1;
+		prefix[0] = L"DVBSystemType";
+		prefix[1] = L"DVBSystemType" + std::to_wstring(i);
+		for (unsigned int j = st; j < 2; j++) {
+			// チューナーの使用するTuningSpaceの種類
+			key = prefix[j];
+			typeData.nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nDVBSystemType, mapTuningSpaceType);
+
+			// 使用するITuningSpace interface
+			key = prefix[j] + L"TuningSpace";
+			typeData.nTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nTuningSpace, mapSpecifyTuningSpace);
+
+			// 使用するILocator interface
+			key = prefix[j] + L"Locator";
+			typeData.nLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nLocator, mapSpecifyLocator);
+
+			// ITuningSpaceに設定するNetworkType
+			key = prefix[j] + L"ITuningSpaceNetworkType";
+			typeData.nITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nITuningSpaceNetworkType, mapSpecifyITuningSpaceNetworkType);
+
+			// IDVBTuningSpaceに設定するSystemType
+			key = prefix[j] + L"IDVBTuningSpaceSystemType";
+			typeData.nIDVBTuningSpaceSystemType = (enumDVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIDVBTuningSpaceSystemType, mapSpecifyIDVBTuningSpaceSystemType);
+
+			// IAnalogTVTuningSpaceに設定するInputType
+			key = prefix[j] + L"IAnalogTVTuningSpaceInputType";
+			typeData.nIAnalogTVTuningSpaceInputType = (enumTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIAnalogTVTuningSpaceInputType, mapSpecifyIAnalogTVTuningSpaceInputType);
+		}
+
+		if (typeData.nDVBSystemType == enumTunerType::eTunerTypeNone && (typeData.nTuningSpace == enumTuningSpace::eTuningSpaceAuto || typeData.nLocator == enumLocator::eLocatorAuto)) {
+			continue;
+		}
+
+		// DBに登録
+		auto it = m_DVBSystemTypeDB.SystemType.find(i);
+		if (it == m_DVBSystemTypeDB.SystemType.end()) {
+			it = m_DVBSystemTypeDB.SystemType.emplace(i, typeData).first;
+			m_DVBSystemTypeDB.nNumType++;
+		}
+	}
 
 	// チューナーに使用するNetworkProvider
-	//    0 .. 自動
-	//    1 .. Microsoft Network Provider
-	//    2 .. Microsoft DVB-S Network Provider
-	//    3 .. Microsoft DVB-T Network Provider
-	//    4 .. Microsoft DVB-C Network Provider
-	//    5 .. Microsoft ATSC Network Provider
-	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", 0, mapNetworkProvider);
+	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", enumNetworkProvider::eNetworkProviderAuto, mapNetworkProvider);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
-	//    1 .. SPHD
-	//    2 .. BS/CS110
-	//    3 .. UHF/CATV
-	//    4 .. Dual Mode
-	m_nDefaultNetwork = IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", 1, mapDefaultNetwork);
+	m_nDefaultNetwork = (enumDefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", enumDefaultNetwork::eDefaultNetworkSPHD, mapDefaultNetwork);
 
 	//
 	// BonDriver セクション
@@ -1476,10 +1528,10 @@ void CBonTuner::ReadIniFile(void)
 
 	// ストリームデータバッファ1個分のサイズ
 	// 188×設定数(bytes)
-	m_dwBuffSize = 188 * IniFileAccess.ReadKeyISectionData(L"BuffSize", 1024);
+	m_nBuffSize = (size_t)(188 * IniFileAccess.ReadKeyISectionData(L"BuffSize", 1024));
 
 	// ストリームデータバッファの最大個数
-	m_dwMaxBuffCount = IniFileAccess.ReadKeyISectionData(L"MaxBuffCount", 512);
+	m_nMaxBuffCount = (size_t)IniFileAccess.ReadKeyISectionData(L"MaxBuffCount", 512);
 
 	// WaitTsStream時、指定された個数分のストリームデータバッファが貯まるまで待機する
 	// チューナのCPU負荷が高いときは数値を大き目にすると効果がある場合もある
@@ -1492,7 +1544,7 @@ void CBonTuner::ReadIniFile(void)
 	m_nWaitTsSleep = IniFileAccess.ReadKeyISectionData(L"WaitTsSleep", 100);
 
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
-	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", 0);
+	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", FALSE);
 
 	// COMProcThreadのスレッドプライオリティ
 	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
@@ -1503,6 +1555,9 @@ void CBonTuner::ReadIniFile(void)
 	// ストリームスレッドプライオリティ
 	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
 
+	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
+	m_nPeriodicTimer = IniFileAccess.ReadKeyISectionData(L"PeriodicTimer", 0);
+
 	//
 	// Satellite セクション
 	//
@@ -1510,56 +1565,71 @@ void CBonTuner::ReadIniFile(void)
 	IniFileAccess.CreateSectionData();
 
 	// 衛星別受信パラメータ
+	std::wstring sateliteSettingsAuto[MAX_SATELLITE];
 
-	// 未設定時用（iniファイルからの読込は行わない）
+	// Satellite0～は衛星設定無し用（iniファイルからの読込は行わない）
 	m_sSatelliteName[0] = L"not set";						// チャンネル名生成用衛星名称
 	// 名称以外はコンストラクタのデフォルト値使用
 
-	// デフォルト値設定
+	// DefaultNetworkによるデフォルト値設定
 	switch (m_nDefaultNetwork) {
-	case 1:
+	case eDefaultNetworkSPHD:
 		// SPHD
-		// 衛星設定1（JCSAT-3A）
-		m_sSatelliteName[1] = L"128.0E";						// チャンネル名生成用衛星名称
-		m_aSatellite[1].Polarisation[1].HighOscillator = m_aSatellite[1].Polarisation[1].LowOscillator = 11200000;
-																// 垂直偏波時LNB周波数
-		m_aSatellite[1].Polarisation[1].Tone = 0;				// 垂直偏波時トーン信号
-		m_aSatellite[1].Polarisation[2].HighOscillator = m_aSatellite[1].Polarisation[2].LowOscillator = 11200000;
-																// 水平偏波時LNB周波数
-		m_aSatellite[1].Polarisation[2].Tone = 0;				// 水平偏波時トーン信号
-
-		// 衛星設定2（JCSAT-4B）
-		m_sSatelliteName[2] = L"124.0E";						// チャンネル名生成用衛星名称
-		m_aSatellite[2].Polarisation[1].HighOscillator = m_aSatellite[2].Polarisation[1].LowOscillator = 11200000;	
-																// 垂直偏波時LNB周波数
-		m_aSatellite[2].Polarisation[1].Tone = 1;				// 垂直偏波時トーン信号
-		m_aSatellite[2].Polarisation[2].HighOscillator = m_aSatellite[2].Polarisation[2].LowOscillator = 11200000;
-																// 水平偏波時LNB周波数
-		m_aSatellite[2].Polarisation[2].Tone = 1;				// 水平偏波時トーン信号
+		sateliteSettingsAuto[1] = L"JCSAT-3";
+		sateliteSettingsAuto[2] = L"JCSAT-4";
 		break;
 
-	case 2:
-	case 4:
-		// BS/CS110
-		// 衛星設定1
-		m_sSatelliteName[1] = L"BS/CS110";						// チャンネル名生成用衛星名称
-		m_aSatellite[1].Polarisation[3].HighOscillator = m_aSatellite[1].Polarisation[3].LowOscillator = 10678000;
-																// 垂直偏波時LNB周波数
-		m_aSatellite[1].Polarisation[3].Tone = 0;				// 垂直偏波時トーン信号
-		m_aSatellite[1].Polarisation[4].HighOscillator = m_aSatellite[1].Polarisation[4].LowOscillator = 10678000;
-																// 水平偏波時LNB周波数
-		m_aSatellite[1].Polarisation[4].Tone = 0;				// 水平偏波時トーン信号
-		break;
-
-	case 3:
-		// UHF/CATVは衛星設定不要
+	case eDefaultNetworkBSCS:
+	case eDefaultNetworkDual:
+		sateliteSettingsAuto[1] = L"BS/CS110";
 		break;
 	}
+
+	// BS/CS110のCH設定自動生成時に使用する衛星設定番号
+	unsigned int satelliteNumberBSCS110R = 1;
+
+	// SPHDのCH設定自動生成時に使用する衛星設定番号
+	unsigned int satelliteNumberJCSAT3 = 1;
+	unsigned int satelliteNumberJCSAT4 = 2;
 
 	// 衛星設定1～9の設定を読込
 	for (unsigned int satellite = 1; satellite < MAX_SATELLITE; satellite++) {
 		std::wstring key, prefix1, prefix2;
 		prefix1 = L"Satellite" + std::to_wstring(satellite);
+
+		// 衛星設定自動生成
+		key = prefix1 + L"SettingsAuto";
+		sateliteSettingsAuto[satellite] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key, sateliteSettingsAuto[satellite]));
+
+		if (sateliteSettingsAuto[satellite] == L"JCSAT-3") {
+			// JCSAT-3A
+			satelliteNumberJCSAT3 = satellite;
+			m_sSatelliteName[satellite] = L"128.0E";																					// チャンネル名生成用衛星名称
+			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;	// 垂直偏波時LNB周波数
+			m_aSatellite[satellite].Polarisation[1].Tone = 0;																			// 垂直偏波時トーン信号
+			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;	// 水平偏波時LNB周波数
+			m_aSatellite[satellite].Polarisation[2].Tone = 0;																			// 水平偏波時トーン信号
+		}
+		else if (sateliteSettingsAuto[satellite] == L"JCSAT-4") {
+			// JCSAT-4B
+			satelliteNumberJCSAT4 = satellite;
+			m_sSatelliteName[satellite] = L"124.0E";																					// チャンネル名生成用衛星名称
+			m_aSatellite[satellite].Polarisation[1].HighOscillator = m_aSatellite[satellite].Polarisation[1].LowOscillator = 11200000;	// 垂直偏波時LNB周波数
+			m_aSatellite[satellite].Polarisation[1].Tone = 1;																			// 垂直偏波時トーン信号
+			m_aSatellite[satellite].Polarisation[2].HighOscillator = m_aSatellite[satellite].Polarisation[2].LowOscillator = 11200000;	// 水平偏波時LNB周波数
+			m_aSatellite[satellite].Polarisation[2].Tone = 1;																			// 水平偏波時トーン信号
+		}
+		else if (sateliteSettingsAuto[satellite] == L"BS/CS110") {
+			// BS/CS110 右旋円偏波と左旋円偏波
+			satelliteNumberBSCS110R = satellite;
+			m_sSatelliteName[satellite] = L"BS/CS110";																					// チャンネル名生成用衛星名称
+			m_aSatellite[satellite].Polarisation[3].HighOscillator = m_aSatellite[satellite].Polarisation[3].LowOscillator = 9505000;	// 左旋円偏波時LNB周波数
+			m_aSatellite[satellite].Polarisation[3].Tone = 0;																			// 左旋円偏波偏波時トーン信号
+			m_aSatellite[satellite].Polarisation[4].HighOscillator = m_aSatellite[satellite].Polarisation[4].LowOscillator = 10678000;	// 右旋円偏波時LNB周波数
+			m_aSatellite[satellite].Polarisation[4].Tone = 0;																			// 右旋円偏波偏波時トーン信号
+		}
+
+		// サービス表示用衛星名称
 		key = prefix1 + L"Name";
 		m_sSatelliteName[satellite] = IniFileAccess.ReadKeySSectionData(key, m_sSatelliteName[satellite]);
 
@@ -1626,65 +1696,146 @@ void CBonTuner::ReadIniFile(void)
 	IniFileAccess.ReadSection(L"MODULATION");
 	IniFileAccess.CreateSectionData();
 
-	// 変調方式別パラメータ（0～3の順なので注意）
+	// 変調方式別パラメータ（0～9の順なので注意）
+	std::wstring modulationSettingsAuto[MAX_MODULATION];
 
-	// デフォルト値設定
-	int modNum = 0;
+	// DefaultNetworkによるデフォルト値設定
 	switch (m_nDefaultNetwork) {
-	case 1:
+	case eDefaultNetworkSPHD:
 		//SPHD
-		// 変調方式設定0（DVB-S）
-		m_sModulationName[0] = L"DVB-S";							// チャンネル名生成用変調方式名称
-		m_aModulationType[0].Modulation = BDA_MOD_QPSK;				// 変調タイプ
-		m_aModulationType[0].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
-		m_aModulationType[0].InnerFECRate = BDA_BCC_RATE_3_4;		// 内部FECレート
-		m_aModulationType[0].OuterFEC = BDA_FEC_RS_204_188;			// 外部前方誤り訂正タイプ
-		m_aModulationType[0].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
-		m_aModulationType[0].SymbolRate = 21096;					// シンボルレート
-
-		// 変調方式設定1（DVB-S2）
-		m_sModulationName[1] = L"DVB-S2";							// チャンネル名生成用変調方式名称
-		m_aModulationType[1].Modulation = BDA_MOD_NBC_8PSK;			// 変調タイプ
-		m_aModulationType[1].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
-		m_aModulationType[1].InnerFECRate = BDA_BCC_RATE_3_5;		// 内部FECレート
-		m_aModulationType[1].OuterFEC = BDA_FEC_RS_204_188;			// 外部前方誤り訂正タイプ
-		m_aModulationType[1].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
-		m_aModulationType[1].SymbolRate = 23303;					// シンボルレート
+		modulationSettingsAuto[0] = L"DVB-S";
+		modulationSettingsAuto[1] = L"DVB-S2";
 		break;
 
-	case 4:
-		modNum = 1;
-	case 2:
+	case eDefaultNetworkBSCS:
 		// BS/CS110
-		// 変調方式設定0
-		m_sModulationName[modNum] = L"ISDB-S";							// チャンネル名生成用変調方式名称
-		m_aModulationType[modNum].Modulation = BDA_MOD_ISDB_S_TMCC;		// 変調タイプ
-		m_aModulationType[modNum].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
-		m_aModulationType[modNum].InnerFECRate = BDA_BCC_RATE_2_3;		// 内部FECレート
-		m_aModulationType[modNum].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
-		m_aModulationType[modNum].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
-		m_aModulationType[modNum].SymbolRate = 28860;					// シンボルレート
-		if (m_nDefaultNetwork == 2)
-			break;
+		modulationSettingsAuto[0] = L"ISDB-S";
+		break;
 
-	case 3: // case 4も
+	case eDefaultNetworkUHF:
 		// UHF/CATV
-		// 変調方式設定0
-		m_sModulationName[0] = L"ISDB-T";							// チャンネル名生成用変調方式名称
-		m_aModulationType[0].Modulation = BDA_MOD_ISDB_T_TMCC;		// 変調タイプ
-		m_aModulationType[0].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
-		m_aModulationType[0].InnerFECRate = BDA_BCC_RATE_3_4;		// 内部FECレート
-		m_aModulationType[0].OuterFEC = BDA_FEC_RS_204_188;			// 外部前方誤り訂正タイプ
-		m_aModulationType[0].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
-		m_aModulationType[0].SymbolRate = -1;						// シンボルレート
-		m_aModulationType[0].BandWidth = 6;							// 帯域幅(MHz)
+		modulationSettingsAuto[0] = L"ISDB-T";
+		break;
+
+	case eDefaultNetworkDual:
+		modulationSettingsAuto[0] = L"ISDB-T";
+		modulationSettingsAuto[1] = L"ISDB-S";
 		break;
 	}
+
+	// UHF / CATVのCH設定自動生成時に使用する変調方式番号
+	unsigned int modulationNumberISDBT = 0;
+
+	// BS/CS110のCH設定自動生成時に使用する変調方式番号
+	unsigned int modulationNumberISDBS = 0;
+
+	// SPHDのCH設定自動生成時に使用する変調方式番号
+	unsigned int modulationNumberDVBS = 0;
+	unsigned int modulationNumberDVBS2 = 1;
+
+	// ISDB-CトランスモジュレーションのCH設定自動生成時に使用する変調方式番号
+	unsigned int modulationNumberJ83C64QAM = 0;
+	unsigned int modulationNumberJ83C256QAM = 1;
+
+	// スカパー!プレミアムサービス光のCH設定自動生成時に使用する変調方式番号
+	unsigned int modulationNumberOpticast = 0;
 
 	// 変調方式設定0～9の値を読込
 	for (unsigned int modulation = 0; modulation < MAX_MODULATION; modulation++) {
 		std::wstring key, prefix;
 		prefix = L"ModulationType" + std::to_wstring(modulation);
+
+		// 変調方式設定自動生成
+		key = prefix + L"SettingsAuto";
+		modulationSettingsAuto[modulation] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key, modulationSettingsAuto[modulation]));
+
+		if (modulationSettingsAuto[modulation] == L"DVB-S") {
+			// SPHD DVB-S
+			modulationNumberDVBS = modulation;
+			m_sModulationName[modulation] = L"DVB-S";							// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_QPSK;			// 変調タイプ
+			m_aModulationType[modulation].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
+			m_aModulationType[modulation].InnerFECRate = BDA_BCC_RATE_3_4;		// 内部FECレート
+			m_aModulationType[modulation].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+			m_aModulationType[modulation].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
+			m_aModulationType[modulation].SymbolRate = 21096;					// シンボルレート
+		}
+		else if (modulationSettingsAuto[modulation] == L"DVB-S2") {
+			// SPHD DVB-S2
+			modulationNumberDVBS2 = modulation;
+			m_sModulationName[modulation] = L"DVB-S2";							// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_NBC_8PSK;		// 変調タイプ
+			m_aModulationType[modulation].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
+			m_aModulationType[modulation].InnerFECRate = BDA_BCC_RATE_3_5;		// 内部FECレート
+			m_aModulationType[modulation].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+			m_aModulationType[modulation].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
+			m_aModulationType[modulation].SymbolRate = 23303;					// シンボルレート
+		}
+		else if (modulationSettingsAuto[modulation] == L"ISDB-S") {
+			// BS/CS110
+			modulationNumberISDBS = modulation;
+			m_sModulationName[modulation] = L"ISDB-S";							// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_ISDB_S_TMCC;		// 変調タイプ
+			m_aModulationType[modulation].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
+			m_aModulationType[modulation].InnerFECRate = BDA_BCC_RATE_2_3;		// 内部FECレート
+			m_aModulationType[modulation].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+			m_aModulationType[modulation].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
+			m_aModulationType[modulation].SymbolRate = 28860;					// シンボルレート
+		}
+		else if (modulationSettingsAuto[modulation] == L"ISDB-T") {
+			// UHF/CATV
+			modulationNumberISDBT = modulation;
+			m_sModulationName[modulation] = L"ISDB-T";							// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_ISDB_T_TMCC;		// 変調タイプ
+			m_aModulationType[modulation].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
+			m_aModulationType[modulation].InnerFECRate = BDA_BCC_RATE_3_4;		// 内部FECレート
+			m_aModulationType[modulation].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+			m_aModulationType[modulation].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
+			m_aModulationType[modulation].SymbolRate = -1;						// シンボルレート
+			m_aModulationType[modulation].BandWidth = 6;						// 帯域幅(MHz)
+		}
+		else if (modulationSettingsAuto[modulation] == L"J.83C-64QAM") {
+			// ISDB-Cトランスモジュレーション 64QAM
+			modulationNumberJ83C64QAM = modulation;
+			m_sModulationName[modulation] = L"J.83C-64QAM";						// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_64QAM;			// 変調タイプ
+			m_aModulationType[modulation].InnerFEC = BDA_FEC_METHOD_NOT_SET;	// 内部前方誤り訂正タイプ
+			m_aModulationType[modulation].InnerFECRate = BDA_BCC_RATE_NOT_SET;	// 内部FECレート
+			m_aModulationType[modulation].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+			m_aModulationType[modulation].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
+			m_aModulationType[modulation].SymbolRate = 5274;					// シンボルレート
+		}
+		else if (modulationSettingsAuto[modulation] == L"J.83C-256QAM") {
+			// ISDB-Cトランスモジュレーション 256QAM
+			modulationNumberJ83C256QAM = modulation;
+			m_sModulationName[modulation] = L"J.83C-256QAM";					// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_256QAM;			// 変調タイプ
+			m_aModulationType[modulation].InnerFEC = BDA_FEC_METHOD_NOT_SET;	// 内部前方誤り訂正タイプ
+			m_aModulationType[modulation].InnerFECRate = BDA_BCC_RATE_NOT_SET;	// 内部FECレート
+			m_aModulationType[modulation].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+			m_aModulationType[modulation].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
+			m_aModulationType[modulation].SymbolRate = 5274;					// シンボルレート
+		}
+		else if (modulationSettingsAuto[modulation] == L"J.83B-OPTICAST") {
+			// スカパー!プレミアムサービス光 256QAM
+			modulationNumberOpticast = modulation;
+			m_sModulationName[modulation] = L"J.83B-Opticast";					// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_256QAM;			// 変調タイプ
+			m_aModulationType[modulation].SymbolRate = 5600;					// シンボルレート
+		}
+		else if (modulationSettingsAuto[modulation] == L"J.83B-64QAM") {
+			// J.83 Annex-B 64QAM
+			m_sModulationName[modulation] = L"J.83B-64QAM";						// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_64QAM;			// 変調タイプ
+			m_aModulationType[modulation].SymbolRate = 5057;					// シンボルレート
+		}
+		else if (modulationSettingsAuto[modulation] == L"J.83B-256QAM") {
+			// J.83 Annex-B 256QAM
+			m_sModulationName[modulation] = L"J.83B-256QAM";					// チャンネル名生成用変調方式名称
+			m_aModulationType[modulation].Modulation = BDA_MOD_256QAM;			// 変調タイプ
+			m_aModulationType[modulation].SymbolRate = 5361;					// シンボルレート
+		}
+
 		// チャンネル名生成用変調方式名称
 		key = prefix + L"Name";
 		m_sModulationName[modulation] = IniFileAccess.ReadKeySSectionData(key, m_sModulationName[modulation]);
@@ -1729,14 +1880,10 @@ void CBonTuner::ReadIniFile(void)
 	// Channel セクション
 	//
 
-	// iniファイルからCH設定を読込む際に
-	// 使用されていないCH番号があっても前詰せず確保しておくかどうか
-	// 0 .. 使用されてない番号があった場合前詰し連続させる
-	// 1 .. 使用されていない番号をそのまま空CHとして確保しておく
-	m_bReserveUnusedCh = IniFileAccess.ReadKeyB(L"CHANNEL", L"ReserveUnusedCh", 0);
+	// iniファイルからCH設定を読込む際に使用されていないCH番号があっても前詰せず確保しておくかどうか
+	// [Channel]セクションでの定義 ... 全てのチューニング空間に影響
+	BOOL bReserveUnusedChGlobal = IniFileAccess.ReadKeyB(L"CHANNEL", L"ReserveUnusedCh", FALSE);
 
-	std::map<unsigned int, TuningSpaceData*>::iterator itSpace;
-	std::map<unsigned int, ChData*>::iterator itCh;
 	// チューニング空間00～99の設定を読込
 	for (DWORD space = 0; space < 100; space++)	{
 		std::wstring section = common::WStringPrintf(L"TUNINGSPACE%02d", space);
@@ -1749,12 +1896,15 @@ void CBonTuner::ReadIniFile(void)
 		}
 		IniFileAccess.CreateSectionData();
 
+		// iniファイルからCH設定を読込む際に使用されていないCH番号があっても前詰せず確保しておくかどうか
+		// [TuningSpaceXX]セクションでの定義 ... 現在のチューニング空間に影響
+		BOOL bReserveUnusedCh = IniFileAccess.ReadKeyBSectionData(L"ReserveUnusedCh", bReserveUnusedChGlobal);
+
 		// 既にチューニング空間データが存在する場合はその内容を書き換える
 		// 無い場合は空のチューニング空間を作成
-		itSpace = m_TuningData.Spaces.find(space);
+		auto itSpace = m_TuningData.Spaces.find(space);
 		if (itSpace == m_TuningData.Spaces.end()) {
-			TuningSpaceData *tuningSpaceData = new TuningSpaceData();
-			itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), std::pair<unsigned int, TuningSpaceData*>(space, tuningSpaceData));
+			itSpace = m_TuningData.Spaces.emplace(space, TuningSpaceData()).first;
 		}
 
 		// Tuning Space名
@@ -1764,61 +1914,695 @@ void CBonTuner::ReadIniFile(void)
 		else
 			temp = L"NoName";
 		
-		itSpace->second->sTuningSpaceName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", temp));
+		itSpace->second.sTuningSpaceName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", temp));
 
-		// UHF/CATVのCH設定を自動生成する
-		temp = IniFileAccess.ReadKeySSectionData(L"ChannelSettingsAuto", L"");
-		if (temp == L"UHF") {
-			for (unsigned int ch = 0; ch < 40; ch++) {
-				itCh = itSpace->second->Channels.find(ch);
-				if (itCh == itSpace->second->Channels.end()) {
-					ChData *chData = new ChData();
-					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(ch, chData));
+		// iniファイルの1つのチューニング空間で定義できる最大ChannelGenerateの数
+		static constexpr unsigned int MAX_CH_GENERATE = 100;
+
+		// チャンネル自動生成タイプ
+		enum enumChGenerate {
+			eChGenerateNone = 0,
+			eChGenerateVHF_L = 1,				// VHF 1ch～3ch
+			eChGenerateVHF_H = 2,				// VHF 4ch～12ch
+			eChGenerateUHF = 3,					// UHF 13ch～62ch
+			eChGenerateCATV_L = 4,				// CATV C13ch～C22ch
+			eChGenerateCATV_H = 5,				// CATV C23ch～C63ch
+			eChGenerateVHF_4Plus = 8,			// VHF 4ch+
+			eChGenerateCATV_22Plus = 9,			// CATV C22ch+
+			eChGenerateCATV_24Plus = 10,		// CATV C24ch+～C27ch+
+			eChGenerateBS1 = 16,				// BS-R BS1,BS3,BS5...～BS23
+			eChGenerateND2 = 20,				// CS110-R ND2,ND4,ND6...～ND24
+			eChGenerateJD1 = 32,				// JCSAT-3A/JCSAT-4B JD1～JD16
+			eChGenerateJD17A = 33,				// JCSAT-3A JD17～JD28
+			eChGenerateJD17B = 34,				// JCSAT-4B JD17～JD32
+			eChGenerateOpticast = 64,			// SKY PerfecTV! Premium Service Hikari H001～H058
+			eChGenerateOpticast_11Plus = 72,	// SKY PerfecTV! Premium Service Hikari H011+～H012+
+			eChGenerateOpticast_26Plus = 73,	// SKY PerfecTV! Premium Service Hikari H026+～H028+
+		};
+
+		// チャンネル自動生成用パラメータ
+		struct ChGenerate {
+			enumChGenerate Space;
+			unsigned int Offset;			// 開始オフセット
+			unsigned int Count;				// 作成CH数
+			unsigned int RelativeTS;		// 相対TS作成数
+			unsigned int ModulationNumber;	// 変調方式番号
+			unsigned int SatelliteNumber;	// 衛星番号
+			unsigned int StartCh;			// 先頭チャンネル番号
+			unsigned int TuningFreq;		// チューニング周波数オフセット
+			std::wstring NameFormat;		// チャンネル名フォーマット
+			unsigned int NameOffset;		// チャンネル名に使用するチャンネル番号オフセット
+			unsigned int NameStep;			// チャンネル名に使用するチャンネル番号ステップ
+			unsigned int NameOffsetTS;		// チャンネル名に使用するTS番号オフセット
+			ChGenerate(void)
+				: Space(eChGenerateNone),
+				Offset(0),
+				Count(0),
+				RelativeTS(0),
+				ModulationNumber(0),
+				SatelliteNumber(0),
+				StartCh(0),
+				TuningFreq(0),
+				NameOffset(0),
+				NameStep(1),
+				NameOffsetTS(0)
+			{
+			};
+			~ChGenerate(void)
+			{
+			};
+		};
+
+		// チャンネルの自動生成定義行
+		std::wstring ChannelGenerate[MAX_CH_GENERATE];
+
+		// UHF/CATV等のCH設定を自動生成する
+		std::wstring chAuto = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(L"ChannelSettingsAuto", L""));
+		std::wstring chAutoOpt = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(L"ChannelSettingsAutoOptions", L""));
+		BOOL bOptVHFPlus = FALSE;
+		BOOL bOptC24Plus = FALSE;
+		BOOL bOptOnly64QAM = FALSE;
+		BOOL bOptOnly256QAM = FALSE;
+		BOOL bOptH11Plus = FALSE;
+		BOOL bOptH26Plus = FALSE;
+		BOOL bOptOnlySD = FALSE;
+		BOOL bOptOnlyHD = FALSE;
+		BOOL bOptSpinel = FALSE;
+		BOOL bOptAll = FALSE;
+		std::wstring sOptRelativeTS = L"";
+		std::wstring sOptRelativeTS64QAM = L"";
+		{
+			// カンマ区切りで7つに分解
+			std::wstring t(chAutoOpt);
+			for (int n = 0; n < 10; n++) {
+				std::wstring opt;
+				std::wstring::size_type pos = common::WStringSplit(&t, L',', &opt);
+				if (opt == L"VHF+") {
+					bOptVHFPlus = TRUE;
 				}
-
-				itCh->second->Satellite = 0;
-				itCh->second->Polarisation = 0;
-				itCh->second->ModulationType = 0;
-				itCh->second->Frequency = 473143 + 6000 * ch;
-				itCh->second->sServiceName = common::TStringPrintf(_T("%02dch"), ch + 13);
+				else if (opt == L"C24+") {
+					bOptC24Plus = TRUE;
+				}
+				else if (opt == L"ONLY64QAM") {
+					bOptOnly64QAM = TRUE;
+				}
+				else if (opt == L"ONLY256QAM") {
+					bOptOnly256QAM = TRUE;
+				}
+				else if (opt == L"H011+") {
+					bOptH11Plus = TRUE;
+				}
+				else if (opt == L"H026+") {
+					bOptH26Plus = TRUE;
+				}
+				else if (opt == L"ONLYSD") {
+					bOptOnlySD = TRUE;
+				}
+				else if (opt == L"ONLYHD") {
+					bOptOnlyHD = TRUE;
+				}
+				else if (opt == L"SPINEL") {
+					bOptSpinel = TRUE;
+				}
+				else if (opt == L"ALL") {
+					bOptAll = TRUE;
+				}
+				else if (opt.substr(0, 11) == L"RELATIVETS:") {
+					sOptRelativeTS = opt.substr(11);
+				}
+				else if (opt.substr(0, 18) == L"RELATIVETS-256QAM:") {
+					sOptRelativeTS = opt.substr(18);
+				}
+				else if (opt.substr(0, 17) == L"RELATIVETS-64QAM:") {
+					sOptRelativeTS64QAM = opt.substr(17);
+				}
+				if (pos == std::wstring::npos)
+					break;
 			}
-			itSpace->second->dwNumChannel = 40;
-		}
-		else if (temp == L"CATV") {
-			for (unsigned int ch = 0; ch < 51; ch++) {
-				itCh = itSpace->second->Channels.find(ch);
-				if (itCh == itSpace->second->Channels.end()) {
-					ChData *chData = new ChData();
-					itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(ch, chData));
-				}
 
-				itCh->second->Satellite = 0;
-				itCh->second->Polarisation = 0;
-				itCh->second->ModulationType = 0;
-				long f;
-				if (ch <= 22 - 13) {
-					f = 111143 + 6000 * ch;
-					if (ch == 22 - 13) {
-						f += 2000;
-					}
+		}
+		if (chAuto == L"UHF") {
+			if (bOptAll) {
+				ChannelGenerate[0] = L"UHF," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[0] = L"UHF:0:40," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+		}
+		else if (chAuto == L"CATV") {
+			int num = 0;
+			if (bOptAll || !bOptVHFPlus) {
+				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-L:0:9," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			if (bOptAll || !bOptC24Plus) {
+				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-H:0:1," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-H:5," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			if (bOptAll) {
+				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+		}
+		else if (chAuto == L"PASSTHROUGH") {
+			int num = 0;
+			ChannelGenerate[num++] = L"VHF-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			if (bOptAll || !bOptVHFPlus) {
+				ChannelGenerate[num++] = L"VHF-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"VHF-H:4," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			ChannelGenerate[num++] = L"UHF," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			if (bOptAll || !bOptVHFPlus) {
+				ChannelGenerate[num++] = L"CATV-L," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-L:0:9," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			if (bOptAll || !bOptC24Plus) {
+				ChannelGenerate[num++] = L"CATV-H," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			else {
+				ChannelGenerate[num++] = L"CATV-H:0:1," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-H:5," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+			if (bOptAll) {
+				ChannelGenerate[num++] = L"VHF-4+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-22+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+				ChannelGenerate[num++] = L"CATV-24+," + std::to_wstring(modulationNumberISDBT) + L",,,143";
+			}
+		}
+		else if (chAuto == L"TRANSMODULATION") {
+			std::wstring sRelative64;
+			std::wstring sRelative256;
+			if (sOptRelativeTS64QAM != L"") {
+				sRelative64 = L":" + sOptRelativeTS64QAM;
+			}
+			if (sOptRelativeTS != L"") {
+				sRelative256 = L":" + sOptRelativeTS;
+			}
+			int num = 0;
+			unsigned int startCh = 0;
+			if (!bOptOnly256QAM) {
+				ChannelGenerate[num++] = L"VHF-L::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",," + std::to_wstring(startCh) + L",0,,,,1";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"VHF-H::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
 				}
 				else {
-					f = 225143 + 6000 * (ch - (23 - 13));
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"VHF-H:4:" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
 				}
-				itCh->second->Frequency = f;
-				itCh->second->sServiceName = common::TStringPrintf(_T("C%02dch"), ch + 13);
+				ChannelGenerate[num++] = L"UHF::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"CATV-L::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-L:0:9" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+				}
+				if (bOptAll || !bOptC24Plus) {
+					ChannelGenerate[num++] = L"CATV-H::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-H:0:1" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-H:5:" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+				}
+				startCh += max(common::WStringToLong(sOptRelativeTS64QAM), 1) * (12 + 50 + 51);
+				if (bOptAll) {
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative64 + L"," + std::to_wstring(modulationNumberJ83C64QAM) + L",,,0,,,,1";
+					startCh += max(common::WStringToLong(sOptRelativeTS64QAM), 1) * (3 + 1 + 4);
+				}
+				startCh = ((startCh + 99) / 100) * 100;
 			}
-			itSpace->second->dwNumChannel = 51;
+			if (!bOptOnly64QAM) {
+				ChannelGenerate[num++] = L"VHF-L::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",," + std::to_wstring(startCh) + L",0,,,,1";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"VHF-H::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				}
+				else {
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"VHF-H:4:" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				}
+				ChannelGenerate[num++] = L"UHF::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				if (bOptAll || !bOptVHFPlus) {
+					ChannelGenerate[num++] = L"CATV-L::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-L:0:9" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				}
+				if (bOptAll || !bOptC24Plus) {
+					ChannelGenerate[num++] = L"CATV-H::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				}
+				else {
+					ChannelGenerate[num++] = L"CATV-H:0:1" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-H:5:" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				}
+				if (bOptAll) {
+					ChannelGenerate[num++] = L"VHF-4+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-22+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+					ChannelGenerate[num++] = L"CATV-24+::" + sRelative256 + L"," + std::to_wstring(modulationNumberJ83C256QAM) + L",,,0,,,,1";
+				}
+			}
+		}
+		else if (chAuto == L"BS") {
+			std::wstring sRelative;
+			if (sOptRelativeTS != L"") {
+				sRelative = L":" + sOptRelativeTS;
+			}
+			int num = 0;
+			ChannelGenerate[num++] = L"BS1::" + sRelative + L"," + std::to_wstring(modulationNumberISDBS) + L"," + std::to_wstring(satelliteNumberBSCS110R) + L",,,BS%02d/TS%d,1,2,0";
+		}
+		else if (chAuto == L"CS110") {
+			int num = 0;
+			ChannelGenerate[num++] = L"ND2," + std::to_wstring(modulationNumberISDBS) + L"," + std::to_wstring(satelliteNumberBSCS110R) + L",,,ND%02d/TS0,2,2";
+		}
+		else if (chAuto == L"SPHD") {
+		std::wstring sName4 = bOptSpinel ? L"JCSAT4A-TP%02d" : L"JCSAT4B-TP%02d";
+		int num = 0;
+			unsigned int startCh = 1;
+			if (!bOptOnlyHD) {
+				ChannelGenerate[num++] = L"JD17A," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L"," + std::to_wstring(startCh) + L",,JCSAT3A-TP%02d,1";
+				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L",,,JCSAT3A-TP%02d,13";
+				startCh += 100;
+				ChannelGenerate[num++] = L"JD17B," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L"," + std::to_wstring(startCh) + L",," + sName4 + L",1";
+				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L",,," + sName4 + L",17";
+				startCh += 100;
+			}
+			if (!bOptOnlySD) {
+				ChannelGenerate[num++] = L"JD17A," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L"," + std::to_wstring(startCh) + L",,JCSAT3A-TP%02d,1";
+				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT3) + L",,,JCSAT3A-TP%02d,13";
+				startCh += 100;
+				ChannelGenerate[num++] = L"JD17B," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L"," + std::to_wstring(startCh) + L",," + sName4 + L",1";
+				ChannelGenerate[num++] = L"JD1," + std::to_wstring(modulationNumberDVBS2) + L"," + std::to_wstring(satelliteNumberJCSAT4) + L",,," + sName4 + L",17";
+			}
+		}
+		else if (chAuto == L"OPTICAST") {
+			int num = 0;
+			if (bOptAll || (!bOptH11Plus && !bOptH26Plus)) {
+				ChannelGenerate[num++] = L"OPTICAST," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			}
+			else if (bOptH11Plus && !bOptH26Plus) {
+				ChannelGenerate[num++] = L"OPTICAST:0:10," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-11+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:12," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			}
+			else if (!bOptH11Plus && bOptH26Plus) {
+				ChannelGenerate[num++] = L"OPTICAST:0:25," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-26+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:28," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			} else {
+				ChannelGenerate[num++] = L"OPTICAST:0:10," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-11+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:12:13," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-26+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST:28," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			}
+			if (bOptAll) {
+				ChannelGenerate[num++] = L"OPTICAST-11+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+				ChannelGenerate[num++] = L"OPTICAST-26+," + std::to_wstring(modulationNumberOpticast) + L",,,0";
+			}
+		}
+
+		unsigned int nextCh = 0;	// 自動先頭チャンネル番号
+
+		// iniファイルからの読込
+		for (int i = 0; i < MAX_CH_GENERATE; i++) {
+			ChGenerate Generate;
+			std::wstring key = L"ChannelGenerate" + std::to_wstring(i);
+			ChannelGenerate[i] = IniFileAccess.ReadKeySSectionData(key, ChannelGenerate[i]);
+			if (ChannelGenerate[i].length() == 0)
+				break;
+			// カンマ区切りで9つに分解
+			std::wstring t(ChannelGenerate[i]);
+			std::wstring buf[9];
+			for (int n = 0; n < 9; n++) {
+				if (std::wstring::npos == common::WStringSplit(&t, L',', &buf[n]))
+					break;
+			}
+			// 作成空間:開始オフセット:作成CH数:相対TS作成数 を分解
+			std::wstring t2(buf[0]);
+			std::wstring buf2[4];
+			for (int n = 0; n < 4; n++) {
+				if (std::wstring::npos == common::WStringSplit(&t2, L':', &buf2[n]))
+					break;
+			}
+			std::wstring genSpace = common::WStringToUpperCase(buf2[0]);
+			unsigned int offset = common::WStringToLong(buf2[1]);
+			unsigned int count = common::WStringToLong(buf2[2]);
+			if (count < 1) {
+				count = 999;
+			}
+			unsigned int relativeTS = 0;
+			std::wstring postfix = L"/TS%d";
+			if (genSpace == L"VHF-L") {
+				Generate.Space = eChGenerateVHF_L;
+				Generate.Offset = min(offset, 3UL - 1UL);
+				Generate.Count = min(count, 3UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"%dch";
+				Generate.NameOffset = 1UL;
+			}
+			else if (genSpace == L"VHF-H") {
+				Generate.Space = eChGenerateVHF_H;
+				Generate.Offset = min(offset, 9UL - 1UL);
+				Generate.Count = min(count, 9UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"%dch";
+				Generate.NameOffset = 4UL;
+			}
+			else if (genSpace == L"VHF-4+") {
+				Generate.Space = eChGenerateVHF_4Plus;
+				Generate.Offset = min(offset, 4UL - 1UL);
+				Generate.Count = min(count, 4UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"%dch+";
+				Generate.NameOffset = 4UL;
+			}
+			else if (genSpace == L"UHF") {
+				Generate.Space = eChGenerateUHF;
+				Generate.Offset = min(offset, 50UL - 1UL);
+				Generate.Count = min(count, 50UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"%dch";
+				Generate.NameOffset = 13UL;
+			}
+			else if (genSpace == L"CATV-L") {
+				Generate.Space = eChGenerateCATV_L;
+				Generate.Offset = min(offset, 10UL - 1UL);
+				Generate.Count = min(count, 10UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"C%dch";
+				Generate.NameOffset = 13UL;
+			}
+			else if (genSpace == L"CATV-22+") {
+				Generate.Space = eChGenerateCATV_22Plus;
+				Generate.Offset = min(offset, 1UL - 1UL);
+				Generate.Count = min(count, 1UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"C%dch+";
+				Generate.NameOffset = 22UL;
+			}
+			else if (genSpace == L"CATV-H") {
+				Generate.Space = eChGenerateCATV_H;
+				Generate.Offset = min(offset, 41UL - 1UL);
+				Generate.Count = min(count, 41UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"C%dch";
+				Generate.NameOffset = 23UL;
+			}
+			else if (genSpace == L"CATV-24+") {
+				Generate.Space = eChGenerateCATV_24Plus;
+				Generate.Offset = min(offset, 4UL - 1UL);
+				Generate.Count = min(count, 4UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"C%dch+";
+				Generate.NameOffset = 24UL;
+			}
+			else if (genSpace == L"BS1") {
+				Generate.Space = eChGenerateBS1;
+				Generate.Offset = min(offset, 12UL - 1UL);
+				Generate.Count = min(count, 12UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.SatelliteNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"BS%02d/TS%d";
+				postfix = L"";
+				Generate.NameOffset = 1UL;
+				Generate.NameStep = 2UL;
+				Generate.NameOffsetTS = 0UL;
+				relativeTS = 3UL;
+			}
+			else if (genSpace == L"ND2") {
+				Generate.Space = eChGenerateND2;
+				Generate.Offset = min(offset, 12UL - 1UL);
+				Generate.Count = min(count, 12UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.SatelliteNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"ND%02d/TS%d";
+				postfix = L"";
+				Generate.NameOffset = 2UL;
+				Generate.NameStep = 2UL;
+				Generate.NameOffsetTS = 0UL;
+			}
+			else if (genSpace == L"JD17A") {
+				Generate.Space = eChGenerateJD17A;
+				Generate.Offset = min(offset, 12UL - 1UL);
+				Generate.Count = min(count, 12UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.SatelliteNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"JD%d";
+				Generate.NameOffset = 17UL;
+			}
+			else if (genSpace == L"JD17B") {
+				Generate.Space = eChGenerateJD17B;
+				Generate.Offset = min(offset, 16UL - 1UL);
+				Generate.Count = min(count, 16UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.SatelliteNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"JD%d";
+				Generate.NameOffset = 17UL;
+			}
+			else if (genSpace == L"JD1") {
+				Generate.Space = eChGenerateJD1;
+				Generate.Offset = min(offset, 16UL - 1UL);
+				Generate.Count = min(count, 16UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.SatelliteNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"JD%d";
+				Generate.NameOffset = 1UL;
+			}
+			else if (genSpace == L"OPTICAST") {
+				Generate.Space = eChGenerateOpticast;
+				Generate.Offset = min(offset, 58UL - 1UL);
+				Generate.Count = min(count, 58UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"H%03d";
+				Generate.NameOffset = 1UL;
+			}
+			else if (genSpace == L"OPTICAST-11+") {
+				Generate.Space = eChGenerateOpticast_11Plus;
+				Generate.Offset = min(offset, 2UL - 1UL);
+				Generate.Count = min(count, 2UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"H%03d+";
+				Generate.NameOffset = 11UL;
+			}
+			else if (genSpace == L"OPTICAST-26+") {
+				Generate.Space = eChGenerateOpticast_26Plus;
+				Generate.Offset = min(offset, 3UL - 1UL);
+				Generate.Count = min(count, 3UL - offset);
+				Generate.ModulationNumber = 0UL;
+				Generate.TuningFreq = 0UL;
+				Generate.NameFormat = L"H%03d+";
+				Generate.NameOffset = 26UL;
+			}
+			// 相対TS作成数
+			if (buf2[3] != L"") {
+				Generate.RelativeTS = common::WStringToLong(buf2[3]);
+				Generate.NameFormat += postfix;
+			}
+			else {
+				Generate.RelativeTS = relativeTS;
+			}
+
+			// 変調方式番号
+			if (buf[1] != L"") {
+				Generate.ModulationNumber = common::WStringToLong(buf[1]);
+			}
+			// 衛星番号
+			if (buf[2] != L"") {
+				Generate.SatelliteNumber = common::WStringToLong(buf[2]);
+			}
+			// 先頭チャンネル番号
+			if (buf[3] != L"") {
+				Generate.StartCh = common::WStringToLong(buf[3]);
+			}
+			else {
+				Generate.StartCh = nextCh;
+			}
+			// チューニング周波数オフセット
+			if (buf[4] != L"") {
+				Generate.TuningFreq = common::WStringToLong(buf[4]);
+			}
+			// チャンネル名フォーマット
+			if (buf[5] != L"") {
+				Generate.NameFormat = buf[5];
+			}
+			// チャンネル名オフセット
+			if (buf[6] != L"") {
+				Generate.NameOffset = common::WStringToLong(buf[6]);
+			}
+			// チャンネル名ステップ
+			if (buf[7] != L"") {
+				Generate.NameStep = common::WStringToLong(buf[7]);
+			}
+			// TS番号オフセット
+			if (buf[8] != L"") {
+				Generate.NameOffsetTS = common::WStringToLong(buf[8]);
+			}
+
+			unsigned int freqBase = 0UL;			// 先頭チャンネルの周波数
+			unsigned int freqStep = 0UL;			// 周波数ステップ
+			unsigned int polarisastionType = 0UL;	// 偏波タイプ 0 .. 使用しない, 1 .. V/Hの繰り返し, 8 .. R固定
+
+			switch (Generate.Space) {
+			case eChGenerateVHF_L:
+				freqBase = 93000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateVHF_H:
+				freqBase = 171000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateVHF_4Plus:
+				freqBase = 173000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateUHF:
+				freqBase = 473000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateCATV_L:
+				freqBase = 111000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateCATV_22Plus:
+				freqBase = 167000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateCATV_H:
+				freqBase = 225000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateCATV_24Plus:
+				freqBase = 233000UL;
+				freqStep = 6000UL;
+				break;
+			case eChGenerateBS1:
+				freqBase = 11727480UL;
+				freqStep = 38360UL;
+				polarisastionType = 8UL;
+				break;
+			case eChGenerateND2:
+				freqBase = 12291000UL;
+				freqStep = 40000UL;
+				polarisastionType = 8UL;
+				break;
+			case eChGenerateJD1:
+				freqBase = 12508000UL;
+				freqStep = 15000UL;
+				polarisastionType = 1UL;
+				break;
+			case eChGenerateJD17A:
+				freqBase = 12268000UL;
+				freqStep = 20000UL;
+				polarisastionType = 1UL;
+				break;
+			case eChGenerateJD17B:
+				freqBase = 12268000UL;
+				freqStep = 15000UL;
+				polarisastionType = 1UL;
+				break;
+			case eChGenerateOpticast:
+				freqBase = 93250UL;
+				freqStep = 6500UL;
+				break;
+			case eChGenerateOpticast_11Plus:
+				freqBase = 159250UL;
+				freqStep = 6500UL;
+				break;
+			case eChGenerateOpticast_26Plus:
+				freqBase = 259750UL;
+				freqStep = 6500UL;
+				break;
+			}
+
+			if (Generate.Count && freqBase) {
+				bReserveUnusedCh = TRUE;
+				unsigned int tsCount = max(Generate.RelativeTS, 1);
+				unsigned int chNum = Generate.StartCh;
+				for (unsigned int ch = Generate.Offset; ch < Generate.Offset + Generate.Count; ch++) {
+					for (unsigned int ts = 0; ts < tsCount; ts++) {
+						auto itCh = itSpace->second.Channels.find(chNum);
+						if (itCh == itSpace->second.Channels.end()) {
+							itCh = itSpace->second.Channels.emplace(chNum, ChData()).first;
+						}
+						else {
+							OutputDebug(L"    Replaced to :\n");
+						}
+						switch (polarisastionType) {
+						case 1UL:
+							itCh->second.Polarisation = (ch % 2UL) ? 1UL : 2UL;
+							break;
+						case 8UL:
+							itCh->second.Polarisation = 4UL;
+							break;
+						default:
+							itCh->second.Polarisation = 0UL;
+							break;
+						}
+						itCh->second.ModulationType = Generate.ModulationNumber;
+						itCh->second.Satellite = Generate.SatelliteNumber;
+						itCh->second.Frequency = freqBase + freqStep * ch + Generate.TuningFreq;
+						if (Generate.RelativeTS) {
+							itCh->second.TSID = ts;
+						}
+						itCh->second.sServiceName = common::TStringPrintf(common::WStringToTString(Generate.NameFormat).c_str(), ch * Generate.NameStep + Generate.NameOffset, ts + Generate.NameOffsetTS);
+						OutputDebug(L"%s: (auto) CH%03ld=%ld,%ld.%03ld,%c,%ld,%s,%ld,%ld,%ld,%ld,%ld\n", section.c_str(), itCh->first, itCh->second.Satellite, itCh->second.Frequency / 1000L,
+							itCh->second.Frequency % 1000L, PolarisationChar[itCh->second.Polarisation], itCh->second.ModulationType, itCh->second.sServiceName.c_str(), itCh->second.SID, 
+							itCh->second.TSID, itCh->second.ONID, itCh->second.MajorChannel, itCh->second.SourceID);
+						chNum++;
+						nextCh = max(nextCh, chNum);
+					}
+				}
+				OutputDebug(L".\n");
+			}
 		}
 
 		// 周波数オフセット値
-		itSpace->second->FrequencyOffset = (long)IniFileAccess.ReadKeyISectionData(L"FrequencyOffset", 0);
+		itSpace->second.FrequencyOffset = (long)IniFileAccess.ReadKeyISectionData(L"FrequencyOffset", 0);
+
+		// TuningSpaceの種類番号
+		itSpace->second.DVBSystemTypeNumber = IniFileAccess.ReadKeyISectionData(L"DVBSystemTypeNumber", 0);
+
+		// TSMFの処理モード
+		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, mapTSMFMode);
 
 		// CH設定
 		//    チャンネル番号 = 衛星番号,周波数,偏波,変調方式[,チャンネル名[,SID/MinorChannel[,TSID/Channel[,ONID/PhysicalChannel[,MajorChannel[,SourceID]]]]]]
 		//    例: CH001 = 1,12658,V,0
 		//      チャンネル番号 : CH000～CH999で指定
-		//      衛星番号       : Satteliteセクションで設定した衛星番号(1～4) または 0(未指定時)
+		//      衛星番号       : Satelliteセクションで設定した衛星番号(1～4) または 0(未指定時)
 		//                       (地デジチューナー等は0を指定してください)
 		//      周波数         : 周波数をMHzで指定
 		//                       (小数点を付けることによりKHz単位での指定が可能です)
@@ -1845,52 +2629,52 @@ void CBonTuner::ReadIniFile(void)
 
 					// ReserveUnusedChが指定されている場合はCH番号を上書きする
 					// 指定されていない場合は登録順にCH番号を振る
-					DWORD chNum = m_bReserveUnusedCh ? ch : (DWORD)(itSpace->second->Channels.size());
-					itCh = itSpace->second->Channels.find(chNum);
-					if (itCh == itSpace->second->Channels.end()) {
-						ChData *chData = new ChData();
-						itCh = itSpace->second->Channels.insert(itSpace->second->Channels.begin(), std::pair<unsigned int, ChData*>(chNum, chData));
+					DWORD chNum = bReserveUnusedCh ? ch : (DWORD)(itSpace->second.Channels.size());
+					auto itCh = itSpace->second.Channels.find(chNum);
+					if (itCh == itSpace->second.Channels.end()) {
+						itCh = itSpace->second.Channels.emplace(chNum, ChData()).first;
 					}
 
-					WCHAR buf[10][256] = { L"", L"", L"", L"", L"", L"", L"", L"", L"", L"" };
-					::swscanf_s(data.c_str(), L"%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,],%[^,]", buf[0], 256, buf[1], 256,
-						buf[2], 256, buf[3], 256, buf[4], 256, buf[5], 256, buf[6], 256, buf[7], 256, buf[8], 256, buf[9], 256);
+					// カンマ区切りで10個に分解
+					std::wstring t(data);
+					std::wstring buf[10];
+					for (int n = 0; n < 10; n++) {
+						if (std::wstring::npos == common::WStringSplit(&t, L',', &buf[n]))
+							break;
+					}
 
 					// 衛星番号
 					val = common::WStringToLong(buf[0]);
 					if (val >= 0 && val < MAX_SATELLITE) {
-						itCh->second->Satellite = val;
+						itCh->second.Satellite = val;
 					}
 					else
 						OutputDebug(L"Format Error in readIniFile; Wrong Bird.\n");
 
 					// 周波数
-					WCHAR buf2[2][256] = { L"", L"" };
-					::swscanf_s(buf[1], L"%[^.].%[^.]", buf2[0], 256, buf2[1], 256);
-					val = common::WStringDecimalToLong(buf2[0]) * 1000 + common::WStringDecimalToLong(buf2[1]);
-					if ((val > 0) && (val <= 20000000)) {
-						itCh->second->Frequency = val;
+					val = (int)(common::WstringToDouble(buf[1]) * 1000.0);
+					if ((val > 0) && (val <= 30000000)) {
+						itCh->second.Frequency = val;
 					}
 					else
 						OutputDebug(L"Format Error in readIniFile; Wrong Frequency.\n");
 
 					// 偏波種類
-					if (buf[2][0] == L' ')
-						buf[2][0] = L'\0';
-					val = -1;
-					auto it = PolarisationCharMap.find(buf[2][0]);
-					if (it != PolarisationCharMap.end())
-						val = it->second;
-					if (val != -1) {
-						itCh->second->Polarisation = val;
+					WCHAR c = buf[2].c_str()[0];
+					if (c == L'\0') {
+						c = L' ';
+					}
+					auto it = std::find(std::begin(PolarisationChar), std::end(PolarisationChar), c);
+					if (it != std::end(PolarisationChar)) {
+						itCh->second.Polarisation = (unsigned int)(it - std::begin(PolarisationChar));
 					}
 					else
-						OutputDebug(L"Format Error in readIniFile; Wrong Polarization.\n");
+						OutputDebug(L"Format Error in readIniFile; Wrong Polarisation.\n");
 
 					// 変調方式
 					val = common::WStringToLong(buf[3]);
 					if (val >= 0 && val < MAX_MODULATION) {
-						itCh->second->ModulationType = val;
+						itCh->second.ModulationType = val;
 					}
 					else
 						OutputDebug(L"Format Error in readIniFile; Wrong Method.\n");
@@ -1899,166 +2683,155 @@ void CBonTuner::ReadIniFile(void)
 					std::basic_string<TCHAR> name(common::WStringToTString(buf[4]));
 					if (name.length() == 0)
 						// iniファイルで指定した名称がなければ128.0E/12658H/DVB-S のような形式で作成する
-						name = MakeChannelName(itCh->second);
-					itCh->second->sServiceName = name;
+						name = MakeChannelName(&itCh->second);
+					itCh->second.sServiceName = name;
 
 					// SID / PhysicalChannel
-					if (buf[5][0] != 0) {
-						itCh->second->SID = common::WStringToLong(buf[5]);
+					if (buf[5] != L"") {
+						val = common::WStringToLong(buf[5]);
+						itCh->second.SID = val;
 					}
 
 					// TSID / Channel
-					if (buf[6][0] != 0) {
-						itCh->second->TSID = common::WStringToLong(buf[6]);
+					if (buf[6] != L"") {
+						val = common::WStringToLong(buf[6]);
+						itCh->second.TSID = val;
 					}
 
 					// ONID / MinorChannel
-					if (buf[7][0] != 0) {
-						itCh->second->ONID = common::WStringToLong(buf[7]);
+					if (buf[7] != L"") {
+						val = common::WStringToLong(buf[7]);
+						itCh->second.ONID = val;
 					}
 
 					// MajorChannel
-					if (buf[8][0] != 0) {
-						itCh->second->MajorChannel = common::WStringToLong(buf[8]);
+					if (buf[8] != L"") {
+						val = common::WStringToLong(buf[8]);
+						itCh->second.MajorChannel = val;
 					}
 
 					// SourceID
-					if (buf[9][0] != 0) {
-						itCh->second->SourceID = common::WStringToLong(buf[9]);
+					if (buf[9] != L"") {
+						val = common::WStringToLong(buf[9]);
+						itCh->second.SourceID = val;
 					}
+					OutputDebug(L"%s: (manual) CH%03ld=%ld,%ld.%03ld,%c,%ld,%s,%ld,%ld,%ld,%ld,%ld\n", section.c_str(), itCh->first, itCh->second.Satellite, itCh->second.Frequency / 1000L,
+						itCh->second.Frequency % 1000L, PolarisationChar[itCh->second.Polarisation], itCh->second.ModulationType, itCh->second.sServiceName.c_str(), itCh->second.SID,
+						itCh->second.TSID, itCh->second.ONID, itCh->second.MajorChannel, itCh->second.SourceID);
 				}
 			}
 		}
 
-		// CH番号の最大値 + 1
-		itCh = itSpace->second->Channels.end();
-		if (itCh == itSpace->second->Channels.begin()) {
-			itSpace->second->dwNumChannel = 0;
+		//チャンネル定義の数
+		auto itChEnd = itSpace->second.Channels.end();
+		if (itChEnd == itSpace->second.Channels.begin()) {
+			// チャンネル定義が1つもない
+			itSpace->second.dwNumChannel = 0;
 		}
 		else {
-			itCh--;
-			itSpace->second->dwNumChannel = itCh->first + 1;
+			// CH番号の最大値 + 1
+			itChEnd--;
+			itSpace->second.dwNumChannel = itChEnd->first + 1;
 		}
+		OutputDebug(L"%s: dwNumChannel = %d.\n", section.c_str(), itSpace->second.dwNumChannel);
 
 		// CH切替動作を強制的に2度行う場合の対象CH
 		if (m_bLockTwice) {
 			std::wstring s = IniFileAccess.ReadKeySSectionData(L"ChannelLockTwiceTarget", L"");
-			if (s.length() > 0) {
-				WCHAR szToken[256];
-				unsigned int nPos = 0;
-				int nTokenLen;
-				while (nPos < s.length()) {
+			if (s != L"") {
+				while (1) {
 					// カンマ区切りまでの文字列を取得
-					::swscanf_s(s.substr(nPos).c_str(), L"%[^,]%n", szToken, 256, &nTokenLen);
-					if (nTokenLen) {
-						// さらに'-'区切りの数値に分解
+					std::wstring token;
+					std::wstring::size_type pos = common::WStringSplit(&s, L',', &token);
+					if (token != L"") {
 						DWORD begin = 0;
-						DWORD end = itSpace->second->dwNumChannel - 1;
-						WCHAR buf[3][256] = { L"", L"", L"" };
-						int num = ::swscanf_s(szToken, L" %[0-9] %[-] %[0-9]", buf[0], 256, buf[1], 256, buf[2], 256);
-						switch (num)
-						{
-						case 1:
-							// "10"の形式（単独指定）
-							begin = end = common::WStringToLong(buf[0]);
-							break;
-						case 2:
-							// "10-"の形式
-							begin = common::WStringToLong(buf[0]);
-							break;
-						case 3:
-							// "10-15"の形式
-							begin = common::WStringToLong(buf[0]);
-							end = common::WStringToLong(buf[2]);
-							break;
-						case 0:
-							num = ::swscanf_s(szToken, L" %[-] %[0-9]", buf[1], 256, buf[2], 256);
-							if (num == 2) {
-								// "-10"の形式
-								end = common::WStringToLong(buf[2]);
+						DWORD end = itSpace->second.dwNumChannel - 1;
+						// さらに'-'区切りの数値に分解
+						std::wstring left;
+						std::wstring right(token);
+						if (std::wstring::npos == common::WStringSplit(&right, L'-', &left)) {
+							// "-"記号が無い
+							begin = end = common::WStringToLong(left);
+						}
+						else {
+							// "-"記号が有る
+							if (left != L"") {
+								// "-"記号の前に数値がある
+								begin = common::WStringToLong(left);
 							}
-							else {
-								// 解析不能
-								OutputDebug(L"Format Error in readIniFile; ChannelLockTwiceTarget.\n");
-								continue;
+							if (right != L"") {
+								// "-"記号の後に数値がある
+								end = common::WStringToLong(right);
 							}
-							break;
 						}
 						// 対象範囲のCHのFlagをSetする
 						for (DWORD ch = begin; ch <= end; ch++) {
-							itCh = itSpace->second->Channels.find(ch);
-							if (itCh != itSpace->second->Channels.end()) {
-								itCh->second->LockTwiceTarget = TRUE;
+							auto itCh = itSpace->second.Channels.find(ch);
+							if (itCh != itSpace->second.Channels.end()) {
+								itCh->second.LockTwiceTarget = TRUE;
 							}
 						}
-					} // if (nTokenLen)
-					nPos += nTokenLen + 1;
-				} // while (nPos < s.length())
-			} // if (s.length() > 0) 
-			else {
-				// ChannelLockTwiceTargetの指定が無い場合はすべてのCHが対象
-				for (DWORD ch = 0; ch < itSpace->second->dwNumChannel - 1; ch++) {
-					itCh = itSpace->second->Channels.find(ch);
-					if (itCh != itSpace->second->Channels.end()) {
-						itCh->second->LockTwiceTarget = TRUE;
 					}
+					if (pos == std::wstring::npos)
+						break;
 				}
 			}
-		} // if (m_bLockTwice)
+			else {
+				// ChannelLockTwiceTargetの指定が無い場合はすべてのCHが対象
+				for (auto itCh = itSpace->second.Channels.begin(); itCh != itSpace->second.Channels.end(); itCh++) {
+					itCh->second.LockTwiceTarget = TRUE;
+				}
+			}
+		}
 	}
 
 	// チューニング空間番号0を探す
-	itSpace = m_TuningData.Spaces.find(0);
-	if (itSpace == m_TuningData.Spaces.end()) {
+	auto itSpace0 = m_TuningData.Spaces.find(0);
+	if (itSpace0 == m_TuningData.Spaces.end()) {
 		// ここには来ないはずだけど一応
 		// 空のTuningSpaceDataをチューニング空間番号0に挿入
-		TuningSpaceData *tuningSpaceData = new TuningSpaceData;
-		itSpace = m_TuningData.Spaces.insert(m_TuningData.Spaces.begin(), std::pair<unsigned int, TuningSpaceData*>(0, tuningSpaceData));
+		itSpace0 = m_TuningData.Spaces.emplace(0, TuningSpaceData()).first;
 	}
 
-	if (!itSpace->second->Channels.size()) {
+	if (!itSpace0->second.Channels.size()) {
 		// CH定義が一つもされていない
-		if (m_nDefaultNetwork == 1) {
+		if (m_nDefaultNetwork == eDefaultNetworkSPHD) {
 			// SPHDの場合のみ過去のバージョン互換動作
 			// 3つのTPをデフォルトでセットしておく
-			ChData *chData;
 			//   128.0E 12.658GHz V DVB-S *** 2015-10-10現在、NITには存在するけど停波中
-			chData = new ChData();
-			chData->Satellite = 1;
-			chData->Polarisation = 2;
-			chData->ModulationType = 0;
-			chData->Frequency = 12658000;
-			chData->sServiceName = MakeChannelName(chData);
-			itSpace->second->Channels.insert(std::pair<unsigned int, ChData*>(0, chData));
+			auto itCh = itSpace0->second.Channels.emplace(0, ChData()).first;
+			itCh->second.Satellite = 1;
+			itCh->second.Polarisation = 2;
+			itCh->second.ModulationType = 0;
+			itCh->second.Frequency = 12658000;
+			itCh->second.sServiceName = MakeChannelName(&itCh->second);
 			//   124.0E 12.613GHz H DVB-S2
-			chData = new ChData();
-			chData->Satellite = 2;
-			chData->Polarisation = 1;
-			chData->ModulationType = 1;
-			chData->Frequency = 12613000;
-			chData->sServiceName = MakeChannelName(chData);
-			itSpace->second->Channels.insert(std::pair<unsigned int, ChData*>(1, chData));
+			itCh = itSpace0->second.Channels.emplace(1, ChData()).first;
+			itCh->second.Satellite = 2;
+			itCh->second.Polarisation = 1;
+			itCh->second.ModulationType = 1;
+			itCh->second.Frequency = 12613000;
+			itCh->second.sServiceName = MakeChannelName(&itCh->second);
 			//   128.0E 12.733GHz H DVB-S2
-			chData = new ChData();
-			chData->Satellite = 1;
-			chData->Polarisation = 1;
-			chData->ModulationType = 1;
-			chData->Frequency = 12733000;
-			chData->sServiceName = MakeChannelName(chData);
-			itSpace->second->Channels.insert(std::pair<unsigned int, ChData*>(2, chData));
-			itSpace->second->dwNumChannel = 3;
+			itCh = itSpace0->second.Channels.emplace(2, ChData()).first;
+			itCh->second.Satellite = 1;
+			itCh->second.Polarisation = 1;
+			itCh->second.ModulationType = 1;
+			itCh->second.Frequency = 12733000;
+			itCh->second.sServiceName = MakeChannelName(&itCh->second);
+			itSpace0->second.dwNumChannel = 3;
 		}
 	}
 
 	// チューニング空間の数
-	itSpace = m_TuningData.Spaces.end();
-	if (itSpace == m_TuningData.Spaces.begin()) {
+	auto itSpaceEnd = m_TuningData.Spaces.end();
+	if (itSpaceEnd == m_TuningData.Spaces.begin()) {
 		// こっちも一応
 		m_TuningData.dwNumSpace = 0;
 	}
 	else {
-		itSpace--;
-		m_TuningData.dwNumSpace = itSpace->first + 1;
+		itSpaceEnd--;
+		m_TuningData.dwNumSpace = itSpaceEnd->first + 1;
 	}
 }
 
@@ -2133,69 +2906,73 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// BonDriver_BDA改専用DLL
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
-		m_nCurTone = pTuningParam->Antenna->Tone;
+		m_nCurTone = pTuningParam->Antenna.Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
-			OutputDebug(L"TwiceLock 1st[Special2] SUCCESS.\n");
+			OutputDebug(L"  TwiceLock 1st[Special2] SUCCESS.\n");
 			SleepWithMessageLoop(m_nLockTwiceDelay);
 			hr = m_pIBdaSpecials2->LockChannel(pTuningParam);
 		}
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"LockChannel[Special2] SUCCESS.\n");
+			OutputDebug(L"  LockChannel[Special2] SUCCESS.\n");
 			return TRUE;
 		} else {
-			OutputDebug(L"LockChannel[Special2] FAIL.\n");
+			OutputDebug(L"  LockChannel[Special2] FAIL.\n");
 			return FALSE;
 		}
 	}
 
-	if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
-			(pTuningParam->Modulation->Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation->Modulation == BDA_MOD_8PSK) ? TRUE : FALSE)) != E_NOINTERFACE) {
+	if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna.Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
+			(pTuningParam->Modulation.Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation.Modulation == BDA_MOD_8PSK) ? TRUE : FALSE)) != E_NOINTERFACE) {
 		// BonDriver_BDAオリジナル互換DLL
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
-		m_nCurTone = pTuningParam->Antenna->Tone;
+		m_nCurTone = pTuningParam->Antenna.Tone;
 		if (SUCCEEDED(hr) && bLockTwice) {
-			OutputDebug(L"TwiceLock 1st[Special] SUCCESS.\n");
+			OutputDebug(L"  TwiceLock 1st[Special] SUCCESS.\n");
 			SleepWithMessageLoop(m_nLockTwiceDelay);
-			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna->Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
-					(pTuningParam->Modulation->Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation->Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
+			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna.Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
+					(pTuningParam->Modulation.Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation.Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
 		}
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"LockChannel[Special] SUCCESS.\n");
+			OutputDebug(L"  LockChannel[Special] SUCCESS.\n");
 			return TRUE;
 		}
 		else {
-			OutputDebug(L"LockChannel[Special] FAIL.\n");
+			OutputDebug(L"  LockChannel[Special] FAIL.\n");
 			return FALSE;
 		}
 	}
 
 	// チューナ固有トーン制御関数があれば、それをここで呼び出す
-	if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->Set22KHz(pTuningParam->Antenna->Tone)) != E_NOINTERFACE) {
+	if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->Set22KHz(pTuningParam->Antenna.Tone)) != E_NOINTERFACE) {
 		// BonDriver_BDA改専用DLL
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"Set22KHz[Special2] successfully.\n");
-			if (pTuningParam->Antenna->Tone != m_nCurTone) {
-				m_nCurTone = pTuningParam->Antenna->Tone;
-				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+			OutputDebug(L"  Set22KHz[Special2] successfully.\n");
+			if (pTuningParam->Antenna.Tone != m_nCurTone) {
+				m_nCurTone = pTuningParam->Antenna.Tone;
+				if (m_nToneWait) {
+					SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+				}
 			}
 		}
 		else {
-			OutputDebug(L"Set22KHz[Special2] failed.\n");
+			OutputDebug(L"  Set22KHz[Special2] failed.\n");
 			// BDA generic な方法で切り替わるかもしれないので、メッセージだけ出して、そのまま続行
 		}
 	}
-	else if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->Set22KHz(pTuningParam->Antenna->Tone ? 1 : 0)) != E_NOINTERFACE) {
+	else if (m_pIBdaSpecials && (hr = m_pIBdaSpecials->Set22KHz(pTuningParam->Antenna.Tone ? 1 : 0)) != E_NOINTERFACE) {
 		// BonDriver_BDAオリジナル互換DLL
 		if (SUCCEEDED(hr)) {
-			OutputDebug(L"Set22KHz[Special] successfully.\n");
-			if (pTuningParam->Antenna->Tone != m_nCurTone) {
-				m_nCurTone = pTuningParam->Antenna->Tone;
-				SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+			OutputDebug(L"  Set22KHz[Special] successfully.\n");
+			if (pTuningParam->Antenna.Tone != m_nCurTone) {
+				m_nCurTone = pTuningParam->Antenna.Tone;
+				if (m_nToneWait) {
+					SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
+				}
 			}
 		}
 		else {
-			OutputDebug(L"Set22KHz[Special] failed.\n");
+			OutputDebug(L"  Set22KHz[Special] failed.\n");
 			// BDA generic な方法で切り替わるかもしれないので、メッセージだけ出して、そのまま続行
 		}
 	}
@@ -2203,26 +2980,44 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// 固有関数がないだけなので、何もせず
 	}
 
+	// TuningSpaceの種類番号
+	unsigned int systemTypeNumber = m_TuningData.Spaces[pTuningParam->IniSpaceID].DVBSystemTypeNumber;
+	if (!m_DVBSystemTypeDB.IsExist(systemTypeNumber))
+		systemTypeNumber = 0;
+
+	// ITuningSpace継承順：
+	//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
+	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
+	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
+	//                → IAuxInTuningSpace → IAuxInTuningSpace2
+	CComPtr<ITuningSpace> pITuningSpace(m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace);
+	if (!pITuningSpace) {
+		OutputDebug(L"  Fail to get ITuningSpace.\n");
+		return FALSE;
+	}
+
+	OutputDebug(L"    ITuningSpace\n");
 	// IDVBSTuningSpace特有
 	{
-		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_pITuningSpace);
+		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(pITuningSpace);
 		if (pIDVBSTuningSpace) {
+			OutputDebug(L"    ->IDVBSTuningSpace\n");
 			// LNB 周波数を設定
-			if (pTuningParam->Antenna->HighOscillator != -1) {
-				pIDVBSTuningSpace->put_HighOscillator(pTuningParam->Antenna->HighOscillator);
+			if (pTuningParam->Antenna.HighOscillator != -1) {
+				pIDVBSTuningSpace->put_HighOscillator(pTuningParam->Antenna.HighOscillator);
 			}
-			if (pTuningParam->Antenna->LowOscillator != -1) {
-				pIDVBSTuningSpace->put_LowOscillator(pTuningParam->Antenna->LowOscillator);
+			if (pTuningParam->Antenna.LowOscillator != -1) {
+				pIDVBSTuningSpace->put_LowOscillator(pTuningParam->Antenna.LowOscillator);
 			}
 
 			// LNBスイッチの周波数を設定
-			if (pTuningParam->Antenna->LNBSwitch != -1) {
+			if (pTuningParam->Antenna.LNBSwitch != -1) {
 				// LNBSwitch周波数の設定がされている
-				pIDVBSTuningSpace->put_LNBSwitch(pTuningParam->Antenna->LNBSwitch);
+				pIDVBSTuningSpace->put_LNBSwitch(pTuningParam->Antenna.LNBSwitch);
 			}
 			else {
 				// 10GHzを設定しておけばHigh側に、20GHzを設定しておけばLow側に切替わるはず
-				pIDVBSTuningSpace->put_LNBSwitch((pTuningParam->Antenna->Tone != 0) ? 10000000 : 20000000);
+				pIDVBSTuningSpace->put_LNBSwitch((pTuningParam->Antenna.Tone != 0) ? 10000000 : 20000000);
 			}
 
 			// 位相変調スペクトル反転の種類
@@ -2231,40 +3026,50 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 
 	// ILocator取得
+	//
+	// ILocator継承順：
+	//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
+	//                               → IDVBSLocator → IDVBSLocator2
+	//                                               → IISDBSLocator
+	//                               → IDVBCLocator
+	//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
+	//            → IAnalogLocator
 	CComPtr<ILocator> pILocator;
-	if (FAILED(hr = m_pITuningSpace->get_DefaultLocator(&pILocator)) || !pILocator) {
-		OutputDebug(L"Fail to get ILocator.\n");
+	if (FAILED(hr = pITuningSpace->get_DefaultLocator(&pILocator))) {
+		OutputDebug(L"  Fail to get ILocator. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
 
+	OutputDebug(L"    ILocator\n");
 	// RF 信号の周波数を設定
 	pILocator->put_CarrierFrequency(pTuningParam->Frequency);
 
 	// 内部前方誤り訂正のタイプを設定
-	pILocator->put_InnerFEC(pTuningParam->Modulation->InnerFEC);
+	pILocator->put_InnerFEC(pTuningParam->Modulation.InnerFEC);
 
 	// 内部 FEC レートを設定
 	// 前方誤り訂正方式で使うバイナリ コンボルーションのコード レート DVB-Sは 3/4 S2は 3/5
-	pILocator->put_InnerFECRate(pTuningParam->Modulation->InnerFECRate);
+	pILocator->put_InnerFECRate(pTuningParam->Modulation.InnerFECRate);
 
 	// 変調タイプを設定
 	// DVB-SはQPSK、S2の場合は 8PSK
-	pILocator->put_Modulation(pTuningParam->Modulation->Modulation);
+	pILocator->put_Modulation(pTuningParam->Modulation.Modulation);
 
 	// 外部前方誤り訂正のタイプを設定
 	//	リード-ソロモン 204/188 (外部 FEC), DVB-S2でも同じ
-	pILocator->put_OuterFEC(pTuningParam->Modulation->OuterFEC);
+	pILocator->put_OuterFEC(pTuningParam->Modulation.OuterFEC);
 
 	// 外部 FEC レートを設定
-	pILocator->put_OuterFECRate(pTuningParam->Modulation->OuterFECRate);
+	pILocator->put_OuterFECRate(pTuningParam->Modulation.OuterFECRate);
 
 	// QPSK シンボル レートを設定
-	pILocator->put_SymbolRate(pTuningParam->Modulation->SymbolRate);
+	pILocator->put_SymbolRate(pTuningParam->Modulation.SymbolRate);
 
 	// IDVBSLocator特有
 	{
 		CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
 		if (pIDVBSLocator) {
+			OutputDebug(L"    ->IDVBSLocator\n");
 			// 信号の偏波を設定
 			pIDVBSLocator->put_SignalPolarisation(pTuningParam->Polarisation);
 		}
@@ -2274,9 +3079,13 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
 		if (pIDVBSLocator2) {
+			OutputDebug(L"    ->IDVBSLocator2\n");
 			// DiSEqCを設定
-			if (pTuningParam->Antenna->DiSEqC >= BDA_LNB_SOURCE_A) {
-				pIDVBSLocator2->put_DiseqLNBSource((LNB_Source)(pTuningParam->Antenna->DiSEqC));
+			if (pTuningParam->Antenna.DiSEqC >= BDA_LNB_SOURCE_A) {
+				pIDVBSLocator2->put_DiseqLNBSource((LNB_Source)(pTuningParam->Antenna.DiSEqC));
+			}
+			else {
+				pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
 			}
 		}
 	}
@@ -2285,9 +3094,10 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
 		if (pIDVBTLocator) {
+			OutputDebug(L"    ->IDVBTLocator\n");
 			// 周波数の帯域幅 (MHz)を設定
-			if (pTuningParam->Modulation->BandWidth != -1) {
-				pIDVBTLocator->put_Bandwidth(pTuningParam->Modulation->BandWidth);
+			if (pTuningParam->Modulation.BandWidth != -1) {
+				pIDVBTLocator->put_Bandwidth(pTuningParam->Modulation.BandWidth);
 			}
 		}
 	}
@@ -2296,6 +3106,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
 		if (pIATSCLocator) {
+			OutputDebug(L"    ->IATSCLocator\n");
 			// ATSC PhysicalChannel
 			if (pTuningParam->PhysicalChannel != -1) {
 				pIATSCLocator->put_PhysicalChannel(pTuningParam->PhysicalChannel);
@@ -2304,12 +3115,19 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 
 	// ITuneRequest作成
+	//
+	// ITuneRequest継承順：
+	//   ITuneRequest → IDVBTuneRequest
+	//                → IChannelTuneRequest → IATSCChannelTuneRequest → IDigitalCableTuneRequest
+	//                → IChannelIDTuneRequest
+	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
-	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
-		OutputDebug(L"Fail to create ITuneRequest.\n");
+	if (FAILED(hr = pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
+		OutputDebug(L"  Fail to create ITuneRequest. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
 
+	OutputDebug(L"    ITuneRequest\n");
 	// ITuneRequestにILocatorを設定
 	hr = pITuneRequest->put_Locator(pILocator);
 
@@ -2317,6 +3135,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDVBTuneRequest> pIDVBTuneRequest(pITuneRequest);
 		if (pIDVBTuneRequest) {
+			OutputDebug(L"    ->IDVBTuneRequest\n");
 			// DVB Triplet IDの設定
 			pIDVBTuneRequest->put_ONID(pTuningParam->ONID);
 			pIDVBTuneRequest->put_TSID(pTuningParam->TSID);
@@ -2328,6 +3147,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IChannelTuneRequest> pIChannelTuneRequest(pITuneRequest);
 		if (pIChannelTuneRequest) {
+			OutputDebug(L"    ->IChannelTuneRequest\n");
 			// ATSC Channel
 			pIChannelTuneRequest->put_Channel(pTuningParam->Channel);
 		}
@@ -2337,6 +3157,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IATSCChannelTuneRequest> pIATSCChannelTuneRequest(pITuneRequest);
 		if (pIATSCChannelTuneRequest) {
+			OutputDebug(L"    ->IATSCChannelTuneRequest\n");
 			// ATSC MinorChannel
 			pIATSCChannelTuneRequest->put_MinorChannel(pTuningParam->MinorChannel);
 		}
@@ -2346,6 +3167,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	{
 		CComQIPtr<IDigitalCableTuneRequest> pIDigitalCableTuneRequest(pITuneRequest);
 		if (pIDigitalCableTuneRequest) {
+			OutputDebug(L"    ->IDigitalCableTuneRequest\n");
 			// Digital Cable MinorChannel
 			pIDigitalCableTuneRequest->put_MajorChannel(pTuningParam->MinorChannel);
 			// Digital Cable SourceID
@@ -2358,47 +3180,59 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		hr = m_pIBdaSpecials2->PreTuneRequest(pTuningParam, pITuneRequest);
 	}
 
-	if (pTuningParam->Antenna->Tone != m_nCurTone) {
+	if (pTuningParam->Antenna.Tone != m_nCurTone && m_nToneWait) {
 		//トーン切替ありの場合、先に一度TuneRequestしておく
-		OutputDebug(L"Requesting pre tune.\n");
+		OutputDebug(L"  Requesting pre tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"Fail to put pre tune request.\n");
+			OutputDebug(L"  Fail to put pre tune request.  hr=0x%08lx\n", hr);
 			return FALSE;
 		}
-		OutputDebug(L"Pre tune request complete.\n");
+		OutputDebug(L"  Pre tune request complete.\n");
+		if (m_pIBdaSpecials2) {
+			// m_pIBdaSpecialsでput_TuneRequestの後に何らかの処理が必要なら行う
+			hr = m_pIBdaSpecials2->PostTuneRequest(pTuningParam);
+		}
 
-		m_nCurTone = pTuningParam->Antenna->Tone;
 		SleepWithMessageLoop(m_nToneWait); // 衛星切替待ち
 	}
+	m_nCurTone = pTuningParam->Antenna.Tone;
 
 	if (bLockTwice) {
 		// TuneRequestを強制的に2度行う
-		OutputDebug(L"Requesting 1st twice tune.\n");
+		OutputDebug(L"  Requesting 1st twice tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"Fail to put 1st twice tune request.\n");
+			OutputDebug(L"  Fail to put 1st twice tune request. hr=0x%08lx\n", hr);
 			return FALSE;
 		}
-		OutputDebug(L"1st Twice tune request complete.\n");
+		OutputDebug(L"  1st Twice tune request complete.\n");
+		if (m_pIBdaSpecials2) {
+			// m_pIBdaSpecialsでput_TuneRequestの後に何らかの処理が必要なら行う
+			hr = m_pIBdaSpecials2->PostTuneRequest(pTuningParam);
+		}
 		SleepWithMessageLoop(m_nLockTwiceDelay);
 	}
 
 	unsigned int nRetryRemain = m_nLockWaitRetry;
 	int nLock = 0;
 	do {
-		OutputDebug(L"Requesting tune.\n");
+		OutputDebug(L"  Requesting tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
-			OutputDebug(L"Fail to put tune request.\n");
+			OutputDebug(L"  Fail to put tune request. hr=0x%08lx\n", hr);
 			return FALSE;
 		}
-		OutputDebug(L"Tune request complete.\n");
+		OutputDebug(L"  Tune request complete.\n");
+		if (m_pIBdaSpecials2) {
+			// m_pIBdaSpecialsでput_TuneRequestの後に何らかの処理が必要なら行う
+			hr = m_pIBdaSpecials2->PostTuneRequest(pTuningParam);
+		}
 
-		static const int LockRetryTime = 50;
+		static constexpr int LockRetryTime = 50;
 		unsigned int nWaitRemain = m_nLockWait;
 		SleepWithMessageLoop(m_nLockWaitDelay);
 		GetSignalState(NULL, NULL, &nLock);
 		while (!nLock && nWaitRemain) {
 			DWORD dwSleepTime = (nWaitRemain > LockRetryTime) ? LockRetryTime : nWaitRemain;
-			OutputDebug(L"Waiting lock status remaining %d msec.\n", nWaitRemain);
+			OutputDebug(L"    Waiting lock status remaining %d msec.\n", nWaitRemain);
 			SleepWithMessageLoop(dwSleepTime);
 			nWaitRemain -= dwSleepTime;
 			GetSignalState(NULL, NULL, &nLock);
@@ -2406,15 +3240,15 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	} while (!nLock && nRetryRemain--);
 
 	if (nLock != 0)
-		OutputDebug(L"LockChannel success.\n");
+		OutputDebug(L"  LockChannel success.\n");
 	else
-		OutputDebug(L"LockChannel failed.\n");
+		OutputDebug(L"  LockChannel failed.\n");
 
 	return nLock != 0;
 }
 
 // チューナ固有Dllのロード
-HRESULT CBonTuner::CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstring tunerFriendlyName)
+HRESULT CBonTuner::CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::wstring tunerGUID, std::wstring tunerFriendlyName)
 {
 	if (m_aTunerParam.sDLLBaseName == L"") {
 		// チューナ固有関数を使わない場合
@@ -2425,7 +3259,8 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstri
 		// INI ファイルで "AUTO" 指定の場合
 		BOOL found = FALSE;
 		for (unsigned int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
-			if ((aTunerSpecialData[i].sTunerGUID != L"") && (tunerGUID.find(aTunerSpecialData[i].sTunerGUID)) != std::wstring::npos) {
+			std::wstring dbGUID(aTunerSpecialData[i].sTunerGUID);
+			if ((dbGUID != L"") && (tunerGUID.find(dbGUID)) != std::wstring::npos) {
 				// この時のチューナ依存コードをチューナパラメータに変数にセットする
 				m_aTunerParam.sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;
 				break;
@@ -2454,21 +3289,21 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstri
 	if ((m_hModuleTunerSpecials = ::LoadLibraryW(sDllName.c_str())) == NULL) {
 		// ロードできない場合、どうする? 
 		//  → デバッグメッセージだけ出して、固有関数を使わないものとして扱う
-		OutputDebug(L"DLL Not found.\n");
+		OutputDebug(L"CheckAndInitTunerDependDll: DLL Not found.\n");
 		return S_OK;
 	} else {
-		OutputDebug(L"Load Library successfully.\n");
+		OutputDebug(L"CheckAndInitTunerDependDll: Load Library successfully.\n");
 	}
 
-	HRESULT(*func)(IBaseFilter*, const WCHAR*, const WCHAR*, const WCHAR*) =
-		(HRESULT(*)(IBaseFilter*, const WCHAR*, const WCHAR*, const WCHAR*))::GetProcAddress(m_hModuleTunerSpecials, "CheckAndInitTuner");
+	HRESULT (* func)(IBaseFilter *, const WCHAR *, const WCHAR *, const WCHAR *) =
+		(HRESULT (*)(IBaseFilter *, const WCHAR *, const WCHAR *, const WCHAR *))::GetProcAddress(m_hModuleTunerSpecials, "CheckAndInitTuner");
 	if (!func) {
 		// 初期化コードが無い
 		// →初期化不要
 		return S_OK;
 	}
 
-	return (*func)(m_pTunerDevice, tunerGUID.c_str(), tunerFriendlyName.c_str(), m_sIniFilePath.c_str());
+	return (* func)(pTunerDevice, tunerGUID.c_str(), tunerFriendlyName.c_str(), m_sIniFilePath.c_str());
 }
 
 // チューナ固有Dllでのキャプチャデバイス確認
@@ -2478,13 +3313,13 @@ HRESULT CBonTuner::CheckCapture(std::wstring tunerGUID, std::wstring tunerFriend
 		return S_OK;
 	}
 
-	HRESULT(*func)(const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*) =
-		(HRESULT(*)(const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*))::GetProcAddress(m_hModuleTunerSpecials, "CheckCapture");
+	HRESULT (* func)(const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *) =
+		(HRESULT (*)(const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *, const WCHAR *))::GetProcAddress(m_hModuleTunerSpecials, "CheckCapture");
 	if (!func) {
 		return S_OK;
 	}
 
-	return (*func)(tunerGUID.c_str(), tunerFriendlyName.c_str(), captureGUID.c_str(), captureFriendlyName.c_str(), m_sIniFilePath.c_str());
+	return (* func)(tunerGUID.c_str(), tunerFriendlyName.c_str(), captureGUID.c_str(), captureFriendlyName.c_str(), m_sIniFilePath.c_str());
 }
 
 // チューナ固有関数のロード
@@ -2496,20 +3331,20 @@ void CBonTuner::LoadTunerDependCode(void)
 	IBdaSpecials* (*func)(CComPtr<IBaseFilter>);
 	func = (IBdaSpecials* (*)(CComPtr<IBaseFilter>))::GetProcAddress(m_hModuleTunerSpecials, "CreateBdaSpecials");
 	if (!func) {
-		OutputDebug(L"Cannot find CreateBdaSpecials.\n");
+		OutputDebug(L"LoadTunerDependCode: Cannot find CreateBdaSpecials.\n");
 		::FreeLibrary(m_hModuleTunerSpecials);
 		m_hModuleTunerSpecials = NULL;
 		return;
 	}
 	else {
-		OutputDebug(L"CreateBdaSpecials found.\n");
+		OutputDebug(L"LoadTunerDependCode: CreateBdaSpecials found.\n");
 	}
 
 	m_pIBdaSpecials = func(m_pTunerDevice);
 
-	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2a2 *>(m_pIBdaSpecials);
+	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b2 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
-		OutputDebug(L"Not IBdaSpecials2 Interface DLL.\n");
+		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 
 	//  BdaSpecialsにiniファイルを読み込ませる
 	HRESULT hr;
@@ -2535,10 +3370,10 @@ void CBonTuner::ReleaseTunerDependCode(void)
 			// 固有Finalize関数がないだけなので、何もせず
 		}
 		else if (SUCCEEDED(hr)) {
-			OutputDebug(L"Tuner Special Finalize successfully.\n");
+			OutputDebug(L"ReleaseTunerDependCode: Tuner Special Finalize successfully.\n");
 		}
 		else {
-			OutputDebug(L"Tuner Special Finalize failed.\n");
+			OutputDebug(L"ReleaseTunerDependCode: Tuner Special Finalize failed.\n");
 		}
 
 		SAFE_RELEASE(m_pIBdaSpecials);
@@ -2547,10 +3382,10 @@ void CBonTuner::ReleaseTunerDependCode(void)
 
 	if (m_hModuleTunerSpecials) {
 		if (::FreeLibrary(m_hModuleTunerSpecials) == 0) {
-			OutputDebug(L"FreeLibrary failed.\n");
+			OutputDebug(L"ReleaseTunerDependCode: FreeLibrary failed.\n");
 		}
 		else {
-			OutputDebug(L"FreeLibrary Success.\n");
+			OutputDebug(L"ReleaseTunerDependCode: FreeLibrary Success.\n");
 			m_hModuleTunerSpecials = NULL;
 		}
 	}
@@ -2558,28 +3393,41 @@ void CBonTuner::ReleaseTunerDependCode(void)
 
 HRESULT CBonTuner::InitializeGraphBuilder(void)
 {
-	HRESULT hr;
-	if (FAILED(hr = ::CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&m_pIGraphBuilder))) {
-		OutputDebug(L"Fail to create Graph.\n");
-		return hr;
+	HRESULT hr = E_FAIL;
+	
+	// pIGraphBuilder interfaceを取得
+	CComPtr<IGraphBuilder> pIGraphBuilder;
+	if (FAILED(hr = pIGraphBuilder.CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[InitializeGraphBuilder] Fail to get IGraphBuilder interface.\n");
+	}
+	else {
+		// pIGraphBuilder interfaceの取得成功
+		// IMediaControl interfaceを取得
+		CComQIPtr<IMediaControl> pIMediaControl(pIGraphBuilder);
+		if (!pIMediaControl) {
+			OutputDebug(L"[InitializeGraphBuilder] Fail to get IMediaControl interface.\n");
+			hr = E_FAIL;
+		}
+		else {
+			// 成功なのでこのまま終了
+			m_pIGraphBuilder = pIGraphBuilder;
+			m_pIMediaControl = pIMediaControl;
+			return hr;
+		}
 	}
 
-	if (FAILED(hr = m_pIGraphBuilder->QueryInterface(&m_pIMediaControl))) {
-		OutputDebug(L"Fail to get IMediaControl.\n");
-		return hr;
-	}
-
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::CleanupGraph(void)
 {
-	DisconnectAll(m_pTif);
-	DisconnectAll(m_pDemux);
-	DisconnectAll(m_pTsWriter);
-	DisconnectAll(m_pCaptureDevice);
-	DisconnectAll(m_pTunerDevice);
-	DisconnectAll(m_pNetworkProvider);
+	// DisconnectAll(m_pTif);
+	// DisconnectAll(m_pDemux);
+	// DisconnectAll(m_pTsWriter);
+	// DisconnectAll(m_pCaptureDevice);
+	// DisconnectAll(m_pTunerDevice);
+	// DisconnectAll(m_pNetworkProvider);
 
 	UnloadTif();
 	UnloadDemux();
@@ -2593,8 +3441,8 @@ void CBonTuner::CleanupGraph(void)
 	UnloadNetworkProvider();
 	UnloadTuningSpace();
 
-	SAFE_RELEASE(m_pIMediaControl);
-	SAFE_RELEASE(m_pIGraphBuilder);
+	m_pIMediaControl.Release();
+	m_pIGraphBuilder.Release();
 
 	return;
 }
@@ -2609,8 +3457,6 @@ HRESULT CBonTuner::RunGraph(void)
 	m_bIsSetStreamThread = FALSE;
 
 	if (FAILED(hr =  m_pIMediaControl->Run())) {
-		m_pIMediaControl->Stop();
-		OutputDebug(L"Failed to Run Graph.\n");
 		return hr;
 	}
 
@@ -2624,15 +3470,11 @@ void CBonTuner::StopGraph(void)
 		SAFE_CLOSE_HANDLE(m_hStreamThread);
 		m_bIsSetStreamThread = FALSE;
 
-		if (SUCCEEDED(hr = m_pIMediaControl->Pause())) {
-			OutputDebug(L"IMediaControl::Pause Success.\n");
-		} else {
+		if (FAILED(hr = m_pIMediaControl->Pause())) {
 			OutputDebug(L"IMediaControl::Pause failed.\n");
 		}
 
-		if (SUCCEEDED(hr = m_pIMediaControl->Stop())) {
-			OutputDebug(L"IMediaControl::Stop Success.\n");
-		} else {
+		if (FAILED(hr = m_pIMediaControl->Stop())) {
 			OutputDebug(L"IMediaControl::Stop failed.\n");
 		}
 	}
@@ -2640,356 +3482,554 @@ void CBonTuner::StopGraph(void)
 
 HRESULT CBonTuner::CreateTuningSpace(void)
 {
-	CLSID clsidTuningSpace = CLSID_NULL;
-	IID iidITuningSpace = IID_NULL;
-	CLSID clsidLocator = CLSID_NULL;
-	IID iidNetworkType = IID_NULL;
-	ModulationType modulationType = BDA_MOD_NOT_SET;
-	_bstr_t bstrUniqueName;
-	_bstr_t bstrFriendlyName;
-	DVBSystemType dvbSystemType = DVB_Satellite;
-	long networkID = -1;
-	long highOscillator = -1;
-	long lowOscillator = -1;
-	long lnbSwitch = -1;
-	TunerInputType tunerInputType = TunerInputCable;
-	long minChannel = 0;
-	long maxChannel = 0;
-	long minPhysicalChannel = 0;
-	long maxPhysicalChannel = 0;
-	long minMinorChannel = 0;
-	long maxMinorChannel = 0;
-	long minMajorChannel = 0;
-	long maxMajorChannel = 0;
-	long minSourceID = 0;
-	long maxSourceID = 0;
+	for (auto it = m_DVBSystemTypeDB.SystemType.begin(); it != m_DVBSystemTypeDB.SystemType.end(); it++) {
+		OutputDebug(L"[CreateTuningSpace] Processing number %ld.\n", it->first);
 
-	switch (m_nDVBSystemType) {
-	case eTunerTypeDVBT:
-	case eTunerTypeDVBT2:
-		bstrUniqueName = L"DVB-T";
-		bstrFriendlyName = L"Local DVB-T Digital Antenna";
-		clsidTuningSpace = __uuidof(DVBTuningSpace);
-		iidITuningSpace = __uuidof(IDVBTuningSpace2);
-		if (m_nDVBSystemType == eTunerTypeDVBT2) {
+		// オブジェクト作成用変数
+		enumTuningSpace specifyTuningSpace = eTuningSpaceAuto;					// 使用するTuningSpaceオブジェクト
+		CLSID clsidTuningSpace = CLSID_NULL;									// TuningSpaceオブジェクトのクラスid
+		enumLocator specifyLocator = eLocatorAuto;								// 使用するLocatorオブジェクト
+		CLSID clsidLocator = CLSID_NULL;										// Locatorオブジェクトのクラスid
+
+		// TuningSpace設定用変数
+		// ITuningSpace
+		_bstr_t bstrUniqueName;													// ITuningSpaceに設定するUniqueName
+		_bstr_t bstrFriendlyName;												// ITuningSpaceに設定するFriendlyName
+		enumNetworkType specifyITuningSpaceNetworkType = eNetworkTypeAuto;		// ITuningSpaceに設定するNetworkType
+		IID iidNetworkType = IID_NULL;											// ITuningSpaceに設定するNetworkTypeのGUID
+		// IDVBTuningSpace
+		DVBSystemType dvbSystemType = DVB_Satellite;							// DVBのシステムタイプ
+		// IDVBTuningSpace2
+		long networkID = -1;													// Network ID
+		// IDVBSTuningSpace
+		long highOscillator = -1;												// High側Oscillator周波数
+		long lowOscillator = -1;												// Low側Oscillator周波数
+		long lnbSwitch = -1;													// LNBスイッチ周波数
+		SpectralInversion spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;	// スペクトル反転
+		// IAnalogTVTuningSpace
+		TunerInputType inputType = TunerInputCable;								// アンテナ・ケーブルの入力タイプ
+		long countryCode = 0;													// 国・地域コード
+		long minChannel = 0;													// Channel番号の最小値
+		long maxChannel = 0;													// Channel番号の最大値
+		// IATSCTuningSpace
+		long minPhysicalChannel = 0;											// Physical Channel番号の最小値
+		long maxPhysicalChannel = 0;											// Physical Channel番号の最大値
+		long minMinorChannel = 0;												// Minor Channel番号の最小値
+		long maxMinorChannel = 0;												// Minor Channel番号の最大値
+		// IDigitalCableTuningSpace
+		long minMajorChannel = 0;												// Major Channel番号の最小値
+		long maxMajorChannel = 0;												// Major Channel番号の最大値
+		long minSourceID = 0;													// Source IDの最小値
+		long maxSourceID = 0;													// Source IDの最大値
+
+		// Default Locator設定用変数
+		// ILocator
+		long frequency = -1;													// RF信号の周波数
+		long symbolRate = -1;													// シンボルレート
+		FECMethod innerFECMethod = BDA_FEC_METHOD_NOT_SET;						// 内部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate innerFECRate = BDA_BCC_RATE_NOT_SET;			// 内部FECレート
+		FECMethod outerFECMethod = BDA_FEC_METHOD_NOT_SET;						// 外部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate outerFECRate = BDA_BCC_RATE_NOT_SET;			// 外部FECレート
+		ModulationType modulationType = BDA_MOD_NOT_SET;						// 変調タイプ
+		// IDVBSLocator
+		VARIANT_BOOL westPosition = VARIANT_TRUE;								// 衛星の経度を西経と東経のどちらで表現するか(Trueで西経)
+		long orbitalPosition = -1;												// 衛星の経度(1/10°)
+		long elevation = -1;													// 衛星の仰角(1/10°)
+		long azimuth = -1;														// 衛星の方位角(1/10°)
+		Polarisation polarisation = BDA_POLARISATION_NOT_SET;					// 偏波値
+		// IDVBSLocator2
+		LNB_Source diseqLNBSource = BDA_LNB_SOURCE_NOT_SET;						// DiSeqC LNB入力ソース
+		Pilot pilot = BDA_PILOT_NOT_SET;										// DVB-S2パイロットモード
+		RollOff rollOff = BDA_ROLL_OFF_NOT_SET;									// DVB-S2ロールオフ係数
+		// IDVBTLocator
+		long bandwidth = -1;													// 帯域幅(MHz)
+		GuardInterval guardInterval = BDA_GUARD_NOT_SET;						// ガードインターバル
+		HierarchyAlpha hierarchyAlpha = BDA_HALPHA_NOT_SET;						// 階層状アルファ
+		FECMethod lpInnerFECMethod = BDA_FEC_METHOD_NOT_SET;					// LPストリームの内部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate lpInnerFECRate = BDA_BCC_RATE_NOT_SET;		// LPストリームの内部FECレート
+		TransmissionMode transmissionMode = BDA_XMIT_MODE_NOT_SET;				// 伝送モード
+		VARIANT_BOOL otherFrequencyInUse = VARIANT_TRUE;						// 別のDVB-Tブロードキャスタで使われているかどうか
+		// IDVBTLocator2
+		long physicalLayerPipeId = -1;											// PLP ID
+		// IATSCLocator
+		long physicalChannel = -1;												// Physical Channel番号
+		long transportStreamID = -1;											// TSID
+		// IATSCLocator2
+		long programNumber = -1;												// Program Number
+
+		switch (it->second.nDVBSystemType) {
+		case eTunerTypeDVBT:
+		case eTunerTypeDVBT2:
+			bstrUniqueName = L"DVB-T";
+			bstrFriendlyName = L"Local DVB-T Digital Antenna";
+			specifyTuningSpace = eTuningSpaceDVB;
+			if (it->second.nDVBSystemType == eTunerTypeDVBT2) {
+				specifyLocator = eLocatorDVBT2;
+			}
+			else {
+				specifyLocator = eLocatorDVBT;
+			}
+			specifyITuningSpaceNetworkType = eNetworkTypeDVBT;
+			dvbSystemType = DVB_Terrestrial;
+			networkID = 0;
+			break;
+
+		case eTunerTypeDVBC:
+			bstrUniqueName = L"DVB-C";
+			bstrFriendlyName = L"Local DVB-C Digital Cable";
+			specifyTuningSpace = eTuningSpaceDVB;
+			specifyLocator = eLocatorDVBC;
+			specifyITuningSpaceNetworkType = eNetworkTypeDVBC;
+			dvbSystemType = DVB_Cable;
+			networkID = 0;
+			break;
+
+		case eTunerTypeISDBT:
+			bstrUniqueName = L"ISDB-T";
+			bstrFriendlyName = L"Local ISDB-T Digital Antenna";
+			specifyTuningSpace = eTuningSpaceDVB;
+			specifyLocator = eLocatorDVBT;
+			specifyITuningSpaceNetworkType = eNetworkTypeISDBT;
+			dvbSystemType = ISDB_Terrestrial;
+			networkID = -1;
+			break;
+
+		case eTunerTypeISDBC:
+			bstrUniqueName = L"ISDB-C";
+			bstrFriendlyName = L"Local ISDB-C Digital Cable";
+			specifyTuningSpace = eTuningSpaceDVB;
+			specifyLocator = eLocatorDVBC;
+			specifyITuningSpaceNetworkType = eNetworkTypeISDBC;
+			dvbSystemType = DVB_Cable;
+			networkID = -1;
+			break;
+
+		case eTunerTypeISDBS:
+			bstrUniqueName = L"ISDB-S";
+			bstrFriendlyName = L"Default Digital ISDB-S Tuning Space";
+			specifyTuningSpace = eTuningSpaceDVBS;
+			specifyLocator = eLocatorISDBS;
+			specifyITuningSpaceNetworkType = eNetworkTypeISDBS;
+			dvbSystemType = ISDB_Satellite;
+			networkID = -1;
+			highOscillator = -1;
+			lowOscillator = -1;
+			lnbSwitch = -1;
+			spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
+			break;
+
+		case eTunerTypeATSC_Antenna:
+			bstrUniqueName = L"ATSC";
+			bstrFriendlyName = L"Local ATSC Digital Antenna";
+			specifyTuningSpace = eTuningSpaceATSC;
+			specifyLocator = eLocatorATSC;
+			specifyITuningSpaceNetworkType = eNetworkTypeATSC;
+			inputType = TunerInputAntenna;
+			countryCode = 0;
+			minChannel = 1;
+			maxChannel = 99;
+			minPhysicalChannel = 2;
+			maxPhysicalChannel = 69;
+			minMinorChannel = 0;
+			maxMinorChannel = 999;
+			modulationType = BDA_MOD_128QAM;
+			break;
+
+		case eTunerTypeATSC_Cable:
+			bstrUniqueName = L"ATSCCable";
+			bstrFriendlyName = L"Local ATSC Digital Cable";
+			specifyTuningSpace = eTuningSpaceATSC;
+			specifyLocator = eLocatorATSC;
+			specifyITuningSpaceNetworkType = eNetworkTypeATSC;
+			inputType = TunerInputCable;
+			countryCode = 0;
+			minChannel = 1;
+			maxChannel = 99;
+			minPhysicalChannel = 1;
+			maxPhysicalChannel = 158;
+			minMinorChannel = 0;
+			maxMinorChannel = 999;
+			modulationType = BDA_MOD_128QAM;
+			break;
+
+		case eTunerTypeDigitalCable:
+			bstrUniqueName = L"Digital Cable";
+			bstrFriendlyName = L"Local Digital Cable";
+			specifyTuningSpace = eTuningSpaceDigitalCable;
+			specifyLocator = eLocatorDigitalCable;
+			specifyITuningSpaceNetworkType = eNetworkTypeDigitalCable;
+			inputType = TunerInputCable;
+			countryCode = 0;
+			minChannel = 2;
+			maxChannel = 9999;
+			minPhysicalChannel = 2;
+			maxPhysicalChannel = 158;
+			minMinorChannel = 0;
+			maxMinorChannel = 999;
+			minMajorChannel = 1;
+			maxMajorChannel = 99;
+			minSourceID = 0;
+			maxSourceID = 0x7fffffff;
+			break;
+
+		case eTunerTypeDVBS:
+		default:
+			bstrUniqueName = L"DVB-S";
+			bstrFriendlyName = L"Default Digital DVB-S Tuning Space";
+			specifyTuningSpace = eTuningSpaceDVBS;
+			specifyLocator = eLocatorDVBS;
+			specifyITuningSpaceNetworkType = eNetworkTypeDVBS;
+			dvbSystemType = DVB_Satellite;
+			networkID = -1;
+			highOscillator = 10600000;
+			lowOscillator = 9750000;
+			lnbSwitch = 11700000;
+			spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
+			westPosition = VARIANT_FALSE;
+			break;
+		}
+
+		if (it->second.nTuningSpace != eTuningSpaceAuto) {
+			specifyTuningSpace = it->second.nTuningSpace;
+		}
+		switch (specifyTuningSpace) {
+		case eTuningSpaceDVB:
+			clsidTuningSpace = __uuidof(DVBTuningSpace);
+			break;
+		case eTuningSpaceDVBS:
+			clsidTuningSpace = __uuidof(DVBSTuningSpace);
+			break;
+		case eTuningSpaceAnalogTV:
+			clsidTuningSpace = __uuidof(AnalogTVTuningSpace);
+			break;
+		case eTuningSpaceATSC:
+			clsidTuningSpace = __uuidof(ATSCTuningSpace);
+			break;
+		case eTuningSpaceDigitalCable:
+			clsidTuningSpace = __uuidof(DigitalCableTuningSpace);
+			break;
+		}
+
+		if (it->second.nLocator != eLocatorAuto) {
+			specifyLocator = it->second.nLocator;
+		}
+		switch (specifyLocator) {
+		case eLocatorDVBT:
+			clsidLocator = __uuidof(DVBTLocator);
+			break;
+		case eLocatorDVBT2:
 			clsidLocator = __uuidof(DVBTLocator2);
+			break;
+		case eLocatorDVBS:
+			clsidLocator = __uuidof(DVBSLocator);
+			break;
+		case eLocatorDVBC:
+			clsidLocator = __uuidof(DVBCLocator);
+			break;
+		case eLocatorISDBS:
+			clsidLocator = __uuidof(ISDBSLocator);
+			break;
+		case eLocatorATSC:
+			clsidLocator = __uuidof(ATSCLocator);
+			break;
+		case eLocatorDigitalCable:
+			clsidLocator = __uuidof(DigitalCableLocator);
+			break;
+		}
+
+		if (it->second.nITuningSpaceNetworkType != eNetworkTypeAuto) {
+			specifyITuningSpaceNetworkType = it->second.nITuningSpaceNetworkType;
+		}
+		switch (specifyITuningSpaceNetworkType) {
+		case eNetworkTypeDVBT:
+			iidNetworkType = { STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeDVBS:
+			iidNetworkType = { STATIC_DVB_SATELLITE_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeDVBC:
+			iidNetworkType = { STATIC_DVB_CABLE_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeISDBT:
+			iidNetworkType = { STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeISDBS:
+			iidNetworkType = { STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeISDBC:
+			iidNetworkType = { STATIC_ISDB_CABLE_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeATSC:
+			iidNetworkType = { STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeDigitalCable:
+			iidNetworkType = { STATIC_DIGITAL_CABLE_NETWORK_TYPE };
+			break;
+		case eNetworkTypeBSkyB:
+			iidNetworkType = { STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeDIRECTV:
+			iidNetworkType = { STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE };
+			break;
+		case eNetworkTypeEchoStar:
+			iidNetworkType = { STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE };
+			break;
+		}
+
+		if (it->second.nIDVBTuningSpaceSystemType != enumDVBSystemType::eDVBSystemTypeAuto) {
+			dvbSystemType = (DVBSystemType)it->second.nIDVBTuningSpaceSystemType;
+		}
+
+		if (it->second.nIAnalogTVTuningSpaceInputType != enumTunerInputType::eTunerInputTypeAuto) {
+			inputType = (tagTunerInputType)it->second.nIAnalogTVTuningSpaceInputType;
+		}
+
+		HRESULT hr;
+
+		CComPtr<ITuningSpace> pITuningSpace;
+		// ITuningSpaceを作成
+		//
+		// ITuningSpace継承順：
+		//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
+		//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
+		//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
+		//                → IAuxInTuningSpace → IAuxInTuningSpace2
+		if (FAILED(hr = pITuningSpace.CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER))) {
+			OutputDebug(L"[CreateTuningSpace] Fail to get ITuningSpace interface\n");
 		}
 		else {
-			clsidLocator = __uuidof(DVBTLocator);
+			// ITuningSpace に NetworkType を設定
+			if (FAILED(hr = pITuningSpace->put__NetworkType(iidNetworkType))) {
+				OutputDebug(L"[CreateTuningSpace] put__NetworkType failed\n");
+			}
+			else {
+				OutputDebug(L"[CreateTuningSpace] %s is created.\n", (wchar_t *)bstrFriendlyName);
+
+				// ITuningSpace
+				pITuningSpace->put_FrequencyMapping(L"");
+				pITuningSpace->put_UniqueName(bstrUniqueName);
+				pITuningSpace->put_FriendlyName(bstrFriendlyName);
+				OutputDebug(L"  ITuningSpace is initialized.\n");
+
+				// IDVBTuningSpace特有
+				{
+					CComQIPtr<IDVBTuningSpace> pIDVBTuningSpace(pITuningSpace);
+					if (pIDVBTuningSpace) {
+						pIDVBTuningSpace->put_SystemType(dvbSystemType);
+						OutputDebug(L"  IDVBTuningSpace is initialized.\n");
+					}
+				}
+
+				// IDVBTuningSpace2特有
+				{
+					CComQIPtr<IDVBTuningSpace2> pIDVBTuningSpace2(pITuningSpace);
+					if (pIDVBTuningSpace2) {
+						pIDVBTuningSpace2->put_NetworkID(networkID);
+						OutputDebug(L"  IDVBTuningSpace2 is initialized.\n");
+					}
+				}
+
+				// IDVBSTuningSpace特有
+				{
+					CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(pITuningSpace);
+					if (pIDVBSTuningSpace) {
+						pIDVBSTuningSpace->put_HighOscillator(highOscillator);
+						pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
+						pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
+						pIDVBSTuningSpace->put_SpectralInversion(spectralInversion);
+						OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
+					}
+				}
+
+				// IAnalogTVTuningSpace特有
+				{
+					CComQIPtr<IAnalogTVTuningSpace> pIAnalogTVTuningSpace(pITuningSpace);
+					if (pIAnalogTVTuningSpace) {
+						pIAnalogTVTuningSpace->put_InputType(inputType);
+						pIAnalogTVTuningSpace->put_MinChannel(minChannel);
+						pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
+						pIAnalogTVTuningSpace->put_CountryCode(countryCode);
+						OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
+					}
+				}
+
+				// IATSCTuningSpace特有
+				{
+					CComQIPtr<IATSCTuningSpace> pIATSCTuningSpace(pITuningSpace);
+					if (pIATSCTuningSpace) {
+						pIATSCTuningSpace->put_MinPhysicalChannel(minPhysicalChannel);
+						pIATSCTuningSpace->put_MaxPhysicalChannel(maxPhysicalChannel);
+						pIATSCTuningSpace->put_MinMinorChannel(minMinorChannel);
+						pIATSCTuningSpace->put_MaxMinorChannel(maxMinorChannel);
+						OutputDebug(L"  IATSCTuningSpace is initialized.\n");
+					}
+				}
+
+				// IDigitalCableTuningSpace特有
+				{
+					CComQIPtr<IDigitalCableTuningSpace> pIDigitalCableTuningSpace(pITuningSpace);
+					if (pIDigitalCableTuningSpace) {
+						pIDigitalCableTuningSpace->put_MinMajorChannel(minMajorChannel);
+						pIDigitalCableTuningSpace->put_MaxMajorChannel(maxMajorChannel);
+						pIDigitalCableTuningSpace->put_MinSourceID(minSourceID);
+						pIDigitalCableTuningSpace->put_MaxSourceID(maxSourceID);
+						OutputDebug(L"  IDigitalCableTuningSpace is initialized.\n");
+					}
+				}
+
+				// pILocatorを作成
+				//
+				// ILocator継承順：
+				//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
+				//                               → IDVBSLocator → IDVBSLocator2
+				//                                               → IISDBSLocator
+				//                               → IDVBCLocator
+				//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
+				//            → IAnalogLocator
+				CComPtr<ILocator> pILocator;
+				if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator))) {
+					OutputDebug(L"[CreateTuningSpace] Failed to get ILocator interface.\n");
+				}
+				else {
+					// Default Locatorの値を作成 
+					// ILocator
+					pILocator->put_CarrierFrequency(frequency);
+					pILocator->put_SymbolRate(symbolRate);
+					pILocator->put_InnerFEC(innerFECMethod);
+					pILocator->put_InnerFECRate(innerFECRate);
+					pILocator->put_OuterFEC(outerFECMethod);
+					pILocator->put_OuterFECRate(outerFECRate);
+					pILocator->put_Modulation(modulationType);
+					OutputDebug(L"  ILocator is initialized.\n");
+
+					// IDigitalLocator特有プロパティは無いけどLogに残す
+					{
+						CComQIPtr<IDigitalLocator> pIDigitalLocator(pILocator);
+						if (pIDigitalLocator) {
+							OutputDebug(L"  IDigitalLocator is initialized.\n");
+						}
+					}
+
+					// IDVBSLocator特有
+					{
+						CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
+						if (pIDVBSLocator) {
+							pIDVBSLocator->put_WestPosition(westPosition);
+							pIDVBSLocator->put_OrbitalPosition(orbitalPosition);
+							pIDVBSLocator->put_Elevation(elevation);
+							pIDVBSLocator->put_Azimuth(azimuth);
+							pIDVBSLocator->put_SignalPolarisation(polarisation);
+							OutputDebug(L"  IDVBSLocator is initialized.\n");
+						}
+					}
+
+					// IDVBSLocator2特有
+					{
+						CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
+						if (pIDVBSLocator2) {
+							pIDVBSLocator2->put_LocalOscillatorOverrideHigh(-1);
+							pIDVBSLocator2->put_LocalOscillatorOverrideLow(-1);
+							pIDVBSLocator2->put_LocalLNBSwitchOverride(-1);
+							pIDVBSLocator2->put_LocalSpectralInversionOverride(BDA_SPECTRAL_INVERSION_NOT_SET);
+							pIDVBSLocator2->put_DiseqLNBSource(diseqLNBSource);
+							pIDVBSLocator2->put_SignalPilot(pilot);
+							pIDVBSLocator2->put_SignalRollOff(rollOff);
+							OutputDebug(L"  IDVBSLocator2 is initialized.\n");
+						}
+					}
+
+					// IISDBSLocator特有プロパティは無いけどLogに残す
+					{
+						CComQIPtr<IISDBSLocator> pIISDBSLocator(pILocator);
+						if (pIISDBSLocator) {
+							OutputDebug(L"  IISDBSLocator is initialized.\n");
+						}
+					}
+
+					// IDVBTLocator特有
+					{
+						CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
+						if (pIDVBTLocator) {
+							pIDVBTLocator->put_Bandwidth(bandwidth);
+							pIDVBTLocator->put_Guard(guardInterval);
+							pIDVBTLocator->put_HAlpha(hierarchyAlpha);
+							pIDVBTLocator->put_LPInnerFEC(lpInnerFECMethod);
+							pIDVBTLocator->put_LPInnerFECRate(lpInnerFECRate);
+							pIDVBTLocator->put_Mode(transmissionMode);
+							pIDVBTLocator->put_OtherFrequencyInUse(otherFrequencyInUse);
+							OutputDebug(L"  IDVBTLocator is initialized.\n");
+						}
+					}
+
+					// IDVBTLocator2特有
+					{
+						CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
+						if (pIDVBTLocator2) {
+							pIDVBTLocator2->put_PhysicalLayerPipeId(physicalLayerPipeId);
+							OutputDebug(L"  IDVBTLocator2 is initialized.\n");
+						}
+					}
+
+					// IDVBCLocator特有プロパティは無いけどLogに残す
+					{
+						CComQIPtr<IDVBCLocator> pIDVBCLocator(pILocator);
+						if (pIDVBCLocator) {
+							OutputDebug(L"  IDVBCLocator is initialized.\n");
+						}
+					}
+
+					// IATSCLocator特有
+					{
+						CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
+						if (pIATSCLocator) {
+							pIATSCLocator->put_PhysicalChannel(physicalChannel);
+							pIATSCLocator->put_TSID(transportStreamID);
+							OutputDebug(L"  IATSCLocator is initialized.\n");
+						}
+					}
+
+					// IATSCLocator2特有
+					{
+						CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
+						if (pIATSCLocator2) {
+							pIATSCLocator2->put_ProgramNumber(programNumber);
+							OutputDebug(L"  IATSCLocator2 is initialized.\n");
+						}
+					}
+
+					// IDigitalCableLocator特有プロパティは無いけどLogに残す
+					{
+						CComQIPtr<IDigitalCableLocator> pIDigitalCableLocator(pILocator);
+						if (pIDigitalCableLocator) {
+							OutputDebug(L"  IDigitalCableLocator is initialized.\n");
+						}
+					}
+
+					pITuningSpace->put_DefaultLocator(pILocator);
+
+					// 全て成功
+					it->second.pITuningSpace = pITuningSpace;
+					OutputDebug(L"[CreateTuningSpace] Process number %ld was successful.\n", it->first);
+					continue;
+				}
+			}
 		}
-		iidNetworkType = { STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE };
-		modulationType = BDA_MOD_NOT_SET;
-		dvbSystemType = DVB_Terrestrial;
-		networkID = 0;
-		break;
 
-	case eTunerTypeDVBC:
-		bstrUniqueName = L"DVB-C";
-		bstrFriendlyName = L"Local DVB-C Digital Cable";
-		clsidTuningSpace = __uuidof(DVBTuningSpace);
-		iidITuningSpace = __uuidof(IDVBTuningSpace2);
-		clsidLocator = __uuidof(DVBCLocator);
-		iidNetworkType = { STATIC_DVB_CABLE_TV_NETWORK_TYPE };
-		modulationType = BDA_MOD_NOT_SET;
-		dvbSystemType = DVB_Cable;
-		networkID = 0;
-		break;
-
-	case eTunerTypeISDBT:
-		bstrUniqueName = L"ISDB-T";
-		bstrFriendlyName = L"Local ISDB-T Digital Antenna";
-		clsidTuningSpace = __uuidof(DVBTuningSpace);
-		iidITuningSpace = __uuidof(IDVBTuningSpace2);
-		clsidLocator = __uuidof(DVBTLocator);
-		iidNetworkType = { STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE };
-		modulationType = BDA_MOD_NOT_SET;
-		dvbSystemType = ISDB_Terrestrial;
-		networkID = -1;
-		break;
-
-	case eTunerTypeISDBS:
-		bstrUniqueName = L"ISDB-S";
-		bstrFriendlyName = L"Default Digital ISDB-S Tuning Space";
-		clsidTuningSpace = __uuidof(DVBSTuningSpace);
-		iidITuningSpace = __uuidof(IDVBSTuningSpace);
-		clsidLocator = __uuidof(DVBSLocator);
-		iidNetworkType = { STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE };
-		modulationType = BDA_MOD_NOT_SET;
-		dvbSystemType = ISDB_Satellite;
-		networkID = -1;
-		highOscillator = -1;
-		lowOscillator = -1;
-		lnbSwitch = -1;
-		break;
-
-	case eTunerTypeATSC_Antenna:
-		bstrUniqueName = L"ATSC";
-		bstrFriendlyName = L"Local ATSC Digital Antenna";
-		clsidTuningSpace = __uuidof(ATSCTuningSpace);
-		iidITuningSpace = __uuidof(IATSCTuningSpace);
-		clsidLocator = __uuidof(ATSCLocator);
-		iidNetworkType = { STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE };
-		modulationType = BDA_MOD_128QAM;
-		tunerInputType = TunerInputAntenna;
-		minChannel = 1;
-		maxChannel = 99;
-		minPhysicalChannel = 2;
-		maxPhysicalChannel = 158;
-		minMinorChannel = 0;
-		minMinorChannel = 999;
-		break;
-
-	case eTunerTypeATSC_Cable:
-		bstrUniqueName = L"ATSCCable";
-		bstrFriendlyName = L"Local ATSC Digital Cable";
-		clsidTuningSpace = __uuidof(ATSCTuningSpace);
-		iidITuningSpace = __uuidof(IATSCTuningSpace);
-		clsidLocator = __uuidof(ATSCLocator);
-		iidNetworkType = { STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE };
-		modulationType = BDA_MOD_128QAM;
-		tunerInputType = TunerInputCable;
-		minChannel = 1;
-		maxChannel = 99;
-		minPhysicalChannel = 1;
-		maxPhysicalChannel = 158;
-		minMinorChannel = 0;
-		minMinorChannel = 999;
-		break;
-
-	case eTunerTypeDigitalCable:
-		bstrUniqueName = L"Digital Cable";
-		bstrFriendlyName = L"Local Digital Cable";
-		clsidTuningSpace = __uuidof(DigitalCableTuningSpace);
-		iidITuningSpace = __uuidof(IDigitalCableTuningSpace);
-		clsidLocator = __uuidof(DigitalCableLocator);
-		iidNetworkType = { STATIC_DIGITAL_CABLE_NETWORK_TYPE };
-		modulationType = BDA_MOD_NOT_SET;
-		tunerInputType = TunerInputCable;
-		minChannel = 2;
-		maxChannel = 9999;
-		minPhysicalChannel = 2;
-		maxPhysicalChannel = 158;
-		minMinorChannel = 0;
-		minMinorChannel = 999;
-		minMajorChannel = 1;
-		minMajorChannel = 99;
-		minSourceID = 0;
-		maxSourceID = 0x7fffffff;
-		break;
-
-	case eTunerTypeDVBS:
-	default:
-		bstrUniqueName = L"DVB-S";
-		bstrFriendlyName = L"Default Digital DVB-S Tuning Space";
-		clsidTuningSpace = __uuidof(DVBSTuningSpace);
-		iidITuningSpace = __uuidof(IDVBSTuningSpace);
-		clsidLocator = __uuidof(DVBSLocator);
-		iidNetworkType = { STATIC_DVB_SATELLITE_TV_NETWORK_TYPE };
-		modulationType = BDA_MOD_NOT_SET;
-		dvbSystemType = DVB_Satellite;
-		networkID = -1;
-		highOscillator = 10600000;
-		lowOscillator = 9750000;
-		lnbSwitch = 11700000;
-		break;
+		// 失敗
+		OutputDebug(L"[CreateTuningSpace] Process number %ld failed.\n", it->first);
 	}
 
-	HRESULT hr;
-
-	// ITuningSpaceを作成
-	//
-	// ITuningSpace継承順：
-	//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
-	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
-	if (FAILED(hr = ::CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER, iidITuningSpace, (void**)&m_pITuningSpace))) {
-		OutputDebug(L"FAILED: CoCreateInstance(ITuningSpace)\n");
-		return hr;
-	}
-	if (!m_pITuningSpace) {
-		OutputDebug(L"Failed to get ITuningSpace\n");
+	if (!m_DVBSystemTypeDB.IsExist(0) || !m_DVBSystemTypeDB.SystemType[0].pITuningSpace) {
+		OutputDebug(L"[CreateTuningSpace] Fail to create default ITuningSpace.\n");
 		return E_FAIL;
 	}
-
-	// ITuningSpace
-	if (FAILED(hr = m_pITuningSpace->put__NetworkType(iidNetworkType))) {
-		OutputDebug(L"put_NetworkType failed\n");
-		return hr;
-	}
-	OutputDebug(L"%s is created.\n", (wchar_t *)bstrFriendlyName);
-	m_pITuningSpace->put_FrequencyMapping(L"");
-	m_pITuningSpace->put_UniqueName(bstrUniqueName);
-	m_pITuningSpace->put_FriendlyName(bstrFriendlyName);
-	OutputDebug(L"  ITuningSpace is initialized.\n");
-
-
-	// IDVBTuningSpace特有
-	{
-		CComQIPtr<IDVBTuningSpace> pIDVBTuningSpace(m_pITuningSpace);
-		if (pIDVBTuningSpace) {
-			pIDVBTuningSpace->put_SystemType(dvbSystemType);
-			OutputDebug(L"  IDVBTuningSpace is initialized.\n");
-		}
-	}
-
-	// IDVBTuningSpace2特有
-	{
-		CComQIPtr<IDVBTuningSpace2> pIDVBTuningSpace2(m_pITuningSpace);
-		if (pIDVBTuningSpace2) {
-			pIDVBTuningSpace2->put_NetworkID(networkID);
-			OutputDebug(L"  IDVBTuningSpace2 is initialized.\n");
-		}
-	}
-
-	// IDVBSTuningSpace特有
-	{
-		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_pITuningSpace);
-		if (pIDVBSTuningSpace) {
-			pIDVBSTuningSpace->put_HighOscillator(highOscillator);
-			pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
-			pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
-			pIDVBSTuningSpace->put_SpectralInversion(BDA_SPECTRAL_INVERSION_NOT_SET);
-			OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
-		}
-	}
-
-	// IAnalogTVTuningSpace特有
-	{
-		CComQIPtr<IAnalogTVTuningSpace> pIAnalogTVTuningSpace(m_pITuningSpace);
-		if (pIAnalogTVTuningSpace) {
-			pIAnalogTVTuningSpace->put_InputType(tunerInputType);
-			pIAnalogTVTuningSpace->put_MinChannel(minChannel);
-			pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
-			pIAnalogTVTuningSpace->put_CountryCode(0);
-			OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
-		}
-	}
-
-	// IATSCTuningSpace特有
-	{
-		CComQIPtr<IATSCTuningSpace> pIATSCTuningSpace(m_pITuningSpace);
-		if (pIATSCTuningSpace) {
-			pIATSCTuningSpace->put_MinPhysicalChannel(minPhysicalChannel);
-			pIATSCTuningSpace->put_MaxPhysicalChannel(maxPhysicalChannel);
-			pIATSCTuningSpace->put_MinMinorChannel(minMinorChannel);
-			pIATSCTuningSpace->put_MaxMinorChannel(maxMinorChannel);
-			OutputDebug(L"  IATSCTuningSpace is initialized.\n");
-		}
-	}
-
-	// IDigitalCableTuningSpace特有
-	{
-		CComQIPtr<IDigitalCableTuningSpace> pIDigitalCableTuningSpace(m_pITuningSpace);
-		if (pIDigitalCableTuningSpace) {
-			pIDigitalCableTuningSpace->put_MinMajorChannel(minMajorChannel);
-			pIDigitalCableTuningSpace->put_MaxMajorChannel(maxMajorChannel);
-			pIDigitalCableTuningSpace->put_MinSourceID(minSourceID);
-			pIDigitalCableTuningSpace->put_MaxSourceID(maxSourceID);
-			OutputDebug(L"  IDigitalCableTuningSpace is initialized.\n");
-		}
-	}
-
-	// pILocatorを作成
-	//
-	// ILocator継承順：
-	//   ILocator → IDVBTLocator → IDVBTLocator2
-	//            → IDVBSLocator → IDVBSLocator2
-	//            → IDVBCLocator
-	//            → IDigitalLocator → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
-	CComPtr<ILocator> pILocator;
-	if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator)) || !pILocator) {
-		OutputDebug(L"Fail to get ILocator.\n");
-		return FALSE;
-	}
-
-	// ILocator
-	pILocator->put_CarrierFrequency(-1);
-	pILocator->put_SymbolRate(-1);
-	pILocator->put_InnerFEC(BDA_FEC_METHOD_NOT_SET);
-	pILocator->put_InnerFECRate(BDA_BCC_RATE_NOT_SET);
-	pILocator->put_OuterFEC(BDA_FEC_METHOD_NOT_SET);
-	pILocator->put_OuterFECRate(BDA_BCC_RATE_NOT_SET);
-	pILocator->put_Modulation(modulationType);
-	OutputDebug(L"  ILocator is initialized.\n");
-
-	// IDVBSLocator特有
-	{
-		CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
-		if (pIDVBSLocator) {
-			pIDVBSLocator->put_WestPosition(FALSE);
-			pIDVBSLocator->put_OrbitalPosition(-1);
-			pIDVBSLocator->put_Elevation(-1);
-			pIDVBSLocator->put_Azimuth(-1);
-			pIDVBSLocator->put_SignalPolarisation(BDA_POLARISATION_NOT_SET);
-			OutputDebug(L"  IDVBSLocator is initialized.\n");
-		}
-	}
-
-	// IDVBSLocator2特有
-	{
-		CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
-		if (pIDVBSLocator2) {
-			pIDVBSLocator2->put_LocalOscillatorOverrideHigh(-1);
-			pIDVBSLocator2->put_LocalOscillatorOverrideLow(-1);
-			pIDVBSLocator2->put_LocalLNBSwitchOverride(-1);
-			pIDVBSLocator2->put_LocalSpectralInversionOverride(BDA_SPECTRAL_INVERSION_NOT_SET);
-			pIDVBSLocator2->put_DiseqLNBSource(BDA_LNB_SOURCE_NOT_SET);
-			pIDVBSLocator2->put_SignalPilot(BDA_PILOT_NOT_SET);
-			pIDVBSLocator2->put_SignalRollOff(BDA_ROLL_OFF_NOT_SET);
-			OutputDebug(L"  IDVBSLocator2 is initialized.\n");
-		}
-	}
-
-	// IDVBTLocator特有
-	{
-		CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
-		if (pIDVBTLocator) {
-			pIDVBTLocator->put_Bandwidth(-1);
-			pIDVBTLocator->put_Guard(BDA_GUARD_NOT_SET);
-			pIDVBTLocator->put_HAlpha(BDA_HALPHA_NOT_SET);
-			pIDVBTLocator->put_LPInnerFEC(BDA_FEC_METHOD_NOT_SET);
-			pIDVBTLocator->put_LPInnerFECRate(BDA_BCC_RATE_NOT_SET);
-			pIDVBTLocator->put_Mode(BDA_XMIT_MODE_NOT_SET);
-			pIDVBTLocator->put_OtherFrequencyInUse(VARIANT_FALSE);
-			OutputDebug(L"  IDVBTLocator is initialized.\n");
-		}
-	}
-
-	// IDVBTLocator2特有
-	{
-		CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
-		if (pIDVBTLocator2) {
-			pIDVBTLocator2->put_PhysicalLayerPipeId(-1);
-			OutputDebug(L"  IDVBTLocator2 is initialized.\n");
-		}
-	}
-
-	// IATSCLocator特有
-	{
-		CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
-		if (pIATSCLocator) {
-			pIATSCLocator->put_PhysicalChannel(-1);
-			pIATSCLocator->put_TSID(-1);
-			OutputDebug(L"  IATSCLocator is initialized.\n");
-		}
-	}
-
-	// IATSCLocator2特有
-	{
-		CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
-		if (pIATSCLocator2) {
-			pIATSCLocator2->put_ProgramNumber(-1);
-			OutputDebug(L"  IATSCLocator2 is initialized.\n");
-		}
-	}
-
-	m_pITuningSpace->put_DefaultLocator(pILocator);
 
 	return S_OK;
 }
 
 void CBonTuner::UnloadTuningSpace(void)
 {
-	SAFE_RELEASE(m_pITuningSpace);
+	m_DVBSystemTypeDB.ReleaseAll();
 }
 
 // Tuning Request を送って Tuning Space を初期化する
@@ -2997,145 +4037,163 @@ void CBonTuner::UnloadTuningSpace(void)
 //   あるらしい
 HRESULT CBonTuner::InitTuningSpace(void)
 {
-	if (!m_pITuningSpace) {
-		OutputDebug(L"TuningSpace NOT SET.\n");
+	if (!m_DVBSystemTypeDB.IsExist(0)) {
+		OutputDebug(L"[InitTuningSpace] TuningSpace NOT SET.\n");
 		return E_POINTER;
 	}
 
 	if (!m_pITuner) {
-		OutputDebug(L"ITuner NOT SET.\n");
+		OutputDebug(L"[InitTuningSpace] ITuner NOT SET.\n");
 		return E_POINTER;
 	}
 
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
 	// ITuneRequest作成
+	//
+	// ITuneRequest継承順：
+	//   ITuneRequest → IDVBTuneRequest
+	//                → IChannelTuneRequest → IATSCChannelTuneRequest → IDigitalCableTuneRequest
+	//                → IChannelIDTuneRequest
+	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
-	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
-		OutputDebug(L"Fail to create ITuneRequest.\n");
-		return hr;
+	if (FAILED(hr = m_DVBSystemTypeDB.SystemType[0].pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
+		OutputDebug(L"[InitTuningSpace] Fail to get ITuneRequest interface.\n");
 	}
-
-	// IDVBTuneRequest特有
-	{
-		CComQIPtr<IDVBTuneRequest> pIDVBTuneRequest(pITuneRequest);
-		if (pIDVBTuneRequest) {
-			pIDVBTuneRequest->put_ONID(-1);
-			pIDVBTuneRequest->put_TSID(-1);
-			pIDVBTuneRequest->put_SID(-1);
+	else {
+		// IDVBTuneRequest特有
+		{
+			CComQIPtr<IDVBTuneRequest> pIDVBTuneRequest(pITuneRequest);
+			if (pIDVBTuneRequest) {
+				pIDVBTuneRequest->put_ONID(-1);
+				pIDVBTuneRequest->put_TSID(-1);
+				pIDVBTuneRequest->put_SID(-1);
+			}
 		}
-	}
 
-	// IChannelTuneRequest特有
-	{
-		CComQIPtr<IChannelTuneRequest> pIChannelTuneRequest(pITuneRequest);
-		if (pIChannelTuneRequest) {
-			pIChannelTuneRequest->put_Channel(-1);
+		// IChannelTuneRequest特有
+		{
+			CComQIPtr<IChannelTuneRequest> pIChannelTuneRequest(pITuneRequest);
+			if (pIChannelTuneRequest) {
+				pIChannelTuneRequest->put_Channel(-1);
+			}
 		}
-	}
 
-	// IATSCChannelTuneRequest特有
-	{
-		CComQIPtr<IATSCChannelTuneRequest> pIATSCChannelTuneRequest(pITuneRequest);
-		if (pIATSCChannelTuneRequest) {
-			pIATSCChannelTuneRequest->put_MinorChannel(-1);
+		// IATSCChannelTuneRequest特有
+		{
+			CComQIPtr<IATSCChannelTuneRequest> pIATSCChannelTuneRequest(pITuneRequest);
+			if (pIATSCChannelTuneRequest) {
+				pIATSCChannelTuneRequest->put_MinorChannel(-1);
+			}
 		}
-	}
 
-	// IDigitalCableTuneRequest特有
-	{
-		CComQIPtr<IDigitalCableTuneRequest> pIDigitalCableTuneRequest(pITuneRequest);
-		if (pIDigitalCableTuneRequest) {
-			pIDigitalCableTuneRequest->put_MajorChannel(-1);
-			pIDigitalCableTuneRequest->put_SourceID(-1);
+		// IDigitalCableTuneRequest特有
+		{
+			CComQIPtr<IDigitalCableTuneRequest> pIDigitalCableTuneRequest(pITuneRequest);
+			if (pIDigitalCableTuneRequest) {
+				pIDigitalCableTuneRequest->put_MajorChannel(-1);
+				pIDigitalCableTuneRequest->put_SourceID(-1);
+			}
 		}
+
+		hr = m_pITuner->put_TuningSpace(m_DVBSystemTypeDB.SystemType[0].pITuningSpace);
+		hr = m_pITuner->put_TuneRequest(pITuneRequest);
+
+		// 全て成功
+		return S_OK;
 	}
 
-	m_pITuner->put_TuningSpace(m_pITuningSpace);
-
-	m_pITuner->put_TuneRequest(pITuneRequest);
-
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 HRESULT CBonTuner::LoadNetworkProvider(void)
 {
-	const WCHAR *strName = NULL;
 	CLSID clsidNetworkProvider = CLSID_NULL;
 
 	switch (m_nNetworkProvider) {
 	case eNetworkProviderGeneric:
 		clsidNetworkProvider = CLSID_NetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[0];
 		break;
 	case eNetworkProviderDVBS:
 		clsidNetworkProvider = CLSID_DVBSNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[1];
 		break;
 	case eNetworkProviderDVBT:
 		clsidNetworkProvider = CLSID_DVBTNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[2];
 		break;
 	case eNetworkProviderDVBC:
 		clsidNetworkProvider = CLSID_DVBCNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[3];
 		break;
 	case eNetworkProviderATSC:
 		clsidNetworkProvider = CLSID_ATSCNetworkProvider;
-		strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[4];
 		break;
 	case eNetworkProviderAuto:
 	default:
-		switch (m_nDVBSystemType) {
-		case eTunerTypeDVBS:
-		case eTunerTypeISDBS:
-			clsidNetworkProvider = CLSID_DVBSNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[1];
-			break;
-		case eTunerTypeDVBT:
-		case eTunerTypeDVBT2:
-		case eTunerTypeISDBT:
-			clsidNetworkProvider = CLSID_DVBTNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[2];
-			break;
-		case eTunerTypeDVBC:
-			clsidNetworkProvider = CLSID_DVBCNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[3];
-			break;
-		case eTunerTypeATSC_Antenna:
-		case eTunerTypeATSC_Cable:
-		case eTunerTypeDigitalCable:
-			clsidNetworkProvider = CLSID_ATSCNetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[4];
-			break;
-		default:
+		if (m_DVBSystemTypeDB.nNumType > 1) {
 			clsidNetworkProvider = CLSID_NetworkProvider;
-			strName = FILTER_GRAPH_NAME_NETWORK_PROVIDER[0];
-			break;
+		}
+		else {
+			switch (m_DVBSystemTypeDB.SystemType[0].nDVBSystemType) {
+			case eTunerTypeDVBS:
+			case eTunerTypeISDBS:
+				clsidNetworkProvider = CLSID_DVBSNetworkProvider;
+				break;
+			case eTunerTypeDVBT:
+			case eTunerTypeDVBT2:
+			case eTunerTypeISDBT:
+				clsidNetworkProvider = CLSID_DVBTNetworkProvider;
+				break;
+			case eTunerTypeDVBC:
+				clsidNetworkProvider = CLSID_DVBCNetworkProvider;
+				break;
+			case eTunerTypeATSC_Antenna:
+			case eTunerTypeATSC_Cable:
+			case eTunerTypeDigitalCable:
+				clsidNetworkProvider = CLSID_ATSCNetworkProvider;
+				break;
+			default:
+				clsidNetworkProvider = CLSID_NetworkProvider;
+				break;
+			}
 		}
 		break;
 	}
 
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
-	OutputDebug(L"Loading %s.\n", strName);
-	if (FAILED(hr = ::CoCreateInstance(clsidNetworkProvider, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void **)(&m_pNetworkProvider)))) {
-		OutputDebug(L"Fail to create network-provider.\n");
-		return hr;
+	CComPtr<IBaseFilter> pNetworkProvider;
+	// Network Proveiderフィルタを取得
+	if (FAILED(hr = pNetworkProvider.CoCreateInstance(clsidNetworkProvider, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[LoadNetworkProvider] Fail to get NetworkProvider IBaseFilter interface.\n");
+	}
+	else {
+		std::wstring strName = CDSFilterEnum::getRegistryName(pNetworkProvider);
+		OutputDebug(L"[LoadNetworkProvider] %s is loaded.\n", strName.c_str());
+		// フィルタ取得成功
+		// Graph Builderにフィルタを追加
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pNetworkProvider, strName.c_str()))) {
+			OutputDebug(L"[LoadNetworkProvider] Fail to add NetworkProvider IBaseFilter into graph.\n");
+		}
+		else {
+			// フィルタ追加成功
+			// ITuner interfaceを取得
+			CComQIPtr<ITuner> pITuner(pNetworkProvider);
+			if (!pITuner) {
+				OutputDebug(L"[LoadNetworkProvider] Fail to get ITuner interface.\n");
+				hr = E_FAIL;
+			}
+			else {
+				// ITuner interfaceの取得成功
+				// 全て成功
+				m_pNetworkProvider = pNetworkProvider;
+				m_pITuner = pITuner;
+				return hr;
+			}
+		}
 	}
 
-	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pNetworkProvider, strName))) {
-		OutputDebug(L"Fail to add network-provider into graph.\n");
-		SAFE_RELEASE(m_pNetworkProvider);
-		return hr;
-	}
-
-	if (FAILED(hr = m_pNetworkProvider->QueryInterface(__uuidof(ITuner), (void **)&m_pITuner))) {
-		OutputDebug(L"Fail to get ITuner.\n");
-		return E_FAIL;
-	}
-
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadNetworkProvider(void)
@@ -3144,8 +4202,8 @@ void CBonTuner::UnloadNetworkProvider(void)
 	if (m_pIGraphBuilder && m_pNetworkProvider)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pNetworkProvider);
 
-	SAFE_RELEASE(m_pITuner);
-	SAFE_RELEASE(m_pNetworkProvider);
+	m_pITuner.Release();
+	m_pNetworkProvider.Release();
 }
 
 // ini ファイルで指定されたチューナ・キャプチャの組合せListを作成
@@ -3215,12 +4273,12 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 	for (unsigned int i = 0; i < m_aTunerParam.Tuner.size(); i++) {
 		for (auto it = TunerList.begin(); it != TunerList.end(); it++) {
 			// DisplayName に GUID が含まれるか検査して、NOだったら次のチューナへ
-			if (m_aTunerParam.Tuner[i]->TunerGUID.compare(L"") != 0 && it->GUID.find(m_aTunerParam.Tuner[i]->TunerGUID) == std::wstring::npos) {
+			if (m_aTunerParam.Tuner[i].TunerGUID.compare(L"") != 0 && it->GUID.find(m_aTunerParam.Tuner[i].TunerGUID) == std::wstring::npos) {
 				continue;
 			}
 
 			// FriendlyName が含まれるか検査して、NOだったら次のチューナへ
-			if (m_aTunerParam.Tuner[i]->TunerFriendlyName.compare(L"") != 0 && it->FriendlyName.find(m_aTunerParam.Tuner[i]->TunerFriendlyName) == std::wstring::npos) {
+			if (m_aTunerParam.Tuner[i].TunerFriendlyName.compare(L"") != 0 && it->FriendlyName.find(m_aTunerParam.Tuner[i].TunerFriendlyName) == std::wstring::npos) {
 				continue;
 			}
 
@@ -3231,12 +4289,12 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 				std::vector<DSListData> TempCaptureList;
 				for (auto it2 = CaptureList.begin(); it2 != CaptureList.end(); it2++) {
 					// DisplayName に GUID が含まれるか検査して、NOだったら次のキャプチャへ
-					if (m_aTunerParam.Tuner[i]->CaptureGUID.compare(L"") != 0 && it2->GUID.find(m_aTunerParam.Tuner[i]->CaptureGUID) == std::wstring::npos) {
+					if (m_aTunerParam.Tuner[i].CaptureGUID.compare(L"") != 0 && it2->GUID.find(m_aTunerParam.Tuner[i].CaptureGUID) == std::wstring::npos) {
 						continue;
 					}
 
 					// FriendlyName が含まれるか検査して、NOだったら次のキャプチャへ
-					if (m_aTunerParam.Tuner[i]->CaptureFriendlyName.compare(L"") != 0 && it2->FriendlyName.find(m_aTunerParam.Tuner[i]->CaptureFriendlyName) == std::wstring::npos) {
+					if (m_aTunerParam.Tuner[i].CaptureFriendlyName.compare(L"") != 0 && it2->FriendlyName.find(m_aTunerParam.Tuner[i].CaptureFriendlyName) == std::wstring::npos) {
 						continue;
 					}
 
@@ -3311,7 +4369,7 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 HRESULT CBonTuner::LoadAndConnectDevice(void)
 {
 	HRESULT hr;
-	if (!m_pITuningSpace || !m_pNetworkProvider) {
+	if (!m_DVBSystemTypeDB.IsExist(0) || !m_pNetworkProvider) {
 		OutputDebug(L"[P->T] TuningSpace or NetworkProvider NOT SET.\n");
 		return E_POINTER;
 	}
@@ -3333,124 +4391,135 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		m_hSemaphore = ::CreateSemaphoreW(NULL, 1, 1, semName.c_str());
 		DWORD result = WaitForSingleObjectWithMessageLoop(m_hSemaphore, 0);
 		if (result != WAIT_OBJECT_0) {
-			OutputDebug(L"[P->T] Another is using.\n");
 			// 使用中なので次のチューナを探す
+			OutputDebug(L"[P->T] Another is using.\n");
 		} 
 		else {
 			// 排他確認OK
+			CComPtr<IBaseFilter> pTunerDevice;
 			// チューナデバイスのフィルタを取得
-			if (FAILED(hr = m_pDSFilterEnumTuner->getFilter(&m_pTunerDevice, it->Tuner.Order))) {
-				OutputDebug(L"[P->T] Error in Get Filter\n");
+			if (FAILED(hr = m_pDSFilterEnumTuner->getFilter(&pTunerDevice, it->Tuner.Order))) {
+				// フィルタを取得できなかったので次のチューナへ
+				OutputDebug(L"[P->T] Fail to get TunerDevice IBaseFilter interface.\n");
 			}
 			else {
 				// フィルタ取得成功
-				// チューナデバイスのフィルタを追加
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTunerDevice, it->Tuner.FriendlyName.c_str()))) {
-					OutputDebug(L"[P->T] Error in AddFilter\n");
+				// Graph Builderにチューナデバイスのフィルタを追加
+				if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTunerDevice, it->Tuner.FriendlyName.c_str()))) {
+					// フィルタの追加に失敗したので次のチューナへ
+					OutputDebug(L"[P->T] Fail to add TunerDevice IBaseFilter into graph.\n");
 				}
 				else {
-					// フィルタ取得成功
+					// フィルタ追加成功
 					// チューナデバイスをconnect してみる
-					if (FAILED(hr = Connect(L"Provider->Tuner", m_pNetworkProvider, m_pTunerDevice))) {
-						// NetworkProviderが異なる等の理由でconnectに失敗
-						// 次のチューナへ
-						OutputDebug(L"[P->T] Connect Failed.\n");
+					if (FAILED(hr = Connect(m_pNetworkProvider, pTunerDevice))) {
+						// connectに失敗したので次のチューナへ
+						OutputDebug(L"[P->T] Fail to connect.\n");
 					}
 					else {
 						// connect 成功
 						OutputDebug(L"[P->T] Connect OK.\n");
-
 						// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
-						if (FAILED(hr = CheckAndInitTunerDependDll(it->Tuner.GUID, it->Tuner.FriendlyName))) {
-							// 何らかの理由で使用できないみたいなので次のチューナへ
-							OutputDebug(L"[P->T] Discarded by BDASpecials.\n");
+						if (FAILED(hr = CheckAndInitTunerDependDll(pTunerDevice, it->Tuner.GUID, it->Tuner.FriendlyName))) {
+							// 固有Dllの処理が失敗したので次のチューナへ
+							OutputDebug(L"[P->T] Discarded by BDASpecial's CheckAndInitTuner function.\n");
 						}
 						else {
 							// 固有Dll処理OK
 							if (!m_aTunerParam.bNotExistCaptureDevice) {
-								// キャプチャデバイスを使用する
+								// キャプチャデバイスを使用する場合
 								for (auto it2 = it->CaptureList.begin(); it2 != it->CaptureList.end(); it2++) {
-									OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
 									// キャプチャデバイスループ
+									OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
 									// チューナ固有Dllでの確認処理があれば呼び出す
 									if (FAILED(hr = CheckCapture(it->Tuner.GUID, it->Tuner.FriendlyName, it2->GUID, it2->FriendlyName))) {
 										// 固有Dllがダメと言っているので次のキャプチャデバイスへ
-										OutputDebug(L"[T->C] Discarded by BDASpecials.\n");
+										OutputDebug(L"[T->C] Discarded by BDASpecial's CheckCapture function.\n");
 									}
 									else {
 										// 固有Dllの確認OK
+										CComPtr<IBaseFilter> pCaptureDevice;
 										// キャプチャデバイスのフィルタを取得
-										if (!m_pDSFilterEnumCapture || FAILED(hr = m_pDSFilterEnumCapture->getFilter(&m_pCaptureDevice, it2->Order))) {
-											OutputDebug(L"[T->C] Error in Get Filter\n");
+										if (!m_pDSFilterEnumCapture || FAILED(hr = m_pDSFilterEnumCapture->getFilter(&pCaptureDevice, it2->Order))) {
+											// フィルタを取得できなかったので次のキャプチャデバイスへ
+											OutputDebug(L"[T->C] Fail to get CaptureDevice IBaseFilter interface.\n");
 										}
 										else {
 											// フィルタ取得成功
-											// キャプチャデバイスのフィルタを追加
-											if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pCaptureDevice, it2->FriendlyName.c_str()))) {
-												OutputDebug(L"[T->C] Error in AddFilter\n");
+											// Graph Builderにキャプチャデバイスのフィルタを追加
+											if (FAILED(hr = m_pIGraphBuilder->AddFilter(pCaptureDevice, it2->FriendlyName.c_str()))) {
+												// フィルタの追加に失敗したので次のキャプチャデバイスへ
+												OutputDebug(L"[T->C] Fail to add CaptureDevice IBaseFilter into graph.\n");
 											}
 											else {
 												// フィルタ追加成功
 												// キャプチャデバイスをconnect してみる
-												if (FAILED(hr = Connect(L"Tuner->Capture", m_pTunerDevice, m_pCaptureDevice))) {
-													// connect できなければチューナとの組合せが正しくないと思われる
-													// 次のキャプチャデバイスへ
-													OutputDebug(L"[T->C] Connect Failed.\n");
+												if (FAILED(hr = Connect(pTunerDevice, pCaptureDevice))) {
+													// connectに失敗したので次のキャプチャデバイスへ
+													OutputDebug(L"[T->C] Fail to connect.\n");
 												}
 												else {
 													// connect 成功
 													OutputDebug(L"[T->C] Connect OK.\n");
-
 													// TsWriter以降と接続～Run
-													if (FAILED(LoadAndConnectMiscFilters())) {
-														// 失敗したら次のキャプチャデバイスへ
-													}
-													else {
+													if (SUCCEEDED(LoadAndConnectMiscFilters(pTunerDevice, pCaptureDevice))) {
 														// すべて成功
+														m_pTunerDevice = pTunerDevice;
+														m_pCaptureDevice = pCaptureDevice;
+														// チューナ固有関数のロード
 														LoadTunerDependCode();
 														if (m_bTryAnotherTuner)
+															// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
 															m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
 														return S_OK;
-													} // すべて成功
-													DisconnectAll(m_pCaptureDevice);
-												} // connect 成功
-												m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
-											} // フィルタ追加成功
-											SAFE_RELEASE(m_pCaptureDevice);
-										} // フィルタ取得成功
-									} // 固有Dllの確認OK
-								} // キャプチャデバイスループ
-								// 動作する組合せが見つからなかったので次のチューナへ
-							} // キャプチャデバイスを使用する
-							else {
-								// キャプチャデバイスを使用しない
-								// TsWriter以降と接続～Run
-								if (FAILED(hr = LoadAndConnectMiscFilters())) {
-									// 失敗したら次のチューナへ
+													}
+													// キャプチャデバイスをdisconnect
+													// DisconnectAll(pCaptureDevice);
+												}
+												// Graph Builderからキャプチャデバイスをremove
+												m_pIGraphBuilder->RemoveFilter(pCaptureDevice);
+											}
+										}
+									}
+									// 次のキャプチャデバイスへループ
 								}
-								else {
-									// 成功
+								// キャプチャデバイスループ終わり
+								// 動作する組合せが見つからなかったので次のチューナへ
+							}
+							else {
+								// キャプチャデバイスを使用しない場合
+								// TsWriter以降と接続～Run
+								if (SUCCEEDED(hr = LoadAndConnectMiscFilters(pTunerDevice, NULL))) {
+									// すべて成功
+									m_pTunerDevice = pTunerDevice;
+									// チューナ固有関数のロード
 									LoadTunerDependCode();
 									if (m_bTryAnotherTuner)
+										// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
 										m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
 									return S_OK;
-								} // 成功
-							} // キャプチャデバイスを使用しない
-						} // 固有Dll処理OK
-						ReleaseTunerDependCode();
-						DisconnectAll(m_pTunerDevice);
-					} // connect 成功
-					m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
-				} // フィルタ取得成功
-				SAFE_RELEASE(m_pTunerDevice);
-			} // フィルタ取得成功
+								}
+							}
+							// チューナ固有関数とDll解放
+							ReleaseTunerDependCode();
+						}
+						// Graph Builderからチューナをremove
+						// DisconnectAll(pTunerDevice);
+					}
+					// Graph Builderからチューナをremove
+					m_pIGraphBuilder->RemoveFilter(pTunerDevice);
+				}
+			}
+			// 排他処理終了
 			::ReleaseSemaphore(m_hSemaphore, 1, NULL);
-		} // 排他処理OK
+		}
+		// セマフォ解放
 		SAFE_CLOSE_HANDLE(m_hSemaphore);
-	} // チューナデバイスループ
-
+		// 次のチューナデバイスへループ
+	}
+	// チューナデバイスループ終わり
 	// 動作する組み合わせが見つからなかった
-	OutputDebug(L"[P->T] Tuner not found.\n");
+	OutputDebug(L"[P->T] Can not found a connectable pair of TunerDevice and CaptureDevice.\n");
 	return E_FAIL;
 }
 
@@ -3463,7 +4532,7 @@ void CBonTuner::UnloadTunerDevice(void)
 	if (m_pIGraphBuilder && m_pTunerDevice)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pTunerDevice);
 
-	SAFE_RELEASE(m_pTunerDevice);
+	m_pTunerDevice.Release();
 }
 
 void CBonTuner::UnloadCaptureDevice(void)
@@ -3473,106 +4542,110 @@ void CBonTuner::UnloadCaptureDevice(void)
 	if (m_pIGraphBuilder && m_pCaptureDevice)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pCaptureDevice);
 
-	SAFE_RELEASE(m_pCaptureDevice);
+	m_pCaptureDevice.Release();
 }
 
-HRESULT CBonTuner::LoadAndConnectMiscFilters(void)
-{
-	HRESULT hr;
-
-	// TsWriterと接続
-	if (FAILED(hr = LoadAndConnectTsWriter())) {
-		return hr;
-	}
-
-	// TsDemuxerと接続
-	if (FAILED(hr = LoadAndConnectDemux())) {
-		DisconnectAll(m_pTsWriter);
-		UnloadTsWriter();
-		return hr;
-	}
-
-	// TIFと接続
-	if (FAILED(hr = LoadAndConnectTif())) {
-		DisconnectAll(m_pDemux);
-		DisconnectAll(m_pTsWriter);
-		UnloadDemux();
-		UnloadTsWriter();
-		return hr;
-	}
-
-	// Runしてみる
-	if (FAILED(hr = RunGraph())) {
-		OutputDebug(L"RunGraph Failed.\n");
-		DisconnectAll(m_pTif);
-		DisconnectAll(m_pDemux);
-		DisconnectAll(m_pTsWriter);
-		UnloadTif();
-		UnloadDemux();
-		UnloadTsWriter();
-		return hr;
-	}
-
-	// 成功
-	OutputDebug(L"RunGraph OK.\n");
-	return S_OK;
-}
-
-HRESULT CBonTuner::LoadAndConnectTsWriter(void)
+HRESULT CBonTuner::LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice)
 {
 	HRESULT hr = E_FAIL;
 
-	if (!m_pTunerDevice || (!m_pCaptureDevice && !m_aTunerParam.bNotExistCaptureDevice)) {
-		OutputDebug(L"[C->W] TunerDevice or CaptureDevice NOT SET.\n");
+	// TsWriterと接続
+	if (SUCCEEDED(hr = LoadAndConnectTsWriter(pTunerDevice, pCaptureDevice))) {
+		// TsDemuxerと接続
+		if (SUCCEEDED(hr = LoadAndConnectDemux())) {
+			// TIFと接続
+			if (SUCCEEDED(hr = LoadAndConnectTif())) {
+				// Runしてみる
+				if (SUCCEEDED(hr = RunGraph())) {
+					// 成功
+					OutputDebug(L"RunGraph OK.\n");
+					return hr;
+				}
+				OutputDebug(L"RunGraph Failed.\n");
+				// DisconnectAll(m_pTif);
+				UnloadTif();
+			}
+			// DisconnectAll(m_pDemux);
+			UnloadDemux();
+		}
+		// DisconnectAll(m_pTsWriter);
+		UnloadTsWriter();
+	}
+
+	// 失敗
+	return hr;
+}
+
+HRESULT CBonTuner::LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice)
+{
+	// TS Writerの名称:AddFilter時に登録する名前
+	static constexpr WCHAR * const FILTER_GRAPH_NAME_TSWRITER = L"TS Writer";
+
+	HRESULT hr = E_FAIL;
+
+	if (!pTunerDevice || (!pCaptureDevice && !m_aTunerParam.bNotExistCaptureDevice)) {
+		OutputDebug(L"[C->W/T->W] TunerDevice or CaptureDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
-	// インスタンス作成
-	m_pCTsWriter = static_cast<CTsWriter *>(CTsWriter::CreateInstance(NULL, &hr));
-	if (!m_pCTsWriter) {
-		OutputDebug(L"[C->W] Fail to load TsWriter filter.\n");
-		return E_NOINTERFACE;
-	}
-
-	m_pCTsWriter->AddRef();
-
-	// フィルタを取得
-	if (FAILED(hr = m_pCTsWriter->QueryInterface(IID_IBaseFilter, (void**)(&m_pTsWriter)))) {
-		OutputDebug(L"[C->W] Fail to get TsWriter interface.\n");
-		SAFE_RELEASE(m_pCTsWriter);
-		return hr;
-	}
-
-	// フィルタを追加
-	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTsWriter, FILTER_GRAPH_NAME_TSWRITER))) {
-		OutputDebug(L"[C->W] Fail to add TsWriter filter into graph.\n");
-		SAFE_RELEASE(m_pTsWriter);
-		SAFE_RELEASE(m_pCTsWriter);
-		return hr;
-	}
-
-	// connect してみる
-	if (m_aTunerParam.bNotExistCaptureDevice) {
-		// Captureデバイスが存在しない場合はTunerと接続
-		if (FAILED(hr = Connect(L"Tuner->TsWriter", m_pTunerDevice, m_pTsWriter))) {
-			OutputDebug(L"[T->W] Failed to connect.\n");
-			SAFE_RELEASE(m_pTsWriter);
-			SAFE_RELEASE(m_pCTsWriter);
-			return hr;
-		}
+	// フィルタクラスのロード
+	CTsWriter *pCTsWriter = (CTsWriter *)CTsWriter::CreateInstance(NULL, &hr);
+	if (!pCTsWriter) {
+		OutputDebug(L"[C->W/T->W] Fail to create CTsWriter filter class instance.\n");
+		hr = E_FAIL;
 	}
 	else {
-		if (FAILED(hr = Connect(L"Capture->TsWriter", m_pCaptureDevice, m_pTsWriter))) {
-			OutputDebug(L"[C->W] Failed to connect.\n");
-			SAFE_RELEASE(m_pTsWriter);
-			SAFE_RELEASE(m_pCTsWriter);
-			return hr;
+		// フィルタを取得
+		CComQIPtr<IBaseFilter> pTsWriter(pCTsWriter);
+		if (!pTsWriter) {
+			OutputDebug(L"[C->W/T->W] Fail to get TsWriter IBaseFilter interface.\n");
+			hr = E_FAIL;
+		}
+		else {
+			// フィルタ取得成功
+			OutputDebug(L"[C->W/T->W] %s is loaded.\n", FILTER_GRAPH_NAME_TSWRITER);
+			// Graph Builderにフィルタを追加
+			if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTsWriter, FILTER_GRAPH_NAME_TSWRITER))) {
+				OutputDebug(L"[C->W/T->W] Fail to add TsWriter IBaseFilter into graph.\n");
+			}
+			else {
+				// フィルタ追加成功
+				// ITsWriter interfaceを取得
+				CComQIPtr<ITsWriter> pITsWriter(pTsWriter);
+				if (!pITsWriter) {
+					OutputDebug(L"[C->W/T->W] Fail to get ITsWriter interface.\n");
+					hr = E_FAIL;
+				}
+				else {
+					// ITsWriter interfaceの取得成功
+					// connect してみる
+					if (m_aTunerParam.bNotExistCaptureDevice) {
+						// Captureデバイスが存在しない場合はTunerと接続
+						if (FAILED(hr = Connect(pTunerDevice, pTsWriter))) {
+							OutputDebug(L"[T->W] Failed to connect.\n");
+						}
+					}
+					else {
+						// Captureデバイスと接続
+						if (FAILED(hr = Connect(pCaptureDevice, pTsWriter))) {
+							OutputDebug(L"[C->W] Fail to connect.\n");
+						}
+					}
+					if (SUCCEEDED(hr)) {
+						// connect 成功なのでこのまま終了
+						OutputDebug(L"[C->W/T->W] Connect OK.\n");
+						m_pTsWriter = pTsWriter;
+						m_pITsWriter = pITsWriter;
+						return hr;
+					}
+				}
+				m_pIGraphBuilder->RemoveFilter(pTsWriter);
+			}
 		}
 	}
 
-	// connect 成功なのでこのまま終了
-	OutputDebug(L"[C->W] Connect OK.\n");
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadTsWriter(void)
@@ -3581,42 +4654,50 @@ void CBonTuner::UnloadTsWriter(void)
 	if (m_pIGraphBuilder && m_pTsWriter)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pTsWriter);
 
-	SAFE_RELEASE(m_pTsWriter);
-	SAFE_RELEASE(m_pCTsWriter);
+	m_pITsWriter.Release();
+	m_pTsWriter.Release();
 }
 
 HRESULT CBonTuner::LoadAndConnectDemux(void)
 {
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
 	if (!m_pTsWriter) {
 			OutputDebug(L"[W->M] TsWriter NOT SET.\n");
 			return E_POINTER;
 	}
 
-	// インスタンス作成
-	if (FAILED(hr = ::CoCreateInstance(CLSID_MPEG2Demultiplexer, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter, (void **)(&m_pDemux)))) {
-		OutputDebug(L"[W->M] Fail to load MPEG2-Demultiplexer.\n");
-		return hr;
+	CComPtr<IBaseFilter> pDemux;
+	// フィルタを取得
+	if (FAILED(hr = pDemux.CoCreateInstance(CLSID_MPEG2Demultiplexer, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[W->M] Fail to get MPEG2Demultiplexer IBaseFilter interface.\n");
+	}
+	else {
+		std::wstring strName = CDSFilterEnum::getRegistryName(pDemux);
+		OutputDebug(L"[W->M] %s is loaded.\n", strName.c_str());
+		// フィルタ取得成功
+		// Graph Builderにフィルタを追加
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pDemux, strName.c_str()))) {
+			OutputDebug(L"[W->M] Fail to add MPEG2Demultiplexer IBaseFilter into graph.\n");
+		}
+		else {
+			// フィルタ追加成功
+			// connect してみる
+			if (FAILED(hr = Connect(m_pTsWriter, pDemux))) {
+				OutputDebug(L"[W->M] Fail to connect.\n");
+			}
+			else {
+				// connect 成功なのでこのまま終了
+				OutputDebug(L"[W->M] Connect OK.\n");
+				m_pDemux = pDemux;
+				return hr;
+			}
+			m_pIGraphBuilder->RemoveFilter(pDemux);
+		}
 	}
 
-	// フィルタを追加
-	if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pDemux, FILTER_GRAPH_NAME_DEMUX))) {
-		OutputDebug(L"[W->M] Fail to add MPEG2-Demultiplexer into graph.\n");
-		SAFE_RELEASE(m_pDemux);
-		return hr;
-	}
-
-	// connect してみる
-	if (FAILED(hr = Connect(L"Grabber->Demux", m_pTsWriter, m_pDemux))) {
-		OutputDebug(L"[W->M] Fail to connect Grabber->Demux.\n");
-		SAFE_RELEASE(m_pDemux);
-		return hr;
-	}
-
-	// connect 成功なのでこのまま終了
-	OutputDebug(L"[W->M] Connect OK.\n");
-	return S_OK;
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadDemux(void)
@@ -3625,60 +4706,52 @@ void CBonTuner::UnloadDemux(void)
 	if (m_pIGraphBuilder && m_pDemux)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pDemux);
 
-	SAFE_RELEASE(m_pDemux);
+	m_pDemux.Release();
 }
 
 HRESULT CBonTuner::LoadAndConnectTif(void)
 {
-	HRESULT hr;
+	// MPEG2 TIFのCLSID
+	static constexpr CLSID CLSID_MPEG2TransportInformationFilter = { 0xfc772ab0, 0x0c7f, 0x11d3, 0x8f, 0xf2, 0x00, 0xa0, 0xc9, 0x22, 0x4c, 0xf4 };
+
+	HRESULT hr = E_FAIL;
 
 	if (!m_pDemux) {
-			OutputDebug(L"[M->I] Demux NOT SET.\n");
+			OutputDebug(L"[M->I] MPEG2Demultiplexer NOT SET.\n");
 			return E_POINTER;
 	}
 
-	std::wstring friendlyName;
-
-	try {
-		CDSFilterEnum dsfEnum(KSCATEGORY_BDA_TRANSPORT_INFORMATION, CDEF_DEVMON_FILTER);
-		while (SUCCEEDED(hr = dsfEnum.next()) && hr == S_OK) {
-			// MPEG-2 Sections and Tables Filter に接続してしまうと RunGraph に失敗してしまうので
-			// BDA MPEG2 Transport Information Filter 以外はスキップ
-			dsfEnum.getFriendlyName(&friendlyName);
-			if (friendlyName.find(FILTER_GRAPH_NAME_TIF) == std::wstring::npos)
-				continue;
-
-			// フィルタを取得
-			if (FAILED(hr = dsfEnum.getFilter(&m_pTif))) {
-				OutputDebug(L"[M->I] Error in Get Filter\n");
-				return hr;
-			}
-
-			// フィルタを追加
-			if (FAILED(hr = m_pIGraphBuilder->AddFilter(m_pTif, FILTER_GRAPH_NAME_TIF))) {
-				SAFE_RELEASE(m_pTif);
-				OutputDebug(L"[M->I] Error in AddFilter.\n");
-				return hr;
-			}
-
-			// connect してみる
-			if (FAILED(hr = Connect(L"Demux -> Tif", m_pDemux, m_pTif))) {
-				m_pIGraphBuilder->RemoveFilter(m_pTif);
-				SAFE_RELEASE(m_pTif);
-				return hr;
-			}
-
-			// connect 成功なのでこのまま終了
-			OutputDebug(L"[M->I] Connect OK.\n");
-			return S_OK;
-		}
-		OutputDebug(L"[M->I] MPEG2 Transport Information Filter not found.\n");
-		return E_FAIL;
-	} catch (...) {
-		OutputDebug(L"[M->I] Fail to construct CDSFilterEnum.\n");
-		SAFE_RELEASE(m_pTif);
-		return E_FAIL;
+	CComPtr<IBaseFilter> pTif;
+	// フィルタを取得
+	if (FAILED(hr = pTif.CoCreateInstance(CLSID_MPEG2TransportInformationFilter, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[M->I] Fail to get TIF IBaseFilter interface.\n");
 	}
+	else {
+		std::wstring strName = CDSFilterEnum::getRegistryName(pTif);
+		OutputDebug(L"[M->I] %s is loaded.\n", strName.c_str());
+		// フィルタ取得成功
+		// Graph Builderにフィルタを追加
+		if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTif, strName.c_str()))) {
+			OutputDebug(L"[M->I] Fail to add TIF IBaseFilter into graph.\n");
+		}
+		else {
+			// フィルタ追加成功
+			// connect してみる
+			if (FAILED(hr = Connect(m_pDemux, pTif))) {
+				OutputDebug(L"[M->I] Fail to connect.\n");
+			}
+			else {
+				// connect 成功なのでこのまま終了
+				OutputDebug(L"[M->I] Connect OK.\n");
+				m_pTif = pTif;
+				return hr;
+			}
+			m_pIGraphBuilder->RemoveFilter(pTif);
+		}
+	}
+
+	// 失敗
+	return hr;
 }
 
 void CBonTuner::UnloadTif(void)
@@ -3687,167 +4760,146 @@ void CBonTuner::UnloadTif(void)
 	if (m_pIGraphBuilder && m_pTif)
 		hr = m_pIGraphBuilder->RemoveFilter(m_pTif);
 
-	SAFE_RELEASE(m_pTif);
+	m_pTif.Release();
 }
 
 HRESULT CBonTuner::LoadTunerSignalStatistics(void)
 {
-	HRESULT hr;
+	HRESULT hr = E_FAIL;
 
-	if (m_pTunerDevice == NULL) {
+	if (!m_pTunerDevice) {
 		OutputDebug(L"[LoadTunerSignalStatistics] TunerDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
 	CComQIPtr<IBDA_Topology> pIBDA_Topology(m_pTunerDevice);
 	if (!pIBDA_Topology) {
-		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_Topology.\n");
-		return E_FAIL;
+		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_Topology interface.\n");
+		hr = E_FAIL;
 	}
-
-	ULONG NodeTypes;
-	ULONG NodeType[32];
-	if (FAILED(hr = pIBDA_Topology->GetNodeTypes(&NodeTypes, 32, NodeType))) {
-		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get NodeTypes.\n");
-		return E_FAIL;
-	}
-
-	BOOL bFound = FALSE;
-	for (ULONG i = 0; i < NodeTypes; i++) {
-		IUnknown *pControlNode = NULL;
-		if (SUCCEEDED(hr = pIBDA_Topology->GetControlNode(0UL, 1UL, NodeType[i], &pControlNode))) {
-			if (SUCCEEDED(hr = pControlNode->QueryInterface(__uuidof(IBDA_SignalStatistics), (void **)(&m_pIBDA_SignalStatistics)))) {
-				OutputDebug(L"[LoadTunerSignalStatistics] SUCCESS.\n");
-				bFound = TRUE;
-			}
-			SAFE_RELEASE(pControlNode);
+	else {
+		ULONG NodeTypes;
+		ULONG NodeType[32];
+		if (FAILED(hr = pIBDA_Topology->GetNodeTypes(&NodeTypes, 32, NodeType))) {
+			OutputDebug(L"[LoadTunerSignalStatistics] Fail to get NodeTypes.\n");
 		}
-		if (bFound)
-			break;
+		else {
+			for (ULONG i = 0; i < NodeTypes; i++) {
+				CComPtr<IUnknown> pControlNode;
+				if (SUCCEEDED(hr = pIBDA_Topology->GetControlNode(0UL, 1UL, NodeType[i], &pControlNode))) {
+					CComQIPtr<IBDA_SignalStatistics> pIBDA_SignalStatistics(pControlNode);
+					if (pIBDA_SignalStatistics) {
+						OutputDebug(L"[LoadTunerSignalStatistics] SUCCESS.\n");
+						m_pIBDA_SignalStatistics = pIBDA_SignalStatistics;
+						return hr;
+					}
+				}
+			}
+		}
 	}
 
-	if (!m_pIBDA_SignalStatistics) {
-		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_SignalStatistics.\n");
-		return E_FAIL;
-	}
-
-	return S_OK;
+	OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_SignalStatistics interface.\n");
+	return E_FAIL;
 }
 
 void CBonTuner::UnloadTunerSignalStatistics(void)
 {
-	SAFE_RELEASE(m_pIBDA_SignalStatistics);
+	m_pIBDA_SignalStatistics.Release();
 }
 
 
 // Connect pins (Common subroutine)
 //  全てのピンを接続して成功したら終了
 //
-HRESULT CBonTuner::Connect(const WCHAR* pszName, IBaseFilter* pFilterUp, IBaseFilter* pFilterDown)
+HRESULT CBonTuner::Connect(IBaseFilter* pFilterUp, IBaseFilter* pFilterDown)
 {
 	HRESULT hr;
 
-	IEnumPins *pIEnumPinsUp = NULL;
-	IEnumPins *pIEnumPinsDown = NULL;
-	do {
-		// 上流フィルタのピン列挙
-		if (FAILED(hr = pFilterUp->EnumPins(&pIEnumPinsUp))) {
-			OutputDebug(L"Fatal Error; Cannot enumerate upstream filter's pins.\n");
+	CComPtr<IEnumPins> pIEnumPinsUp;
+	CComPtr<IEnumPins> pIEnumPinsDown;
+
+	// 上流フィルタのピン列挙
+	if (FAILED(hr = pFilterUp->EnumPins(&pIEnumPinsUp))) {
+		OutputDebug(L"  Can not enumerate upstream filter's pins.\n");
+		return hr;
+	}
+
+	// 下流フィルタのピン列挙
+	if (FAILED(hr = pFilterDown->EnumPins(&pIEnumPinsDown))) {
+		OutputDebug(L"  Can not enumerate downstream filter's pins.\n");
+		return hr;
+	}
+
+	// 上流フィルタのピンの数だけループ
+	while (1) {
+		CComPtr<IPin> pIPinUp;
+		if (FAILED(hr = pIEnumPinsUp->Next(1, &pIPinUp, 0)) || hr != S_OK) {
+			// ループ終わり
 			break;
 		}
+		do {
+			PIN_DIRECTION pinDirUp;
+			CComPtr<IPin> pIPinPeerOfUp;
+			if (FAILED(hr = pIPinUp->QueryDirection(&pinDirUp))) {
+				OutputDebug(L"  Can not get upstream filter's pinDir.\n");
+				return hr;
+			}
 
-		// 下流フィルタのピン列挙
-		if (FAILED(hr = pFilterDown->EnumPins(&pIEnumPinsDown))) {
-			OutputDebug(L"Fatal Error; Cannot enumerate downstream filter's pins.\n");
-			break;
-		}
+			// 着目ピンが INPUTピンなら次の上流ピンへ
+			if (pinDirUp == PINDIR_INPUT) {
+				break;
+			}
 
-		BOOL bExitLoop = FALSE;
-		// 上流フィルタのピンの数だけループ
-		IPin *pIPinUp = NULL;
-		while (SUCCEEDED(hr = pIEnumPinsUp->Next(1, &pIPinUp, 0)) && hr == S_OK) {
-			PIN_INFO PinInfoUp = { NULL, };
-			IPin *pIPinPeerOfUp = NULL;
-			do {
-				if (FAILED(hr = pIPinUp->QueryPinInfo(&PinInfoUp))) {
-					OutputDebug(L"Fatal Error; Cannot get upstream filter's pinInfo.\n");
-					bExitLoop = TRUE;
+			// 上流フィルタの着目ピンが接続済orエラーだったら次の上流ピンへ
+			if (pIPinUp->ConnectedTo(&pIPinPeerOfUp) != VFW_E_NOT_CONNECTED){
+				OutputDebug(L"  An already connected pin was found.\n");
+				break;
+			}
+
+			// 下流フィルタのピンの数だけループ
+			pIEnumPinsDown->Reset();
+			while (1) {
+				CComPtr<IPin> pIPinDown;
+				if (FAILED(hr = pIEnumPinsDown->Next(1, &pIPinDown, 0)) || hr != S_OK) {
+					// ループ終わり
 					break;
 				}
+				do {
+					PIN_DIRECTION pinDirDown;
+					CComPtr<IPin> pIPinPeerOfDown;
+					if (FAILED(hr = pIPinDown->QueryDirection(&pinDirDown))) {
+						OutputDebug(L"  Can not get downstream filter's pinDir.\n");
+						return hr;
+					}
 
-				// 着目ピンが INPUTピンなら次の上流ピンへ
-				if (PinInfoUp.dir == PINDIR_INPUT) {
-					OutputDebug(L"This is an INPUT pin.\n");
-					break;
-				}
-
-				// 上流フィルタの着目ピンが接続済orエラーだったら次の上流ピンへ
-				if (pIPinUp->ConnectedTo(&pIPinPeerOfUp) != VFW_E_NOT_CONNECTED){
-					OutputDebug(L"Target pin is already connected.\n");
-					break;
-				}
-
-				// 下流フィルタのピンの数だけループ
-				IPin *pIPinDown = NULL;
-				pIEnumPinsDown->Reset();
-				while (SUCCEEDED(hr = pIEnumPinsDown->Next(1, &pIPinDown, 0)) && hr == S_OK) {
-					PIN_INFO PinInfoDown = { NULL, };
-					IPin *pIPinPeerOfDown = NULL;
-					do {
-						if (FAILED(hr = pIPinDown->QueryPinInfo(&PinInfoDown))) {
-							OutputDebug(L"Fatal Error; cannot get downstream filter's pinInfo.\n");
-							bExitLoop = TRUE;
-							break;
-						}
-
-						// 着目ピンが OUTPUT ピンなら次の下流ピンへ
-						if (PinInfoDown.dir == PINDIR_OUTPUT) {
-							OutputDebug(L"This is an OUTPUT pin.\n");
-							break;
-						}
-
-						// 下流フィルタの着目ピンが接続済orエラーだったら次の下流ピンへ
-						if (pIPinDown->ConnectedTo(&pIPinPeerOfDown) != VFW_E_NOT_CONNECTED) {
-							OutputDebug(L"Target pin is already connected.\n");
-							break;
-						}
-
-						// 接続を試みる
-						if (SUCCEEDED(hr = m_pIGraphBuilder->ConnectDirect(pIPinUp, pIPinDown, NULL))) {
-							OutputDebug(L"%s CBonTuner::Connect successfully.\n", pszName);
-							bExitLoop = TRUE;
-							break;
-						} else {
-							// 違うチューナユニットのフィルタを接続しようとしてる場合など
-							// コネクトできない場合、次の下流ピンへ
-							OutputDebug(L"Can't connect to unconnected pin, Maybe differenct unit?\n");
-						}
-					} while(0);
-					SAFE_RELEASE(pIPinPeerOfDown);
-					SAFE_RELEASE(PinInfoDown.pFilter);
-					SAFE_RELEASE(pIPinDown);
-					if (bExitLoop)
+					// 着目ピンが OUTPUT ピンなら次の下流ピンへ
+					if (pinDirDown == PINDIR_OUTPUT) {
 						break;
-					OutputDebug(L"Trying next downstream pin.\n");
-				} // while; 次の下流ピンへ
-				break;
-			} while (0);
-			SAFE_RELEASE(pIPinPeerOfUp);
-			SAFE_RELEASE(PinInfoUp.pFilter);
-			SAFE_RELEASE(pIPinUp);
-			if (bExitLoop)
-				break;
-			OutputDebug(L"Trying next upstream pin.\n");
-		} // while ; 次の上流ピンへ
-		if (!bExitLoop) {
-			OutputDebug(L"Can't connect.\n");
-			hr = E_FAIL;
-		}
-	} while(0);
-	SAFE_RELEASE(pIEnumPinsDown);
-	SAFE_RELEASE(pIEnumPinsUp);
+					}
 
-	return hr;
+					// 下流フィルタの着目ピンが接続済orエラーだったら次の下流ピンへ
+					if (pIPinDown->ConnectedTo(&pIPinPeerOfDown) != VFW_E_NOT_CONNECTED) {
+						OutputDebug(L"  An already connected pin was found.\n");
+						break;
+					}
+
+					// 接続を試みる
+					if (SUCCEEDED(hr = m_pIGraphBuilder->ConnectDirect(pIPinUp, pIPinDown, NULL))) {
+						// 接続成功
+						return hr;
+					} else {
+						// 違うチューナユニットのフィルタを接続しようとしてる場合など
+						// コネクトできない場合、次の下流ピンへ
+						OutputDebug(L"  A pair of pins that can not be connected was found.\n");
+					}
+				} while(0);
+			} // while; 次の下流ピンへ
+		} while (0);
+	} // while ; 次の上流ピンへ
+
+	// コネクト可能な組み合わせが見つからなかった
+	OutputDebug(L"  Can not found a pair of connectable pins.\n");
+	return E_FAIL;
 }
 
 void CBonTuner::DisconnectAll(IBaseFilter* pFilter)
@@ -3857,131 +4909,23 @@ void CBonTuner::DisconnectAll(IBaseFilter* pFilter)
 	
 	HRESULT hr;
 
-	IEnumPins *pIEnumPins = NULL;
+	CComPtr<IEnumPins> pIEnumPins;
 	// フィルタのピン列挙
 	if (SUCCEEDED(hr = pFilter->EnumPins(&pIEnumPins))) {
 		// ピンの数だけループ
-		IPin *pIPin = NULL;
-		while (SUCCEEDED(hr = pIEnumPins->Next(1, &pIPin, 0)) && hr == S_OK) {
+		while (1) {
+			CComPtr<IPin> pIPin;
+			CComPtr<IPin> pIPinPeerOf;
+			if (FAILED(hr = pIEnumPins->Next(1, &pIPin, 0)) || hr != S_OK) {
+				// ループ終わり
+				break;
+			}
 			// ピンが接続済だったら切断
-			IPin *pIPinPeerOf = NULL;
+
 			if (SUCCEEDED(hr = pIPin->ConnectedTo(&pIPinPeerOf))) {
 				hr = m_pIGraphBuilder->Disconnect(pIPinPeerOf);
 				hr = m_pIGraphBuilder->Disconnect(pIPin);
-				SAFE_RELEASE(pIPinPeerOf);
-			}
-			SAFE_RELEASE(pIPin);
-		}
-		SAFE_RELEASE(pIEnumPins);
-	}
-}
-
-CBonTuner::TS_BUFF::TS_BUFF(void)
-	: TempBuff(NULL),
-	TempOffset(0),
-	BuffSize(0),
-	MaxCount(0)
-{
-	::InitializeCriticalSection(&cs);
-}
-
-CBonTuner::TS_BUFF::~TS_BUFF(void)
-{
-	Purge();
-	SAFE_DELETE_ARRAY(TempBuff);
-	::DeleteCriticalSection(&cs);
-}
-
-void CBonTuner::TS_BUFF::SetSize(DWORD dwBuffSize, DWORD dwMaxCount)
-{
-	Purge();
-	SAFE_DELETE_ARRAY(TempBuff);
-	if (dwBuffSize) {
-		TempBuff = new BYTE[dwBuffSize];
-	}
-	BuffSize = dwBuffSize;
-	MaxCount = dwMaxCount;
-}
-
-void CBonTuner::TS_BUFF::Purge(void)
-{
-	// 受信TSバッファ
-	::EnterCriticalSection(&cs);
-	while (!List.empty()) {
-		SAFE_DELETE(List.front());
-		List.pop();
-	}
-	TempOffset = 0;
-	::LeaveCriticalSection(&cs);
-}
-
-void CBonTuner::TS_BUFF::Add(TS_DATA *pItem)
-{
-	::EnterCriticalSection(&cs);
-	while (List.size() >= MaxCount) {
-		// オーバーフローなら古いものを消す
-		SAFE_DELETE(List.front());
-		List.pop();
-	}
-	List.push(pItem);
-	::LeaveCriticalSection(&cs);
-}
-
-BOOL CBonTuner::TS_BUFF::AddData(BYTE *pbyData, DWORD dwSize)
-{
-	BOOL ret = false;
-	while (dwSize) {
-		TS_DATA *pItem = NULL;
-		::EnterCriticalSection(&cs);
-		if (TempBuff) {
-			// iniファイルでBuffSizeが指定されている場合はそのサイズに合わせる
-			DWORD dwCopySize = (BuffSize > TempOffset + dwSize) ? dwSize : BuffSize - TempOffset;
-			memcpy(TempBuff + TempOffset, pbyData, dwCopySize);
-			TempOffset += dwCopySize;
-			dwSize -= dwCopySize;
-			pbyData += dwCopySize;
-
-			if (TempOffset >= BuffSize) {
-				// テンポラリバッファのデータを追加
-				pItem = new TS_DATA(TempBuff, TempOffset, FALSE);
-				TempBuff = new BYTE[BuffSize];
-				TempOffset = 0;
 			}
 		}
-		else {
-			// BuffSizeが指定されていない場合は上流から受け取ったサイズでそのまま追加
-			pItem = new TS_DATA(pbyData, dwSize, TRUE);
-			dwSize = 0;
-		}
-
-		if (pItem) {
-			// FIFOへ追加
-			while (List.size() >= MaxCount) {
-				// オーバーフローなら古いものを消す
-				SAFE_DELETE(List.front());
-				List.pop();
-			}
-			List.push(pItem);
-			ret = TRUE;
-		}
-		::LeaveCriticalSection(&cs);
 	}
-	return ret;
-}
-
-CBonTuner::TS_DATA * CBonTuner::TS_BUFF::Get(void)
-{
-	TS_DATA *ts = NULL;
-	::EnterCriticalSection(&cs);
-	if (!List.empty()) {
-		ts = List.front();
-		List.pop();
-	}
-	::LeaveCriticalSection(&cs);
-	return ts;
-}
-
-size_t CBonTuner::TS_BUFF::Size(void)
-{
-	return List.size();
 }

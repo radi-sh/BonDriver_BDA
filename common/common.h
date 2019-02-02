@@ -56,6 +56,7 @@ namespace common
 	std::wstring WStringPrintf(LPCWSTR format, ...);
 	std::basic_string<TCHAR> TStringPrintf(LPCTSTR format, ...);
 	std::string WStringToString(std::wstring Src);
+	std::wstring StringToWString(std::string Src);
 	std::basic_string<TCHAR> WStringToTString(std::wstring Src);
 	std::wstring WStringToUpperCase(std::wstring Src);
 	std::wstring WStringToLowerCase(std::wstring Src);
@@ -63,4 +64,5 @@ namespace common
 	int WStringDecimalToLong(std::wstring Src);
 	double WstringToDouble(std::wstring Src);
 	std::wstring GetModuleName(HMODULE hModule);
+	std::wstring::size_type WStringSplit(std::wstring * Src, WCHAR Separator, std::wstring * Out);
 }

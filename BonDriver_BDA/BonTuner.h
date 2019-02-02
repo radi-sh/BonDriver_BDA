@@ -11,14 +11,15 @@
 #include <list>
 #include <vector>
 #include <map>
-#include <queue>
 
+#include "TS_BUFF.h"
 #include "IBdaSpecials2.h"
 #include "IBonDriver2.h"
 #include "LockChannel.h"
 #include "DSFilterEnum.h"
+#include "TSMF.h"
 
-class CTsWriter;
+struct ITsWriter;
 
 // CBonTuner class
 ////////////////////////////////
@@ -70,7 +71,10 @@ public:
 	////////////////////////////////////////
 
 	// 必要な静的変数初期化
-	static void Init(void);
+	static void Init(HMODULE hModule);
+
+	// 静的変数の解放
+	static void Finalize(void);
 
 	////////////////////////////////////////
 	// 静的メンバ変数
@@ -97,7 +101,7 @@ protected:
 	static DWORD WINAPI DecodeProcThread(LPVOID lpParameter);
 
 	// TsWriter コールバック関数
-	static int CALLBACK RecvProc(void* pParam, BYTE* pbData, DWORD dwSize);
+	static int CALLBACK RecvProc(void* pParam, BYTE* pbData, size_t size);
 
 	// データ受信スタート・停止
 	void StartRecv(void);
@@ -113,7 +117,7 @@ protected:
 	BOOL LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice);
 
 	// チューナ固有Dllのロード
-	HRESULT CheckAndInitTunerDependDll(std::wstring tunerGUID, std::wstring tunerFriendlyName);
+	HRESULT CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::wstring tunerGUID, std::wstring tunerFriendlyName);
 
 	// チューナ固有Dllでのキャプチャデバイス確認
 	HRESULT CheckCapture(std::wstring tunerGUID, std::wstring tunerFriendlyName, std::wstring captureGUID, std::wstring captureFriendlyName);
@@ -152,7 +156,7 @@ protected:
 	void UnloadCaptureDevice(void);
 	
 	// TsWriter
-	HRESULT LoadAndConnectTsWriter(void);
+	HRESULT LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice);
 	void UnloadTsWriter(void);
 
 	// Demultiplexer
@@ -164,14 +168,14 @@ protected:
 	void UnloadTif(void);
 
 	// TsWriter/Demultiplexer/TIFをLoad&ConnectしRunする
-	HRESULT LoadAndConnectMiscFilters(void);
+	HRESULT LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice);
 
 	// チューナ信号状態取得用インターフェース
 	HRESULT LoadTunerSignalStatistics(void);
 	void UnloadTunerSignalStatistics(void);
 
 	// Pin の接続
-	HRESULT Connect(const WCHAR* pszName, IBaseFilter* pFrom, IBaseFilter* pTo);
+	HRESULT Connect(IBaseFilter* pFrom, IBaseFilter* pTo);
 
 	// 全ての Pin を切断する
 	void DisconnectAll(IBaseFilter* pFilter);
@@ -265,7 +269,7 @@ protected:
 			hEndEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 			hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 			::InitializeCriticalSection(&csLock);
-		};
+		}
 		
 		~COMProc(void)
 		{
@@ -273,7 +277,7 @@ protected:
 			SAFE_CLOSE_HANDLE(hEndEvent);
 			SAFE_CLOSE_HANDLE(hTerminateRequest);
 			::DeleteCriticalSection(&csLock);
-		};
+		}
 		
 		inline BOOL CheckTick(void)
 		{
@@ -395,11 +399,11 @@ protected:
 			hTerminateRequest(NULL)
 		{
 			hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
-		};
+		}
 		~DecodeProc(void)
 		{
 			SAFE_CLOSE_HANDLE(hTerminateRequest);
-		};
+		}
 	};
 	DecodeProc m_aDecodeProc;
 
@@ -408,7 +412,7 @@ protected:
 	////////////////////////////////////////
 
 	// INIファイルで指定できるGUID/FriendlyName最大数
-	static const unsigned int MAX_GUID = 100;
+	static constexpr unsigned int MAX_GUID = 100U;
 
 	// チューナ・キャプチャ検索に使用するGUID文字列とFriendlyName文字列の組合せ
 	struct TunerSearchData {
@@ -418,19 +422,19 @@ protected:
 		std::wstring CaptureFriendlyName;
 		TunerSearchData(void)
 		{
-		};
+		}
 		TunerSearchData(std::wstring tunerGuid, std::wstring tunerFriendlyName, std::wstring captureGuid, std::wstring captureFriendlyName)
 			: TunerFriendlyName(tunerFriendlyName),
 			  CaptureFriendlyName(captureFriendlyName)
 		{
 			TunerGUID = common::WStringToLowerCase(tunerGuid);
 			CaptureGUID = common::WStringToLowerCase(captureGuid);
-		};
+		}
 	};
 
 	// INI ファイルで指定するチューナパラメータ
 	struct TunerParam {
-		std::map<unsigned int, TunerSearchData*> Tuner;
+		std::map<unsigned int, TunerSearchData> Tuner;
 												// TunerとCaptureのGUID/FriendlyName指定
 		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
 		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
@@ -440,14 +444,11 @@ protected:
 			: bNotExistCaptureDevice(TRUE),
 			  bCheckDeviceInstancePath(TRUE)
 		{
-		};
+		}
 		~TunerParam(void)
 		{
-			for (auto it = Tuner.begin(); it != Tuner.end(); it++) {
-				SAFE_DELETE(it->second);
-			}
 			Tuner.clear();
-		};
+		}
 	};
 	TunerParam m_aTunerParam;
 
@@ -485,16 +486,22 @@ protected:
 	BOOL m_bBackgroundChannelLock;
 
 	// SignalLevel 算出方法
-	//   0 .. IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//   1 .. IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//   2 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//   3 .. (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-	//  10 .. ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-	//  11 .. ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-	//  12 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	//  13 .. (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-	// 100 .. ビットレート値(Mibps)
-	unsigned int m_nSignalLevelCalcType;
+	enum enumSignalLevelCalcType {
+		eSignalLevelCalcTypeSSMin = 0,
+		eSignalLevelCalcTypeSSStrength = 0,		// IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+		eSignalLevelCalcTypeSSQuality = 1,		// IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+		eSignalLevelCalcTypeSSMul = 2,			// (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSAdd = 3,			// (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSMax = 9,
+		eSignalLevelCalcTypeTunerMin = 10,
+		eSignalLevelCalcTypeTunerStrength = 10,	// ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+		eSignalLevelCalcTypeTunerQuality = 11,	// ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+		eSignalLevelCalcTypeTunerMul = 12,		// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerAdd = 13,		// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerMax = 19,
+		eSignalLevelCalcTypeBR = 100,			// ビットレート値(Mibps)
+	};
+	enumSignalLevelCalcType m_nSignalLevelCalcType;
 	BOOL m_bSignalLevelGetTypeSS;		// SignalLevel 算出に IBDA_SignalStatistics を使用する
 	BOOL m_bSignalLevelGetTypeTuner;	// SignalLevel 算出に ITuner を使用する
 	BOOL m_bSignalLevelGetTypeBR;		// SignalLevel 算出に ビットレート値を使用する
@@ -516,10 +523,12 @@ protected:
 	double m_fQualityBias;
 
 	// チューニング状態の判断方法
-	// 0 .. 常にチューニングに成功している状態として判断する
-	// 1 .. IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
-	// 2 .. ITuner::get_SignalStrengthで取得した値で判断する
-	unsigned int m_nSignalLockedJudgeType;
+	enum enumSignalLockedJudgeType {
+		eSignalLockedJudgeTypeAlways = 0,	// 常にチューニングに成功している状態として判断する
+		eSignalLockedJudgeTypeSS = 1,		// IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
+		eSignalLockedJudgeTypeTuner = 2,	// ITuner::get_SignalStrengthで取得した値で判断する
+	};
+	enumSignalLockedJudgeType m_nSignalLockedJudgeType;
 	BOOL m_bSignalLockedJudgeTypeSS;	// チューニング状態の判断に IBDA_SignalStatistics を使用する
 	BOOL m_bSignalLockedJudgeTypeTuner;	// チューニング状態の判断に ITuner を使用する
 
@@ -528,10 +537,10 @@ protected:
 	////////////////////////////////////////
 
 	// バッファ1個あたりのサイズ
-	DWORD m_dwBuffSize;
+	size_t m_nBuffSize;
 
 	// 最大バッファ数
-	DWORD m_dwMaxBuffCount;
+	size_t m_nMaxBuffCount;
 
 	// m_hOnDecodeEventをセットするデータバッファ個数
 	unsigned int m_nWaitTsCount;
@@ -550,6 +559,9 @@ protected:
 
 	// ストリームスレッドプライオリティ
 	int m_nThreadPriorityStream;
+
+	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
+	unsigned int m_nPeriodicTimer;
 
 	////////////////////////////////////////
 	// チャンネルパラメータ
@@ -594,10 +606,12 @@ protected:
 
 	// チューニング空間データ
 	struct TuningSpaceData {
-		std::basic_string<TCHAR> sTuningSpaceName;	// EnumTuningSpaceで返すTuning Space名
-		long FrequencyOffset;			// 周波数オフセット値
-		std::map<unsigned int, ChData*> Channels;		// チャンネル番号とチャンネルデータ
-		DWORD dwNumChannel;				// チャンネル数
+		std::basic_string<TCHAR> sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
+		long FrequencyOffset;							// 周波数オフセット値
+		unsigned int DVBSystemTypeNumber;				// TuningSpaceの種類番号
+		unsigned int TSMFMode;							// TSMFの処理モード
+		std::map<unsigned int, ChData> Channels;		// チャンネル番号とチャンネルデータ
+		DWORD dwNumChannel;								// チャンネル数
 		TuningSpaceData(void)
 			: FrequencyOffset(0),
 			  dwNumChannel(0)
@@ -605,55 +619,52 @@ protected:
 		};
 		~TuningSpaceData(void)
 		{
-			for (auto it = Channels.begin(); it != Channels.end(); it++) {
-				SAFE_DELETE(it->second);
-			}
 			Channels.clear();
 		};
 	};
 
 	// チューニングスペース一覧
 	struct TuningData {
-		std::map<unsigned int, TuningSpaceData*> Spaces;	// チューニングスペース番号とデータ
-		DWORD dwNumSpace;					// チューニングスペース数
+		std::map<unsigned int, TuningSpaceData> Spaces;		// チューニングスペース番号とデータ
+		DWORD dwNumSpace;									// チューニングスペース数
 		TuningData(void)
 			: dwNumSpace(0)
 		{
 		};
 		~TuningData(void)
 		{
-			for (auto it = Spaces.begin(); it != Spaces.end(); it++) {
-				SAFE_DELETE(it->second);
-			}
 			Spaces.clear();
 		};
 	};
 	TuningData m_TuningData;
-
-	// iniファイルからCH設定を読込む際に
-	// 使用されていないCH番号があっても前詰せず確保しておくかどうか
-	// FALSE .. 使用されてない番号があった場合前詰し連続させる
-	// TRUE .. 使用されていない番号をそのまま空CHとして確保しておく
-	BOOL m_bReserveUnusedCh;
 
 	////////////////////////////////////////
 	// 衛星受信パラメータ
 	////////////////////////////////////////
 
 	// iniファイルで受付ける偏波種類数
-	static const unsigned int POLARISATION_SIZE = 5;
+	static constexpr unsigned int POLARISATION_SIZE = 5U;
 
 	// CBonTunerで使用する偏波種類番号とPolarisation型のMapping
-	static const Polarisation PolarisationMapping[POLARISATION_SIZE];
+	static constexpr Polarisation PolarisationMapping[POLARISATION_SIZE] = {
+		BDA_POLARISATION_NOT_SET,
+		BDA_POLARISATION_LINEAR_H,
+		BDA_POLARISATION_LINEAR_V,
+		BDA_POLARISATION_CIRCULAR_L,
+		BDA_POLARISATION_CIRCULAR_R
+	};
 
 	// 偏波種類毎のiniファイルでの記号
-	static const WCHAR PolarisationChar[POLARISATION_SIZE];
-
-	// 偏波種類毎のiniファイルでの記号 逆引き用
-	static std::multimap<WCHAR, int> PolarisationCharMap;
+	static constexpr WCHAR PolarisationChar[POLARISATION_SIZE] = {
+		L' ',
+		L'H',
+		L'V',
+		L'L',
+		L'R'
+	};
 
 	// iniファイルで設定できる最大衛星数 + 1
-	static const unsigned int MAX_SATELLITE = 10;
+	static constexpr unsigned int MAX_SATELLITE = 10U;
 
 	// 衛星受信設定データ
 	struct Satellite {
@@ -669,7 +680,7 @@ protected:
 	////////////////////////////////////////
 
 	// iniファイルで設定できる最大変調方式数
-	static const unsigned int MAX_MODULATION = 10;
+	static constexpr unsigned int MAX_MODULATION = 10U;
 
 	// 変調方式設定データ
 	ModulationMethod m_aModulationType[MAX_MODULATION];
@@ -684,61 +695,11 @@ protected:
 	// iniファイルのPath
 	std::wstring m_sIniFilePath;
 
-	// TSバッファ操作用
-	CRITICAL_SECTION m_csTSBuff;
-
-	// Decode処理後TSバッファ操作用
-	CRITICAL_SECTION m_csDecodedTSBuff;
-
 	// 受信イベント
 	HANDLE m_hOnStreamEvent;
 
 	// デコードイベント
 	HANDLE m_hOnDecodeEvent;
-
-	// 受信TSデータバッファ
-	struct TS_DATA {
-		BYTE* pbyBuff;
-		DWORD dwSize;
-		TS_DATA(void)
-			: pbyBuff(NULL),
-			  dwSize(0)
-		{
-		};
-		TS_DATA(BYTE* data, DWORD size, BOOL copy = FALSE)
-		{
-			if (copy) {
-				pbyBuff = new BYTE[size];
-				memcpy(pbyBuff, data, size);
-			}
-			else {
-				pbyBuff = data;
-			}
-			dwSize = size;
-		};
-		~TS_DATA(void) {
-			SAFE_DELETE_ARRAY(pbyBuff);
-		};
-	};
-
-	class TS_BUFF {
-	private:
-		std::queue<TS_DATA *> List;
-		BYTE *TempBuff;
-		DWORD TempOffset;
-		DWORD BuffSize;
-		DWORD MaxCount;
-		CRITICAL_SECTION cs;
-	public:
-		TS_BUFF(void);
-		~TS_BUFF(void);
-		void SetSize(DWORD dwBuffSize, DWORD dwMaxCount);
-		void Purge(void);
-		void Add(TS_DATA *pItem);
-		BOOL AddData(BYTE *pbyData, DWORD dwSize);
-		TS_DATA * Get(void);
-		size_t Size(void);
-	};
 
 	// 受信TSデータバッファ
 	TS_BUFF m_TsBuff;
@@ -845,6 +806,9 @@ protected:
 	};
 	BitRate m_BitRate;
 
+	// TSNF処理用
+	CTSMFParser m_TSMFParser;
+
 	////////////////////////////////////////
 	// チューナ関連
 	////////////////////////////////////////
@@ -853,20 +817,19 @@ protected:
 	HANDLE m_hSemaphore;
 
 	// Graph
-	ITuningSpace *m_pITuningSpace;
-	ITuner *m_pITuner;
-	IBaseFilter *m_pNetworkProvider;
-	IBaseFilter *m_pTunerDevice;
-	IBaseFilter *m_pCaptureDevice;
-	IBaseFilter *m_pTsWriter;
-	IBaseFilter *m_pDemux;
-	IBaseFilter *m_pTif;
-	IGraphBuilder *m_pIGraphBuilder;
-	IMediaControl *m_pIMediaControl;
-	CTsWriter *m_pCTsWriter;
+	CComPtr<IGraphBuilder> m_pIGraphBuilder;	// Filter Graph Manager の IGraphBuilder interface
+	CComPtr<IMediaControl> m_pIMediaControl;	// Filter Graph Manager の IMediaControl interface
+	CComPtr<IBaseFilter> m_pNetworkProvider;	// NetworkProvider の IBaseFilter interface
+	CComPtr<ITuner> m_pITuner;					// NetworkProvider の ITuner interface
+	CComPtr<IBaseFilter> m_pTunerDevice;		// Tuner Device の IBaseFilter interface
+	CComPtr<IBaseFilter> m_pCaptureDevice;		// Capture Device の IBaseFilter interface
+	CComPtr<IBaseFilter> m_pTsWriter;			// CTsWriter の IBaseFilter interface
+	CComPtr<ITsWriter> m_pITsWriter;			// CTsWriter の ITsWriter interface
+	CComPtr<IBaseFilter> m_pDemux;				// MPEG2 Demultiplexer の IBaseFilter interface
+	CComPtr<IBaseFilter> m_pTif;				// MPEG2 Transport Information Filter の IBaseFilter interface
 
 	// チューナ信号状態取得用インターフェース
-	IBDA_SignalStatistics *m_pIBDA_SignalStatistics;
+	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatistics;
 
 	// DSフィルター列挙 CDSFilterEnum
 	CDSFilterEnum *m_pDSFilterEnumTuner;
@@ -882,7 +845,7 @@ protected:
 			FriendlyName(_FriendlyName),
 			Order(_Order)
 		{
-		};
+		}
 	};
 
 	// ロードすべきチューナ・キャプチャのリスト
@@ -892,31 +855,144 @@ protected:
 		TunerCaptureList(std::wstring TunerGUID, std::wstring TunerFriendlyName, ULONG TunerOrder)
 			: Tuner(TunerGUID, TunerFriendlyName, TunerOrder)
 		{
-		};
+		}
 		TunerCaptureList(DSListData _Tuner)
 			: Tuner(_Tuner)
 		{
-		};
+		}
 	};
 	std::list<TunerCaptureList> m_UsableTunerCaptureList;
 
 	// チューナーの使用するTuningSpaceの種類
 	enum enumTunerType {
+		eTunerTypeNone = -1,
 		eTunerTypeDVBS = 1,				// DBV-S/DVB-S2
 		eTunerTypeDVBT = 2,				// DVB-T
 		eTunerTypeDVBC = 3,				// DVB-C
 		eTunerTypeDVBT2 = 4,			// DVB-T2
 		eTunerTypeISDBS = 11,			// ISDB-S
 		eTunerTypeISDBT = 12,			// ISDB-T
+		eTunerTypeISDBC = 13,			// ISDB-C
 		eTunerTypeATSC_Antenna = 21,	// ATSC
 		eTunerTypeATSC_Cable = 22,		// ATSC Cable
 		eTunerTypeDigitalCable = 23,	// Digital Cable
 	};
-	enumTunerType m_nDVBSystemType;
+
+	// 使用するTuningSpace オブジェクト
+	enum enumTuningSpace {
+		eTuningSpaceAuto = -1,			// DVBSystemTypeの値によって自動選択
+		eTuningSpaceDVB = 1,			// DVBTuningSpace
+		eTuningSpaceDVBS = 2,			// DVBSTuningSpace
+		eTuningSpaceAnalogTV = 21,		// AnalogTVTuningSpace
+		eTuningSpaceATSC = 22,			// ATSCTuningSpace
+		eTuningSpaceDigitalCable = 23,	// DigitalCableTuningSpace
+	};
+
+	// 使用するLocator オブジェクト
+	enum enumLocator {
+		eLocatorAuto = -1,				// DVBSystemTypeの値によって自動選択
+		eLocatorDVBT = 1,				// DVBTLocator
+		eLocatorDVBT2 = 2,				// DVBTLocator2
+		eLocatorDVBS = 3,				// DVBSLocator
+		eLocatorDVBC = 4,				// DVBCLocator
+		eLocatorISDBS = 11,				// ISDBSLocator
+		eLocatorATSC = 21,				// ATSCLocator
+		eLocatorDigitalCable = 22,		// DigitalCableLocator
+	};
+
+	// ITuningSpaceに設定するNetworkType
+	enum enumNetworkType {
+		eNetworkTypeAuto = -1,			// DVBSystemTypeの値によって自動選択
+		eNetworkTypeDVBT = 1,			// STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeDVBS = 2,			// STATIC_DVB_SATELLITE_TV_NETWORK_TYPE
+		eNetworkTypeDVBC = 3,			// STATIC_DVB_CABLE_TV_NETWORK_TYPE
+		eNetworkTypeISDBT = 11,			// STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeISDBS = 12,			// STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE
+		eNetworkTypeISDBC = 13,			// STATIC_ISDB_CABLE_TV_NETWORK_TYPE
+		eNetworkTypeATSC = 21,			// STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeDigitalCable = 22,	// STATIC_DIGITAL_CABLE_NETWORK_TYPE
+		eNetworkTypeBSkyB = 101,		// STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE
+		eNetworkTypeDIRECTV = 102,		// STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE
+		eNetworkTypeEchoStar = 103,		// STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE
+	};
+
+	// IDVBTuningSpaceに設定するSystemType
+	enum enumDVBSystemType {
+		eDVBSystemTypeAuto = -1,								// DVBSystemTypeの値によって自動選択
+		eDVBSystemTypeDVBC = DVBSystemType::DVB_Cable,			// DVB_Cable
+		eDVBSystemTypeDVBT = DVBSystemType::DVB_Terrestrial,	// DVB_Terrestrial
+		eDVBSystemTypeDVBS = DVBSystemType::DVB_Satellite,		// DVB_Satellite
+		eDVBSystemTypeISDBT = DVBSystemType::ISDB_Terrestrial,	// ISDB_Terrestrial
+		eDVBSystemTypeISDBS = DVBSystemType::ISDB_Satellite,	// ISDB_Satellite
+	};
+
+	// IAnalogTVTuningSpaceに設定するInputType
+	enum enumTunerInputType {
+		eTunerInputTypeAuto = -1,										// DVBSystemTypeの値によって自動選択
+		eTunerInputTypeCable = tagTunerInputType::TunerInputCable,		// TunerInputCable
+		eTunerInputTypeAntenna = tagTunerInputType::TunerInputAntenna,	// TunerInputAntenna
+	};
+
+	// チューナーの使用するTuningSpaceの種類データ
+	struct DVBSystemTypeData {
+		enumTunerType nDVBSystemType;						// チューナーの使用するTuningSpaceの種類
+		enumTuningSpace nTuningSpace;						// 使用するTuningSpace オブジェクト
+		enumLocator nLocator;								// 使用するLocator オブジェクト
+		enumNetworkType nITuningSpaceNetworkType;			// ITuningSpaceに設定するNetworkType
+		enumDVBSystemType nIDVBTuningSpaceSystemType;		// IDVBTuningSpaceに設定するSystemType
+		enumTunerInputType nIAnalogTVTuningSpaceInputType;	// IAnalogTVTuningSpaceに設定するInputType
+		CComPtr<ITuningSpace> pITuningSpace;				// Tuning Space の ITuningSpace interface
+		DVBSystemTypeData(void)
+			: nDVBSystemType(eTunerTypeNone),
+			  nTuningSpace(eTuningSpaceAuto),
+			  nLocator(eLocatorAuto),
+			  nITuningSpaceNetworkType(eNetworkTypeAuto),
+			  nIDVBTuningSpaceSystemType(eDVBSystemTypeAuto),
+			  nIAnalogTVTuningSpaceInputType(eTunerInputTypeAuto)
+		{
+		}
+		~DVBSystemTypeData(void)
+		{
+			pITuningSpace.Release();
+		}
+	};
+
+	// TuningSpaceの種類データベース
+	struct DVBSystemTypeDB {
+		std::map<unsigned int, DVBSystemTypeData> SystemType;	// TuningSpaceの種類番号とTuningSpaceの種類データ
+		unsigned int nNumType;									// TuningSpaceの種類数
+		DVBSystemTypeDB(void)
+			: nNumType(0)
+		{
+		}
+		~DVBSystemTypeDB(void)
+		{
+			SystemType.clear();
+		}
+		BOOL IsExist(unsigned int number)
+		{
+			auto it = SystemType.find(number);
+			if (it == SystemType.end())
+				return FALSE;
+			if (!it->second.pITuningSpace)
+				return FALSE;
+			return TRUE;
+		}
+		void ReleaseAll(void)
+		{
+			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
+				it->second.pITuningSpace.Release();
+			}
+		}
+	};
+	DVBSystemTypeDB m_DVBSystemTypeDB;
+
+	// iniファイルで定義できる最大TuningSpaceの種類データ数
+	static constexpr unsigned int MAX_DVB_SYSTEM_TYPE = 10U;
 
 	// チューナーに使用するNetworkProvider 
 	enum enumNetworkProvider {
-		eNetworkProviderAuto = 0,		// 自動
+		eNetworkProviderAuto = 0,		// DVBSystemTypeの値によって自動選択
 		eNetworkProviderGeneric = 1,	// Microsoft Network Provider
 		eNetworkProviderDVBS = 2,		// Microsoft DVB-S Network Provider
 		eNetworkProviderDVBT = 3,		// Microsoft DVB-T Network Provider
@@ -925,8 +1001,15 @@ protected:
 	};
 	enumNetworkProvider m_nNetworkProvider;
 
-	// 衛星受信パラメータ/変調方式パラメータのデフォルト値 1 .. SPHD, 2 .. BS/CS110, 3 .. UHF/CATV, 4 .. Dual Mode
-	DWORD m_nDefaultNetwork;
+	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
+	enum enumDefaultNetwork {
+		eDefaultNetworkNone = 0,		// 設定しない
+		eDefaultNetworkSPHD = 1,		// SPHD
+		eDefaultNetworkBSCS = 2,		// BS/CS110
+		eDefaultNetworkUHF = 3,			// UHF/CATV
+		eDefaultNetworkDual = 4,		// Dual Mode (BS/CS110とUHF/CATV)
+	};
+	enumDefaultNetwork m_nDefaultNetwork;
 
 	// Tuner is opened
 	BOOL m_bOpened;
@@ -938,7 +1021,7 @@ protected:
 	DWORD m_dwCurSpace;
 
 	// チューニングスペース番号不明
-	static const DWORD SPACE_INVALID = 0xFFFFFFFF;
+	static constexpr DWORD SPACE_INVALID = 0xFFFFFFFFUL;
 
 	// SetChannel()を試みたチャンネル番号
 	DWORD m_dwTargetChannel;
@@ -947,13 +1030,16 @@ protected:
 	DWORD m_dwCurChannel;
 
 	// チャンネル番号不明
-	static const DWORD CHANNEL_INVALID = 0xFFFFFFFF;
+	static constexpr DWORD CHANNEL_INVALID = 0xFFFFFFFFUL;
 
 	// 現在のトーン切替状態
 	long m_nCurTone; // current tone signal state
 
 	// トーン切替状態不明
-	static const long TONE_UNKNOWN = -1;
+	static constexpr long TONE_UNKNOWN = -1L;
+
+	// TSMF処理が必要
+	BOOL m_bIsEnabledTSMF;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;
@@ -963,18 +1049,47 @@ protected:
 
 	// チューナ固有関数 IBdaSpecials
 	IBdaSpecials *m_pIBdaSpecials;
-	IBdaSpecials2a2 *m_pIBdaSpecials2;
+	IBdaSpecials2b2 *m_pIBdaSpecials2;
 
 	// チューナ固有の関数が必要かどうかを自動判別するDB
 	// GUID をキーに DLL 名を得る
 	struct TUNER_SPECIAL_DLL {
-		std::wstring sTunerGUID;
-		std::wstring sDLLBaseName;
+		const WCHAR * const sTunerGUID;
+		const WCHAR * const sDLLBaseName;
 	};
-	static const TUNER_SPECIAL_DLL aTunerSpecialData[];
+	static constexpr TUNER_SPECIAL_DLL aTunerSpecialData[] = {
+		// ここはプログラマしかいじらないと思うので、プログラム中でGUID を小文字に正規化しないので、
+		// 追加する場合は、GUIDは小文字で書いてください
+
+		/* TBS6980A */
+		{ L"{e9ead02c-8b8c-4d9b-97a2-2ec0324360b1}", L"TBS" },
+
+		/* TBS6980B, Prof 8000 */
+		{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
+
+		/* Prof 7300, 7301, TBS 8920 */
+		{ L"{91b0cc87-9905-4d65-a0d1-5861c6f22cbf}", L"TBS" },	// 7301 は固有関数でなくてもOKだった
+
+		/* TBS 6920 */
+		{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
+
+		/* Prof Prof 7500, Q-BOX II */
+		{ L"{b45b50ff-2d09-4bf2-a87c-ee4a7ef00857}", L"TBS" },
+
+		/* DVBWorld 2002, 2004, 2006 */
+		{ L"{4c807f36-2db7-44ce-9582-e1344782cb85}", L"DVBWorld" },
+
+		/* DVBWorld 210X, 2102X, 2104X */
+		{ L"{5a714cad-60f9-4124-b922-8a0557b8840e}", L"DVBWorld" },
+
+		/* DVBWorld 2005 */
+		{ L"{ede18552-45e6-469f-93b5-27e94296de38}", L"DVBWorld" }, // 2005 は固有関数は必要ないかも
+
+		{ L"", L"" }, // terminator
+	};
 
 	// チャンネル名自動生成 inline 関数
-	inline std::basic_string<TCHAR> MakeChannelName(CBonTuner::ChData* pChData)
+	inline std::basic_string<TCHAR> MakeChannelName(const CBonTuner::ChData* const pChData)
 	{
 		std::basic_string<TCHAR> format;
 		long m = pChData->Frequency / 1000;

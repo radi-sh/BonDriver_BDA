@@ -13,7 +13,7 @@
 DEFINE_GUID( GUID_TUNER_S_LOCK,
 0x8bed860a, 0xa7b4, 0x4e90, 0x9d, 0xf4, 0x13, 0x20, 0xc9, 0x49, 0x22, 0x61 ) ;
 
-class CDVBWorldSpecials : public IBdaSpecials2a2
+class CDVBWorldSpecials : public IBdaSpecials2b2
 {
 public:
 	CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
@@ -29,13 +29,15 @@ public:
 	const HRESULT SetLNBPower(bool bActive);
 
 	const HRESULT Set22KHz(long nTone);
-	const HRESULT LockChannel(const TuningParam *pTuningParm);
+	const HRESULT LockChannel(const TuningParam *pTuningParam);
 	const HRESULT ReadIniFile(const WCHAR *szIniFilePath);
 	const HRESULT IsDecodingNeeded(BOOL *pbAns);
 	const HRESULT Decode(BYTE *pBuf, DWORD dwSize);
 	const HRESULT GetSignalStrength(float *fVal);
-	const HRESULT PreTuneRequest(const TuningParam *pTuningParm, ITuneRequest *pITuneRequest);
-	const HRESULT PostLockChannel(const TuningParam *pTuningParm);
+	const HRESULT PreLockChannel(TuningParam *pTuningParam);
+	const HRESULT PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest);
+	const HRESULT PostTuneRequest(const TuningParam *pTuningParam);
+	const HRESULT PostLockChannel(const TuningParam *pTuningParam);
 
 	virtual void Release(void);
 
@@ -62,23 +64,23 @@ private:
 
 
 	// polarization
-	static const int LINEAR_V = 0;
-	static const int LINEAR_H = 1;
+	static constexpr int LINEAR_V = 0;
+	static constexpr int LINEAR_H = 1;
 
 	// DiSeqC
-	static const int DISEQC_PORT_A = 1;
-	static const int DISEQC_PORT_B = 2;
-	static const int DISEQC_PORT_C = 3;
-	static const int DISEQC_PORT_D = 4;
+	static constexpr int DISEQC_PORT_A = 1;
+	static constexpr int DISEQC_PORT_B = 2;
+	static constexpr int DISEQC_PORT_C = 3;
+	static constexpr int DISEQC_PORT_D = 4;
 
 	// Modulation
-	static const int DW_MOD_DVBS1_QPSK = 1;
-	static const int DW_MOD_DVBS2_QPSK = 2;
-	static const int DW_MOD_DVBS2_8PSK = 3;
+	static constexpr int DW_MOD_DVBS1_QPSK = 1;
+	static constexpr int DW_MOD_DVBS2_QPSK = 2;
+	static constexpr int DW_MOD_DVBS2_8PSK = 3;
 
 	// Burst
-	static const int DW_BURST_UNDEFINED = 0;
-	static const int DW_BURST_A = 1;
-	static const int DW_BURST_B = 2;
+	static constexpr int DW_BURST_UNDEFINED = 0;
+	static constexpr int DW_BURST_A = 1;
+	static constexpr int DW_BURST_B = 2;
 
 };
