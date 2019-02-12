@@ -432,10 +432,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\common\common.cpp" />
+    <ClCompile Include="..\..\common\DSFilterEnum.cpp" />
     <ClCompile Include="TBSSpecials.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\common\common.h" />
+    <ClInclude Include="..\..\common\DSFilterEnum.h" />
     <ClInclude Include="..\..\common\IBdaSpecials.h" />
     <ClInclude Include="..\..\common\IBdaSpecials2.h" />
     <ClInclude Include="..\..\common\LockChannel.h" />

@@ -12,7 +12,7 @@
 
 #include <dshow.h>
 
-#pragma comment( lib, "Strmiids.lib" )
+#include "DSFilterEnum.h"
 
 FILE *g_fpLog = NULL;
 
@@ -43,6 +43,20 @@ __declspec(dllexport) IBdaSpecials * CreateBdaSpecials(CComPtr<IBaseFilter> pTun
 CTBSSpecials::CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice)
 : m_hMySelf(hMySelf), m_pTunerDevice(pTunerDevice)
 {
+	if (m_pTunerDevice) {
+		CDSEnumPins DSEnumPins(m_pTunerDevice);
+		while (1) {
+			CComPtr<IPin> pPin;
+			if (S_OK != DSEnumPins.getNextPin(&pPin, PIN_DIRECTION::PINDIR_INPUT)) {
+				break;
+			}
+			CComQIPtr<IKsPropertySet> pPropsetTunerPin(pPin);
+			if (!pPropsetTunerPin) {
+				m_pPropsetTunerPin = pPropsetTunerPin;
+				break;
+			}
+		}
+	}
 	return;
 }
 
@@ -70,33 +84,14 @@ const HRESULT CTBSSpecials::InitializeHook(void)
 		return E_POINTER;
 	}
 
-	HRESULT hr;
-	if (m_pPropsetTunerPin == NULL) {
-		CComPtr<IEnumPins> pPinEnum;
-
-		m_pTunerDevice->EnumPins(&pPinEnum);
-		if (pPinEnum)
-		{
-			CComPtr<IPin> pPin;
-			while (!(m_pPropsetTunerPin) && SUCCEEDED(pPinEnum->Next(1, &pPin, NULL)))
-			{
-				PIN_DIRECTION dir;
-				if (SUCCEEDED(pPin->QueryDirection(&dir)))
-				{
-					CComQIPtr<IKsPropertySet> pPropsetTunerPin(pPin);
-					if (!pPropsetTunerPin) {
-						m_pPropsetTunerPin = pPropsetTunerPin;
-					}
-				}
-			}
-		}
+	if (!m_pPropsetTunerPin) {
+		return E_NOINTERFACE;
+	}
 		
-		DWORD TypeSupport=0;
-		if ((hr = m_pPropsetTunerPin->QuerySupported(KSPROPSETID_BdaTunerExtensionProperties,
-			KSPROPERTY_BDA_DISEQC_MESSAGE, 
-			&TypeSupport)) != S_OK) {
-				return E_NOINTERFACE;
-		}
+	HRESULT hr;
+	DWORD TypeSupport = 0;
+	if ((hr = m_pPropsetTunerPin->QuerySupported(KSPROPSETID_BdaTunerExtensionProperties, KSPROPERTY_BDA_DISEQC_MESSAGE, &TypeSupport)) != S_OK) {
+		return E_NOINTERFACE;
 	}
 
 	hr = SetLNBPower(TRUE);
