@@ -9,7 +9,6 @@
 #include <Windows.h>
 #include <string>
 #include <regex>
-#include <algorithm>
 
 #include <DShow.h>
 
@@ -29,9 +28,6 @@
 
 #include "CIniFileAccess.h"
 #include "WaitWithMsg.h"
-
-#pragma comment(lib, "Strmiids.lib")
-#pragma comment(lib, "ksproxy.lib")
 
 #ifdef _DEBUG
 #pragma comment(lib, "strmbasd.lib")
@@ -108,6 +104,7 @@ CBonTuner::CBonTuner()
 	m_nSignalLevelCalcType(eSignalLevelCalcTypeSSStrength),
 	m_bSignalLevelGetTypeSS(FALSE),
 	m_bSignalLevelGetTypeTuner(FALSE),
+	m_bSignalLevelGetTypeDemodSS(FALSE),
 	m_bSignalLevelGetTypeBR(FALSE),
 	m_bSignalLevelNeedStrength(FALSE),
 	m_bSignalLevelNeedQuality(FALSE),
@@ -120,6 +117,7 @@ CBonTuner::CBonTuner()
 	m_nSignalLockedJudgeType(eSignalLockedJudgeTypeSS),
 	m_bSignalLockedJudgeTypeSS(FALSE),
 	m_bSignalLockedJudgeTypeTuner(FALSE),
+	m_bSignalLockedJudgeTypeDemodSS(FALSE),
 	m_nBuffSize(188 * 1024),
 	m_nMaxBuffCount(512),
 	m_nWaitTsCount(1),
@@ -274,9 +272,12 @@ const BOOL CBonTuner::_OpenTuner(void)
 
 		OutputDebug(L"Build graph Successfully.\n");
 
+		// チューナの信号状態取得用インターフェースの取得（失敗しても続行）
 		if (m_bSignalLockedJudgeTypeSS || m_bSignalLevelGetTypeSS) {
-			// チューナの信号状態取得用インターフェースの取得（失敗しても続行）
-			hr = LoadTunerSignalStatistics();
+			hr = LoadTunerSignalStatisticsTunerNode();
+		}
+		if (m_bSignalLockedJudgeTypeDemodSS || m_bSignalLevelGetTypeDemodSS) {
+			hr = LoadTunerSignalStatisticsDemodNode();
 		}
 
 		// TS受信イベント作成
@@ -1427,19 +1428,23 @@ void CBonTuner::ReadIniFile(void)
 	m_nSignalLevelCalcType = (enumSignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength, mapSignalLevelCalcType);
 	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeSSMax)
 		m_bSignalLevelGetTypeSS = TRUE;
-	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeTunerMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeTunerMax)
+	else if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeTunerMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeTunerMax)
 		m_bSignalLevelGetTypeTuner = TRUE;
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR)
+	else if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeDemodSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeDemodSSMax)
+		m_bSignalLevelGetTypeDemodSS = TRUE;
+	else if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR)
 		m_bSignalLevelGetTypeBR = TRUE;
 	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
-			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd ||
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd)
 		m_bSignalLevelNeedStrength = TRUE;
 	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
-			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd ||
+			m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd)
 		m_bSignalLevelNeedQuality = TRUE;
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul)
 		m_bSignalLevelCalcTypeMul = TRUE;
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd)
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd)
 		m_bSignalLevelCalcTypeAdd = TRUE;
 
 	// Strength 値補正係数
@@ -1462,8 +1467,10 @@ void CBonTuner::ReadIniFile(void)
 	m_nSignalLockedJudgeType = (enumSignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS, mapSignalLockedJudgeType);
 	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeSS)
 		m_bSignalLockedJudgeTypeSS = TRUE;
-	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeTuner)
+	else if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeTuner)
 		m_bSignalLockedJudgeTypeTuner = TRUE;
+	else if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeDemodSS)
+		m_bSignalLockedJudgeTypeDemodSS = TRUE;
 
 	for (unsigned int i = 0; i < MAX_DVB_SYSTEM_TYPE; i++) {
 		std::wstring key, prefix[2];
@@ -2872,24 +2879,46 @@ void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 		}
 	}
 
-	if (m_pIBDA_SignalStatistics) {
+	if (m_pIBDA_SignalStatisticsTunerNode) {
 		if (m_bSignalLevelGetTypeSS) {
 			if (m_bSignalLevelNeedStrength && pnStrength) {
 				longVal = 0;
-				if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalStrength(&longVal)))
+				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalStrength(&longVal)))
 					*pnStrength = (int)(longVal & 0xffff);
 			}
 
 			if (m_bSignalLevelNeedQuality && pnQuality) {
 				longVal = 0;
-				if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalQuality(&longVal)))
+				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalQuality(&longVal)))
 					*pnQuality = (int)(min(max(longVal & 0xffff, 0), 100));
 			}
 		}
 
 		if (m_bSignalLockedJudgeTypeSS && pnLock) {
 			byteVal = 0;
-			if (SUCCEEDED(hr = m_pIBDA_SignalStatistics->get_SignalLocked(&byteVal)))
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalLocked(&byteVal)))
+				*pnLock = (int)byteVal;
+		}
+	}
+
+	if (m_pIBDA_SignalStatisticsDemodNode) {
+		if (m_bSignalLevelGetTypeDemodSS) {
+			if (m_bSignalLevelNeedStrength && pnStrength) {
+				longVal = 0;
+				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalStrength(&longVal)))
+					*pnStrength = (int)(longVal & 0xffff);
+			}
+
+			if (m_bSignalLevelNeedQuality && pnQuality) {
+				longVal = 0;
+				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalQuality(&longVal)))
+					*pnQuality = (int)(min(max(longVal & 0xffff, 0), 100));
+			}
+		}
+
+		if (m_bSignalLockedJudgeTypeDemodSS && pnLock) {
+			byteVal = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalLocked(&byteVal)))
 				*pnLock = (int)byteVal;
 		}
 	}
@@ -4220,14 +4249,7 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 	SAFE_DELETE(m_pDSFilterEnumTuner);
 	SAFE_DELETE(m_pDSFilterEnumCapture);
 
-	try {
-		m_pDSFilterEnumTuner = new CDSFilterEnum(KSCATEGORY_BDA_NETWORK_TUNER, CDEF_DEVMON_PNP_DEVICE);
-	}
-	catch (...) {
-		OutputDebug(L"[InitDSFilterEnum] Fail to construct CDSFilterEnum(KSCATEGORY_BDA_NETWORK_TUNER).\n");
-		return E_FAIL;
-	}
-
+	m_pDSFilterEnumTuner = new CDSFilterEnum(KSCATEGORY_BDA_NETWORK_TUNER, CDEF_DEVMON_PNP_DEVICE);
 	order = 0;
 	while (SUCCEEDED(hr = m_pDSFilterEnumTuner->next()) && hr == S_OK) {
 		std::wstring sDisplayName;
@@ -4243,28 +4265,20 @@ HRESULT CBonTuner::InitDSFilterEnum(void)
 		order++;
 	}
 
-	try {
-		m_pDSFilterEnumCapture = new CDSFilterEnum(KSCATEGORY_BDA_RECEIVER_COMPONENT, CDEF_DEVMON_PNP_DEVICE);
-	}
-	catch (...) {
-		OutputDebug(L"[InitDSFilterEnum] Fail to construct CDSFilterEnum(KSCATEGORY_BDA_RECEIVER_COMPONENT). Continue processing...\n");
-	}
+	m_pDSFilterEnumCapture = new CDSFilterEnum(KSCATEGORY_BDA_RECEIVER_COMPONENT, CDEF_DEVMON_PNP_DEVICE);
+	order = 0;
+	while (SUCCEEDED(hr = m_pDSFilterEnumCapture->next()) && hr == S_OK) {
+		std::wstring sDisplayName;
+		std::wstring sFriendlyName;
 
-	if (m_pDSFilterEnumCapture) {
-		order = 0;
-		while (SUCCEEDED(hr = m_pDSFilterEnumCapture->next()) && hr == S_OK) {
-			std::wstring sDisplayName;
-			std::wstring sFriendlyName;
+		// チューナの DisplayName, FriendlyName を得る
+		m_pDSFilterEnumCapture->getDisplayName(&sDisplayName);
+		m_pDSFilterEnumCapture->getFriendlyName(&sFriendlyName);
 
-			// チューナの DisplayName, FriendlyName を得る
-			m_pDSFilterEnumCapture->getDisplayName(&sDisplayName);
-			m_pDSFilterEnumCapture->getFriendlyName(&sFriendlyName);
+		// 一覧に追加
+		CaptureList.emplace_back(sDisplayName, sFriendlyName, order);
 
-			// 一覧に追加
-			CaptureList.emplace_back(sDisplayName, sFriendlyName, order);
-
-			order++;
-		}
+		order++;
 	}
 
 	unsigned int total = 0;
@@ -4763,50 +4777,67 @@ void CBonTuner::UnloadTif(void)
 	m_pTif.Release();
 }
 
-HRESULT CBonTuner::LoadTunerSignalStatistics(void)
+HRESULT CBonTuner::LoadTunerSignalStatisticsTunerNode(void)
 {
 	HRESULT hr = E_FAIL;
 
 	if (!m_pTunerDevice) {
-		OutputDebug(L"[LoadTunerSignalStatistics] TunerDevice NOT SET.\n");
+		OutputDebug(L"[LoadTunerSignalStatisticsTunerNode] TunerDevice NOT SET.\n");
 		return E_POINTER;
 	}
 
-	CComQIPtr<IBDA_Topology> pIBDA_Topology(m_pTunerDevice);
-	if (!pIBDA_Topology) {
-		OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_Topology interface.\n");
-		hr = E_FAIL;
-	}
-	else {
-		ULONG NodeTypes;
-		ULONG NodeType[32];
-		if (FAILED(hr = pIBDA_Topology->GetNodeTypes(&NodeTypes, 32, NodeType))) {
-			OutputDebug(L"[LoadTunerSignalStatistics] Fail to get NodeTypes.\n");
-		}
-		else {
-			for (ULONG i = 0; i < NodeTypes; i++) {
-				CComPtr<IUnknown> pControlNode;
-				if (SUCCEEDED(hr = pIBDA_Topology->GetControlNode(0UL, 1UL, NodeType[i], &pControlNode))) {
-					CComQIPtr<IBDA_SignalStatistics> pIBDA_SignalStatistics(pControlNode);
-					if (pIBDA_SignalStatistics) {
-						OutputDebug(L"[LoadTunerSignalStatistics] SUCCESS.\n");
-						m_pIBDA_SignalStatistics = pIBDA_SignalStatistics;
-						return hr;
-					}
-				}
-			}
-		}
+	CDSEnumNodes DSEnumNodes(m_pTunerDevice);
+	CComPtr<IUnknown> pControlNode;
+	if (FAILED(hr = DSEnumNodes.getControlNode(__uuidof(IBDA_FrequencyFilter), &pControlNode))) {
+		OutputDebug(L"[LoadTunerSignalStatisticsTunerNode] Fail to get control node.\n");
+		return E_FAIL;
 	}
 
-	OutputDebug(L"[LoadTunerSignalStatistics] Fail to get IBDA_SignalStatistics interface.\n");
-	return E_FAIL;
+	CComQIPtr<IBDA_SignalStatistics> pIBDA_SignalStatistics(pControlNode);
+	if (!pIBDA_SignalStatistics) {
+		OutputDebug(L"[LoadTunerSignalStatisticsTunerNode] Fail to get IBDA_SignalStatistics interface.\n");
+		return E_FAIL;
+	}
+
+	OutputDebug(L"[LoadTunerSignalStatisticsTunerNode] SUCCESS.\n");
+	m_pIBDA_SignalStatisticsTunerNode = pIBDA_SignalStatistics;
+
+	return S_OK;
+}
+
+HRESULT CBonTuner::LoadTunerSignalStatisticsDemodNode(void)
+{
+	HRESULT hr = E_FAIL;
+
+	if (!m_pTunerDevice) {
+		OutputDebug(L"[LoadTunerSignalStatisticsDemodNode] TunerDevice NOT SET.\n");
+		return E_POINTER;
+	}
+
+	CDSEnumNodes DSEnumNodes(m_pTunerDevice);
+	CComPtr<IUnknown> pControlNode;
+	if (FAILED(hr = DSEnumNodes.getControlNode(__uuidof(IBDA_DigitalDemodulator), &pControlNode))) {
+		OutputDebug(L"[LoadTunerSignalStatisticsDemodNode] Fail to get control node.\n");
+		return E_FAIL;
+	}
+
+	CComQIPtr<IBDA_SignalStatistics> pIBDA_SignalStatistics(pControlNode);
+	if (!pIBDA_SignalStatistics) {
+		OutputDebug(L"[LoadTunerSignalStatisticsDemodNode] Fail to get IBDA_SignalStatistics interface.\n");
+		return E_FAIL;
+	}
+
+	OutputDebug(L"[LoadTunerSignalStatisticsDemodNode] SUCCESS.\n");
+	m_pIBDA_SignalStatisticsDemodNode = pIBDA_SignalStatistics;
+
+	return S_OK;
 }
 
 void CBonTuner::UnloadTunerSignalStatistics(void)
 {
-	m_pIBDA_SignalStatistics.Release();
+	m_pIBDA_SignalStatisticsTunerNode.Release();
+	m_pIBDA_SignalStatisticsDemodNode.Release();
 }
-
 
 // Connect pins (Common subroutine)
 //  全てのピンを接続して成功したら終了
@@ -4815,68 +4846,34 @@ HRESULT CBonTuner::Connect(IBaseFilter* pFilterUp, IBaseFilter* pFilterDown)
 {
 	HRESULT hr;
 
-	CComPtr<IEnumPins> pIEnumPinsUp;
-	CComPtr<IEnumPins> pIEnumPinsDown;
+	CDSEnumPins DSEnumPinsUp(pFilterUp);
+	CDSEnumPins DSEnumPinsDown(pFilterDown);
 
-	// 上流フィルタのピン列挙
-	if (FAILED(hr = pFilterUp->EnumPins(&pIEnumPinsUp))) {
-		OutputDebug(L"  Can not enumerate upstream filter's pins.\n");
-		return hr;
-	}
-
-	// 下流フィルタのピン列挙
-	if (FAILED(hr = pFilterDown->EnumPins(&pIEnumPinsDown))) {
-		OutputDebug(L"  Can not enumerate downstream filter's pins.\n");
-		return hr;
-	}
-
-	// 上流フィルタのピンの数だけループ
+	// 上流フィルタのOutputピンの数だけループ
 	while (1) {
 		CComPtr<IPin> pIPinUp;
-		if (FAILED(hr = pIEnumPinsUp->Next(1, &pIPinUp, 0)) || hr != S_OK) {
+		if (S_OK != (hr = DSEnumPinsUp.getNextPin(&pIPinUp, PIN_DIRECTION::PINDIR_OUTPUT))) {
 			// ループ終わり
 			break;
 		}
 		do {
-			PIN_DIRECTION pinDirUp;
 			CComPtr<IPin> pIPinPeerOfUp;
-			if (FAILED(hr = pIPinUp->QueryDirection(&pinDirUp))) {
-				OutputDebug(L"  Can not get upstream filter's pinDir.\n");
-				return hr;
-			}
-
-			// 着目ピンが INPUTピンなら次の上流ピンへ
-			if (pinDirUp == PINDIR_INPUT) {
-				break;
-			}
-
 			// 上流フィルタの着目ピンが接続済orエラーだったら次の上流ピンへ
 			if (pIPinUp->ConnectedTo(&pIPinPeerOfUp) != VFW_E_NOT_CONNECTED){
 				OutputDebug(L"  An already connected pin was found.\n");
 				break;
 			}
 
-			// 下流フィルタのピンの数だけループ
-			pIEnumPinsDown->Reset();
+			// 下流フィルタのInputピンの数だけループ
+			DSEnumPinsDown.Reset();
 			while (1) {
 				CComPtr<IPin> pIPinDown;
-				if (FAILED(hr = pIEnumPinsDown->Next(1, &pIPinDown, 0)) || hr != S_OK) {
+				if (S_OK != (hr = DSEnumPinsDown.getNextPin(&pIPinDown, PIN_DIRECTION::PINDIR_INPUT))) {
 					// ループ終わり
 					break;
 				}
 				do {
-					PIN_DIRECTION pinDirDown;
 					CComPtr<IPin> pIPinPeerOfDown;
-					if (FAILED(hr = pIPinDown->QueryDirection(&pinDirDown))) {
-						OutputDebug(L"  Can not get downstream filter's pinDir.\n");
-						return hr;
-					}
-
-					// 着目ピンが OUTPUT ピンなら次の下流ピンへ
-					if (pinDirDown == PINDIR_OUTPUT) {
-						break;
-					}
-
 					// 下流フィルタの着目ピンが接続済orエラーだったら次の下流ピンへ
 					if (pIPinDown->ConnectedTo(&pIPinPeerOfDown) != VFW_E_NOT_CONNECTED) {
 						OutputDebug(L"  An already connected pin was found.\n");
@@ -4909,23 +4906,19 @@ void CBonTuner::DisconnectAll(IBaseFilter* pFilter)
 	
 	HRESULT hr;
 
-	CComPtr<IEnumPins> pIEnumPins;
-	// フィルタのピン列挙
-	if (SUCCEEDED(hr = pFilter->EnumPins(&pIEnumPins))) {
-		// ピンの数だけループ
-		while (1) {
-			CComPtr<IPin> pIPin;
-			CComPtr<IPin> pIPinPeerOf;
-			if (FAILED(hr = pIEnumPins->Next(1, &pIPin, 0)) || hr != S_OK) {
-				// ループ終わり
-				break;
-			}
-			// ピンが接続済だったら切断
-
-			if (SUCCEEDED(hr = pIPin->ConnectedTo(&pIPinPeerOf))) {
-				hr = m_pIGraphBuilder->Disconnect(pIPinPeerOf);
-				hr = m_pIGraphBuilder->Disconnect(pIPin);
-			}
+	CDSEnumPins DSEnumPins(pFilter);
+	// ピンの数だけループ
+	while (1) {
+		CComPtr<IPin> pIPin;
+		CComPtr<IPin> pIPinPeerOf;
+		if (S_OK != (hr = DSEnumPins.getNextPin(&pIPin))) {
+			// ループ終わり
+			break;
+		}
+		// ピンが接続済だったら切断
+		if (SUCCEEDED(hr = pIPin->ConnectedTo(&pIPinPeerOf))) {
+			hr = m_pIGraphBuilder->Disconnect(pIPinPeerOf);
+			hr = m_pIGraphBuilder->Disconnect(pIPin);
 		}
 	}
 }

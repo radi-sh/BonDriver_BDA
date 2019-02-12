@@ -171,7 +171,8 @@ protected:
 	HRESULT LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice);
 
 	// チューナ信号状態取得用インターフェース
-	HRESULT LoadTunerSignalStatistics(void);
+	HRESULT LoadTunerSignalStatisticsTunerNode(void);
+	HRESULT LoadTunerSignalStatisticsDemodNode(void);
 	void UnloadTunerSignalStatistics(void);
 
 	// Pin の接続
@@ -488,27 +489,34 @@ protected:
 	// SignalLevel 算出方法
 	enum enumSignalLevelCalcType {
 		eSignalLevelCalcTypeSSMin = 0,
-		eSignalLevelCalcTypeSSStrength = 0,		// IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-		eSignalLevelCalcTypeSSQuality = 1,		// IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-		eSignalLevelCalcTypeSSMul = 2,			// (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeSSAdd = 3,			// (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSStrength = 0,			// RF Tuner Node の IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+		eSignalLevelCalcTypeSSQuality = 1,			// RF Tuner Node の IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+		eSignalLevelCalcTypeSSMul = 2,				// RF Tuner Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSAdd = 3,				// RF Tuner Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
 		eSignalLevelCalcTypeSSMax = 9,
 		eSignalLevelCalcTypeTunerMin = 10,
-		eSignalLevelCalcTypeTunerStrength = 10,	// ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-		eSignalLevelCalcTypeTunerQuality = 11,	// ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-		eSignalLevelCalcTypeTunerMul = 12,		// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeTunerAdd = 13,		// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerStrength = 10,		// ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+		eSignalLevelCalcTypeTunerQuality = 11,		// ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+		eSignalLevelCalcTypeTunerMul = 12,			// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerAdd = 13,			// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
 		eSignalLevelCalcTypeTunerMax = 19,
-		eSignalLevelCalcTypeBR = 100,			// ビットレート値(Mibps)
+		eSignalLevelCalcTypeDemodSSMin = 20,
+		eSignalLevelCalcTypeDemodSSStrength = 20,	// Demodulator Node の IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
+		eSignalLevelCalcTypeDemodSSQuality = 21,	// Demodulator Node の IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
+		eSignalLevelCalcTypeDemodSSMul = 22,		// Demodulator Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeDemodSSAdd = 23,		// Demodulator Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeDemodSSMax = 29,
+		eSignalLevelCalcTypeBR = 100,				// ビットレート値(Mibps)
 	};
 	enumSignalLevelCalcType m_nSignalLevelCalcType;
-	BOOL m_bSignalLevelGetTypeSS;		// SignalLevel 算出に IBDA_SignalStatistics を使用する
-	BOOL m_bSignalLevelGetTypeTuner;	// SignalLevel 算出に ITuner を使用する
-	BOOL m_bSignalLevelGetTypeBR;		// SignalLevel 算出に ビットレート値を使用する
-	BOOL m_bSignalLevelNeedStrength;	// SignalLevel 算出に SignalStrength 値を使用する
-	BOOL m_bSignalLevelNeedQuality;		// SignalLevel 算出に SignalQuality 値を使用する
-	BOOL m_bSignalLevelCalcTypeMul;		// SignalLevel 算出に SignalStrength と SignalQuality の掛け算を使用する
-	BOOL m_bSignalLevelCalcTypeAdd;		// SignalLevel 算出に SignalStrength と SignalQuality の足し算を使用する
+	BOOL m_bSignalLevelGetTypeSS;			// SignalLevel 算出に RF Tuner Node の IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLevelGetTypeTuner;		// SignalLevel 算出に ITuner を使用する
+	BOOL m_bSignalLevelGetTypeDemodSS;		// SignalLevel 算出に Demodulator Node の IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLevelGetTypeBR;			// SignalLevel 算出に ビットレート値を使用する
+	BOOL m_bSignalLevelNeedStrength;		// SignalLevel 算出に SignalStrength 値を使用する
+	BOOL m_bSignalLevelNeedQuality;			// SignalLevel 算出に SignalQuality 値を使用する
+	BOOL m_bSignalLevelCalcTypeMul;			// SignalLevel 算出に SignalStrength と SignalQuality の掛け算を使用する
+	BOOL m_bSignalLevelCalcTypeAdd;			// SignalLevel 算出に SignalStrength と SignalQuality の足し算を使用する
 
 	// Strength 値補正係数
 	double m_fStrengthCoefficient;
@@ -525,12 +533,14 @@ protected:
 	// チューニング状態の判断方法
 	enum enumSignalLockedJudgeType {
 		eSignalLockedJudgeTypeAlways = 0,	// 常にチューニングに成功している状態として判断する
-		eSignalLockedJudgeTypeSS = 1,		// IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
+		eSignalLockedJudgeTypeSS = 1,		// RF Tuner Node の IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
 		eSignalLockedJudgeTypeTuner = 2,	// ITuner::get_SignalStrengthで取得した値で判断する
+		eSignalLockedJudgeTypeDemodSS = 3,	// Demodulator Node の IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
 	};
 	enumSignalLockedJudgeType m_nSignalLockedJudgeType;
-	BOOL m_bSignalLockedJudgeTypeSS;	// チューニング状態の判断に IBDA_SignalStatistics を使用する
-	BOOL m_bSignalLockedJudgeTypeTuner;	// チューニング状態の判断に ITuner を使用する
+	BOOL m_bSignalLockedJudgeTypeSS;		// チューニング状態の判断に IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLockedJudgeTypeTuner;		// チューニング状態の判断に ITuner を使用する
+	BOOL m_bSignalLockedJudgeTypeDemodSS;	// チューニング状態の判断に Demodulator Node の IBDA_SignalStatistics を使用する
 
 	////////////////////////////////////////
 	// BonDriver パラメータ関係
@@ -829,7 +839,8 @@ protected:
 	CComPtr<IBaseFilter> m_pTif;				// MPEG2 Transport Information Filter の IBaseFilter interface
 
 	// チューナ信号状態取得用インターフェース
-	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatistics;
+	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsTunerNode;
+	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsDemodNode;
 
 	// DSフィルター列挙 CDSFilterEnum
 	CDSFilterEnum *m_pDSFilterEnumTuner;
