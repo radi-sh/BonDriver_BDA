@@ -5,6 +5,8 @@
 #include <tchar.h>
 #include <algorithm>
 
+#pragma comment(lib, "Rpcrt4.lib")
+
 std::string common::StringPrintf(LPCSTR format, ...)
 {
 	char buffer_c[2048];
@@ -79,6 +81,18 @@ int common::WStringDecimalToLong(std::wstring Src)
 double common::WstringToDouble(std::wstring Src)
 {
 	return ::wcstod(Src.c_str(), NULL);
+}
+
+std::wstring common::GUIDToWString(GUID guid)
+{
+	RPC_STATUS rpcret;
+	WCHAR *wszGuid = NULL;
+	std::wstring str;
+	if ((rpcret = ::UuidToStringW(&guid, (RPC_WSTR *)&wszGuid)) == RPC_S_OK) {
+		str = wszGuid;
+		::RpcStringFreeW((RPC_WSTR *)&wszGuid);
+	}
+	return  str;
 }
 
 std::wstring common::GetModuleName(HMODULE hModule)
