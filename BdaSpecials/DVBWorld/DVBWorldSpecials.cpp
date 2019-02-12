@@ -21,7 +21,6 @@
 #define __STREAMS__
 #include <ksproxy.h>
 
-#pragma comment( lib, "Strmiids.lib" )
 #pragma comment( lib, "ksproxy.lib" )
 
 FILE *g_fpLog = NULL;
@@ -47,14 +46,22 @@ __declspec(dllexport) IBdaSpecials * CreateBdaSpecials(CComPtr<IBaseFilter> pTun
 	return new CDVBWorldSpecials(hMySelf, pTunerDevice);
 }
 
-DEFINE_GUID( IID_IKsObject,
-0x423c13a2, 0x2070, 0x11d0, 0x9e, 0xf7, 0x00, 0xaa, 0x00, 0xa2, 0x16, 0xa1 ) ;
 // Constructor
 /////////////////////////////////////
 
 CDVBWorldSpecials::CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice)
 : m_hMySelf(hMySelf), m_pTunerDevice(pTunerDevice), m_hTuner(NULL)
 {
+	if (m_pTunerDevice == NULL) {
+		return;
+	}
+
+	CComQIPtr<IKsObject> pIKsObject(m_pTunerDevice);
+	if (!pIKsObject) {
+		return;
+	}
+	m_hTuner = pIKsObject->KsGetObjectHandle();
+
 	return;
 }
 
@@ -82,14 +89,8 @@ const HRESULT CDVBWorldSpecials::InitializeHook(void)
 		return E_POINTER;
 	}
 
-	if (m_hTuner == NULL) {
-		CComQIPtr<IKsObject> pIKsObject(m_pTunerDevice);
-		if (!pIKsObject) {
-			return E_NOINTERFACE;
-		}
-		if ((m_hTuner = pIKsObject->KsGetObjectHandle()) == NULL) {
-			return E_NOINTERFACE;
-		}
+	if (!m_hTuner) {
+		return E_NOINTERFACE;
 	}
 
 	return S_OK;
