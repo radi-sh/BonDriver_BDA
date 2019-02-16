@@ -69,5 +69,5 @@ private:
 	static constexpr size_t MAX_NODE_INTERFACES = 32;
 	ULONG m_nNodeTypes;
 	ULONG m_nNodeType[MAX_NODES];
-	std::multimap<std::wstring, ULONG> m_Interfaces;
+	std::multimap<std::wstring, ULONG, std::less<>> m_Interfaces;
 };
