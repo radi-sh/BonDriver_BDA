@@ -42,7 +42,7 @@ private:
 	size_t m_KeysSize;
 	std::wstring m_KeysSectionName;
 	WCHAR * m_Pointer;
-	std::multimap<std::wstring, std::wstring> m_SectionData;
-	std::multimap<std::wstring, std::wstring>::iterator m_SectionDataIterator;
+	std::multimap<std::wstring, std::wstring, std::less<>> m_SectionData;
+	std::multimap<std::wstring, std::wstring, std::less<>>::iterator m_SectionDataIterator;
 };
 
