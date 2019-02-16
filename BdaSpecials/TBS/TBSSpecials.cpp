@@ -3,6 +3,12 @@
 //   Implementation of CTBSSpecials class
 //------------------------------------------------------------------------------
 
+#ifdef _DEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
 #include "common.h"
 
 #include "TBSSpecials.h"
@@ -28,6 +34,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 {
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH:
+#ifdef _DEBUG
+		::_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
 		// モジュールハンドル保存
 		hMySelf = hModule;
 		break;
