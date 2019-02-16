@@ -162,7 +162,7 @@ int CIniFileAccess::CreateSectionData(void)
 					}
 				}
 			}
-			m_SectionData.insert(std::pair<std::wstring, std::wstring>(common::WStringToUpperCase(key), data));
+			m_SectionData.emplace(common::WStringToUpperCase(key), data);
 		}
 		pkey += ::wcslen(pkey) + 1;
 	}
