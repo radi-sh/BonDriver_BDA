@@ -35,8 +35,16 @@ HMODULE hMySelf;
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
-	hMySelf = hModule;
-    return TRUE;
+	switch (ul_reason_for_call) {
+	case DLL_PROCESS_ATTACH:
+		// モジュールハンドル保存
+		hMySelf = hModule;
+		break;
+
+	case DLL_PROCESS_DETACH:
+		break;
+	}
+		return TRUE;
 }
 
 // CreateBdaSpecials(void) method
