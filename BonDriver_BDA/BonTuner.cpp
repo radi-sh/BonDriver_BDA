@@ -3499,6 +3499,19 @@ void CBonTuner::StopGraph(void)
 		SAFE_CLOSE_HANDLE(m_hStreamThread);
 		m_bIsSetStreamThread = FALSE;
 
+		// a workaround for WinXP SP3
+		// CBonTuner::LoadAndConnectDevice() にて動作するチューナが一つもなかったとき、
+		// m_pIMediaControl->Stop() の内部で MsDvbNp.ax が access violation を起こす。
+		// なので、Stop する必要のないときは何もしないようにする
+		OAFilterState fs;
+		if (FAILED(hr = m_pIMediaControl->GetState(100, &fs))) {
+			OutputDebug(L"IMediaControl::GetState failed.\n");
+		}
+		else {
+			if (fs == State_Stopped)
+				return;
+		}
+
 		if (FAILED(hr = m_pIMediaControl->Pause())) {
 			OutputDebug(L"IMediaControl::Pause failed.\n");
 		}
