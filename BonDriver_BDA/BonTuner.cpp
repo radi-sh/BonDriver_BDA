@@ -3359,19 +3359,25 @@ void CBonTuner::LoadTunerDependCode(void)
 
 	IBdaSpecials* (*func)(CComPtr<IBaseFilter>);
 	func = (IBdaSpecials* (*)(CComPtr<IBaseFilter>))::GetProcAddress(m_hModuleTunerSpecials, "CreateBdaSpecials");
-	if (!func) {
+	IBdaSpecials* (*func2)(CComPtr<IBaseFilter>, CComPtr<IBaseFilter>);
+	func2 = (IBdaSpecials * (*)(CComPtr<IBaseFilter>, CComPtr<IBaseFilter>))::GetProcAddress(m_hModuleTunerSpecials, "CreateBdaSpecials2");
+	if (!func2 && !func) {
 		OutputDebug(L"LoadTunerDependCode: Cannot find CreateBdaSpecials.\n");
 		::FreeLibrary(m_hModuleTunerSpecials);
 		m_hModuleTunerSpecials = NULL;
 		return;
 	}
+	if (func2)
+	{
+		OutputDebug(L"LoadTunerDependCode: CreateBdaSpecials2 found.\n");
+		m_pIBdaSpecials = func2(m_pTunerDevice, m_pCaptureDevice);
+	}
 	else {
 		OutputDebug(L"LoadTunerDependCode: CreateBdaSpecials found.\n");
+		m_pIBdaSpecials = func(m_pTunerDevice);
 	}
 
-	m_pIBdaSpecials = func(m_pTunerDevice);
-
-	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b2 *>(m_pIBdaSpecials);
+	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b3 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
 		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 
