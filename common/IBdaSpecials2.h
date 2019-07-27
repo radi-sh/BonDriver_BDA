@@ -5,7 +5,7 @@
 #include "LockChannel.h"
 #include "IBdaSpecials.h"
 
-class IBdaSpecials2b3 : public IBdaSpecials
+class IBdaSpecials2b4 : public IBdaSpecials
 {
 public:
 	virtual const HRESULT Set22KHz(long nTone) = 0;
@@ -23,12 +23,14 @@ public:
 };
 
 #if defined _USRDLL && !defined BONDRIVER_EXPORTS
-extern "C" __declspec(dllexport) IBdaSpecials* CreateBdaSpecials2(CComPtr<IBaseFilter> pTunerDevice, CComPtr<IBaseFilter> pCaptureDevice);
+extern "C" __declspec(dllexport) IBdaSpecials* CreateBdaSpecials2(CComPtr<IBaseFilter> pTunerDevice, CComPtr<IBaseFilter> pCaptureDevice,
+	const WCHAR* szTunerDisplayName, const WCHAR* szTunerFriendlyName, const WCHAR* szCaptureDisplayName, const WCHAR* szCaptureFriendlyName);
 extern "C" __declspec(dllexport) HRESULT CheckAndInitTuner(IBaseFilter *pTunerDevice, const WCHAR *szDisplayName, const WCHAR *szFriendlyName, const WCHAR *szIniFilePath);
 extern "C" __declspec(dllexport) HRESULT CheckCapture(const WCHAR *szTunerDisplayName, const WCHAR *szTunerFriendlyName,
 	const WCHAR *szCaptureDisplayName, const WCHAR *szCaptureFriendlyName, const WCHAR *szIniFilePath);
 #else
-extern "C" __declspec(dllimport) IBdaSpecials* CreateBdaSpecials2(CComPtr<IBaseFilter> pTunerDevice, CComPtr<IBaseFilter> pCaptureDevice);
+extern "C" __declspec(dllimport) IBdaSpecials* CreateBdaSpecials2(CComPtr<IBaseFilter> pTunerDevice, CComPtr<IBaseFilter> pCaptureDevice,
+	const WCHAR* szTunerDisplayName, const WCHAR* szTunerFriendlyName, const WCHAR* szCaptureDisplayName, const WCHAR* szCaptureFriendlyName);
 extern "C" __declspec(dllimport) HRESULT CheckAndInitTuner(IBaseFilter *pTunerDevice, const WCHAR *szDisplayName, const WCHAR *szFriendlyName, const WCHAR *szIniFilePath);
 extern "C" __declspec(dllimport) HRESULT CheckCapture(const WCHAR *szTunerDisplayName, const WCHAR *szTunerFriendlyName,
 	const WCHAR *szCaptureDisplayName, const WCHAR *szCaptureFriendlyName, const WCHAR *szIniFilePath);
