@@ -123,7 +123,7 @@ protected:
 	HRESULT CheckCapture(std::wstring tunerGUID, std::wstring tunerFriendlyName, std::wstring captureGUID, std::wstring captureFriendlyName);
 		
 	// チューナ固有関数のロード
-	void LoadTunerDependCode(void);
+	void LoadTunerDependCode(std::wstring tunerGUID, std::wstring tunerFriendlyName, std::wstring captureGUID, std::wstring captureFriendlyName);
 
 	// チューナ固有関数とDllの解放
 	void ReleaseTunerDependCode(void);
@@ -1060,7 +1060,7 @@ protected:
 
 	// チューナ固有関数 IBdaSpecials
 	IBdaSpecials *m_pIBdaSpecials;
-	IBdaSpecials2b3 *m_pIBdaSpecials2;
+	IBdaSpecials2b4 *m_pIBdaSpecials2;
 
 	// チューナ固有の関数が必要かどうかを自動判別するDB
 	// GUID をキーに DLL 名を得る

@@ -3352,15 +3352,15 @@ HRESULT CBonTuner::CheckCapture(std::wstring tunerGUID, std::wstring tunerFriend
 }
 
 // チューナ固有関数のロード
-void CBonTuner::LoadTunerDependCode(void)
+void CBonTuner::LoadTunerDependCode(std::wstring tunerGUID, std::wstring tunerFriendlyName, std::wstring captureGUID, std::wstring captureFriendlyName)
 {
 	if (!m_hModuleTunerSpecials)
 		return;
 
 	IBdaSpecials* (*func)(CComPtr<IBaseFilter>);
 	func = (IBdaSpecials* (*)(CComPtr<IBaseFilter>))::GetProcAddress(m_hModuleTunerSpecials, "CreateBdaSpecials");
-	IBdaSpecials* (*func2)(CComPtr<IBaseFilter>, CComPtr<IBaseFilter>);
-	func2 = (IBdaSpecials * (*)(CComPtr<IBaseFilter>, CComPtr<IBaseFilter>))::GetProcAddress(m_hModuleTunerSpecials, "CreateBdaSpecials2");
+	IBdaSpecials* (*func2)(CComPtr<IBaseFilter>, CComPtr<IBaseFilter>, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*);
+	func2 = (IBdaSpecials * (*)(CComPtr<IBaseFilter>, CComPtr<IBaseFilter>, const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*))::GetProcAddress(m_hModuleTunerSpecials, "CreateBdaSpecials2");
 	if (!func2 && !func) {
 		OutputDebug(L"LoadTunerDependCode: Cannot find CreateBdaSpecials.\n");
 		::FreeLibrary(m_hModuleTunerSpecials);
@@ -3370,14 +3370,14 @@ void CBonTuner::LoadTunerDependCode(void)
 	if (func2)
 	{
 		OutputDebug(L"LoadTunerDependCode: CreateBdaSpecials2 found.\n");
-		m_pIBdaSpecials = func2(m_pTunerDevice, m_pCaptureDevice);
+		m_pIBdaSpecials = func2(m_pTunerDevice, m_pCaptureDevice, tunerGUID.c_str(), tunerFriendlyName.c_str(), captureGUID.c_str(), captureFriendlyName.c_str());
 	}
 	else {
 		OutputDebug(L"LoadTunerDependCode: CreateBdaSpecials found.\n");
 		m_pIBdaSpecials = func(m_pTunerDevice);
 	}
 
-	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b3 *>(m_pIBdaSpecials);
+	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b4 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
 		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 
@@ -4500,7 +4500,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 														m_pTunerDevice = pTunerDevice;
 														m_pCaptureDevice = pCaptureDevice;
 														// チューナ固有関数のロード
-														LoadTunerDependCode();
+														LoadTunerDependCode(it->Tuner.GUID, it->Tuner.FriendlyName, it2->GUID, it2->FriendlyName);
 														if (m_bTryAnotherTuner)
 															// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
 															m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
@@ -4526,7 +4526,7 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 									// すべて成功
 									m_pTunerDevice = pTunerDevice;
 									// チューナ固有関数のロード
-									LoadTunerDependCode();
+									LoadTunerDependCode(it->Tuner.GUID, it->Tuner.FriendlyName, L"", L"");
 									if (m_bTryAnotherTuner)
 										// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
 										m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
