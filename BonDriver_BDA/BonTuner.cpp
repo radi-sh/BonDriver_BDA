@@ -1538,7 +1538,7 @@ void CBonTuner::ReadIniFile(void)
 
 	// ストリームデータバッファ1個分のサイズ
 	// 188×設定数(bytes)
-	m_nBuffSize = (size_t)(188 * IniFileAccess.ReadKeyISectionData(L"BuffSize", 1024));
+	m_nBuffSize = 188 * (size_t)IniFileAccess.ReadKeyISectionData(L"BuffSize", 1024);
 
 	// ストリームデータバッファの最大個数
 	m_nMaxBuffCount = (size_t)IniFileAccess.ReadKeyISectionData(L"MaxBuffCount", 512);
