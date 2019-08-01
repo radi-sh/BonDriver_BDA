@@ -994,6 +994,9 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 		} // 1000ms毎処理
 	} // while (!terminate)
 
+	// グラフ関係の解放
+	pSys->_CloseTuner();
+
 	// DSフィルター列挙とチューナ・キャプチャのリストを削除
 	SAFE_DELETE(pSys->m_pDSFilterEnumTuner);
 	SAFE_DELETE(pSys->m_pDSFilterEnumCapture);
