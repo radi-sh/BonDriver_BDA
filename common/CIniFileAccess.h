@@ -38,7 +38,7 @@ public:
 private:
 	std::wstring m_IniFilePath;
 	std::wstring m_SectionName;
-	WCHAR m_KeysBuffer[(_MAX_PATH + 1) * 100];
+	WCHAR* m_pKeysBuffer;
 	size_t m_KeysSize;
 	std::wstring m_KeysSectionName;
 	WCHAR * m_Pointer;

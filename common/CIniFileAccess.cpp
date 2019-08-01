@@ -17,7 +17,8 @@ CIniFileAccess::CIniFileAccess()
 }
 
 CIniFileAccess::CIniFileAccess(const std::wstring IniFilePath)
-	: m_KeysSize(0)
+	: m_pKeysBuffer(NULL),
+	  m_KeysSize(0)
 {
 	SetIniFilePath(IniFilePath);
 	m_SectionDataIterator = m_SectionData.begin();
@@ -26,6 +27,7 @@ CIniFileAccess::CIniFileAccess(const std::wstring IniFilePath)
 CIniFileAccess::~CIniFileAccess()
 {
 	m_SectionData.clear();
+	SAFE_DELETE_ARRAY(m_pKeysBuffer);
 }
 
 void CIniFileAccess::SetIniFilePath(const std::wstring IniFilePath)
@@ -104,8 +106,12 @@ std::wstring CIniFileAccess::ReadKeyS(const std::wstring SectionName, const std:
 
 int CIniFileAccess::ReadSection(const std::wstring SectionName)
 {
+	if (!m_pKeysBuffer) {
+		m_pKeysBuffer = new WCHAR[(_MAX_PATH + 1) * 100];
+	}
+
 	m_KeysSectionName = SectionName;
-	m_KeysSize = (size_t)::GetPrivateProfileSectionW(SectionName.c_str(), m_KeysBuffer, sizeof(m_KeysBuffer) / sizeof(m_KeysBuffer[0]), m_IniFilePath.c_str());
+	m_KeysSize = (size_t)::GetPrivateProfileSectionW(SectionName.c_str(), m_pKeysBuffer, (_MAX_PATH + 1) * 100, m_IniFilePath.c_str());
 	return (int)m_KeysSize;
 }
 
@@ -113,8 +119,8 @@ int CIniFileAccess::CreateSectionData(void)
 {
 	m_SectionData.clear();
 
-	WCHAR *pkey = m_KeysBuffer;
-	while (pkey < m_KeysBuffer + m_KeysSize) {
+	WCHAR *pkey = m_pKeysBuffer;
+	while (pkey < m_pKeysBuffer + m_KeysSize) {
 		if (pkey[0] == L'\0') {
 			// ƒL[–¼‚Ìˆê——I‚í‚è
 			break;
