@@ -141,11 +141,6 @@ const HRESULT CDVBWorldSpecials::FinalizeHook(void)
 	return S_OK;
 }
 
-const HRESULT CDVBWorldSpecials::GetSignalState(int *pnStrength, int *pnQuality, int *pnLock)
-{
-	return E_NOINTERFACE;
-}
-
 const HRESULT CDVBWorldSpecials::LockChannel(BYTE bySatellite, BOOL bHorizontal, unsigned long ulFrequency, BOOL bDvbS2)
 {
 	Tuner_S_Param2 sTuneParam;
@@ -230,54 +225,6 @@ const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam *pTuningParam)
 	hr = KsSynchronousDeviceControl(m_hTuner, IOCTL_KS_PROPERTY, PVOID(&sTuneParam), sizeof(sTuneParam), NULL, 0, &dRet);
 
 	return hr;
-}
-
-const HRESULT CDVBWorldSpecials::SetLNBPower(bool bActive)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CDVBWorldSpecials::ReadIniFile(const WCHAR *szIniFilePath)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CDVBWorldSpecials::IsDecodingNeeded(BOOL *pbAns)
-{
-	if (pbAns)
-		*pbAns = FALSE;
-
-	return S_OK;
-}
-
-const HRESULT CDVBWorldSpecials::Decode(BYTE *pBuf, DWORD dwSize)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CDVBWorldSpecials::GetSignalStrength(float *fVal)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CDVBWorldSpecials::PreLockChannel(TuningParam *pTuningParam)
-{
-	return S_OK;
-}
-
-const HRESULT CDVBWorldSpecials::PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest)
-{
-	return S_OK;
-}
-
-const HRESULT CDVBWorldSpecials::PostTuneRequest(const TuningParam * pTuningParam)
-{
-	return S_OK;
-}
-
-const HRESULT CDVBWorldSpecials::PostLockChannel(const TuningParam *pTuningParam)
-{
-	return S_OK;
 }
 
 void CDVBWorldSpecials::Release(void)

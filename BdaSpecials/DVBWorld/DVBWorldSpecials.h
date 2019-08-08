@@ -13,7 +13,7 @@
 DEFINE_GUID( GUID_TUNER_S_LOCK,
 0x8bed860a, 0xa7b4, 0x4e90, 0x9d, 0xf4, 0x13, 0x20, 0xc9, 0x49, 0x22, 0x61 ) ;
 
-class CDVBWorldSpecials : public IBdaSpecials2b4
+class CDVBWorldSpecials : public IBdaSpecials2b5
 {
 public:
 	CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
@@ -22,22 +22,10 @@ public:
 	const HRESULT InitializeHook(void);
 	const HRESULT Set22KHz(bool bActive);
 	const HRESULT FinalizeHook(void);
-
-	const HRESULT GetSignalState(int *pnStrength, int *pnQuality, int *pnLock);
 	const HRESULT LockChannel(BYTE bySatellite, BOOL bHorizontal, unsigned long ulFrequency, BOOL bDvbS2);
-
-	const HRESULT SetLNBPower(bool bActive);
 
 	const HRESULT Set22KHz(long nTone);
 	const HRESULT LockChannel(const TuningParam *pTuningParam);
-	const HRESULT ReadIniFile(const WCHAR *szIniFilePath);
-	const HRESULT IsDecodingNeeded(BOOL *pbAns);
-	const HRESULT Decode(BYTE *pBuf, DWORD dwSize);
-	const HRESULT GetSignalStrength(float *fVal);
-	const HRESULT PreLockChannel(TuningParam *pTuningParam);
-	const HRESULT PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest);
-	const HRESULT PostTuneRequest(const TuningParam *pTuningParam);
-	const HRESULT PostLockChannel(const TuningParam *pTuningParam);
 
 	virtual void Release(void);
 
