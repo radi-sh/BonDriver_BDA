@@ -11,7 +11,7 @@
 const GUID KSPROPSETID_BdaTunerExtensionProperties =
 {0xfaa8f3e5, 0x31d4, 0x4e41, {0x88, 0xef, 0xd9, 0xeb, 0x71, 0x6f, 0x6e, 0xc9}};
 
-class CTBSSpecials : public IBdaSpecials2b4
+class CTBSSpecials : public IBdaSpecials2b5
 {
 public:
 	CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
@@ -20,21 +20,9 @@ public:
 	const HRESULT InitializeHook(void);
 	const HRESULT Set22KHz(bool bActive);
 	const HRESULT FinalizeHook(void);
-
-	const HRESULT GetSignalState(int *pnStrength, int *pnQuality, int *pnLock);
-	const HRESULT LockChannel(BYTE bySatellite, BOOL bHorizontal, unsigned long ulFrequency, BOOL bDvbS2);
 	const HRESULT SetLNBPower(bool bActive);
 
 	const HRESULT Set22KHz(long nTone);
-	const HRESULT LockChannel(const TuningParam *pTuningParam);
-	const HRESULT ReadIniFile(const WCHAR *szIniFilePath);
-	const HRESULT IsDecodingNeeded(BOOL *pbAns);
-	const HRESULT Decode(BYTE *pBuf, DWORD dwSize);
-	const HRESULT GetSignalStrength(float *fVal);
-	const HRESULT PreLockChannel(TuningParam *pTuningParam);
-	const HRESULT PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest);
- 	const HRESULT PostTuneRequest(const TuningParam *pTuningParam);
-	const HRESULT PostLockChannel(const TuningParam *pTuningParam);
 
 	virtual void Release(void);
 

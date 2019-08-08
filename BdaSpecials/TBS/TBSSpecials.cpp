@@ -157,21 +157,6 @@ const HRESULT CTBSSpecials::FinalizeHook(void)
 	return S_OK;
 }
 
-const HRESULT CTBSSpecials::GetSignalState(int *pnStrength, int *pnQuality, int *pnLock)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CTBSSpecials::LockChannel(BYTE bySatellite, BOOL bHorizontal, unsigned long ulFrequency, BOOL bDvbS2)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CTBSSpecials::LockChannel(const TuningParam *pTuningParam)
-{
-	return E_NOINTERFACE;
-}
-
 const HRESULT CTBSSpecials::SetLNBPower(bool bActive)
 {
 	DWORD bytesReturned;
@@ -188,49 +173,6 @@ const HRESULT CTBSSpecials::SetLNBPower(bool bActive)
 		&bytesReturned);
 
 	return hr;
-}
-
-const HRESULT CTBSSpecials::ReadIniFile(const WCHAR *szIniFilePath)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CTBSSpecials::IsDecodingNeeded(BOOL *pbAns)
-{
-	if (pbAns)
-		*pbAns = FALSE;
-
-	return S_OK;
-}
-
-const HRESULT CTBSSpecials::Decode(BYTE *pBuf, DWORD dwSize)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CTBSSpecials::GetSignalStrength(float *fVal)
-{
-	return E_NOINTERFACE;
-}
-
-const HRESULT CTBSSpecials::PreLockChannel(TuningParam *pTuningParam)
-{
-	return S_OK;
-}
-
-const HRESULT CTBSSpecials::PreTuneRequest(const TuningParam *pTuningParam, ITuneRequest *pITuneRequest)
-{
-	return S_OK;
-}
-
-const HRESULT CTBSSpecials::PostTuneRequest(const TuningParam * pTuningParam)
-{
-	return S_OK;
-}
-
-const HRESULT CTBSSpecials::PostLockChannel(const TuningParam *pTuningParam)
-{
-	return S_OK;
 }
 
 void CTBSSpecials::Release(void)
