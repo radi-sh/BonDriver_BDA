@@ -144,6 +144,27 @@ const HRESULT CTBSSpecials::Set22KHz(long nTone)
 
 }
 
+const HRESULT CTBSSpecials::SetTSid(long TSID) //add 20190715 by Davin zhang TBS
+{
+	DWORD TypeSupport = 0;
+	HRESULT hr;
+
+	hr = m_pPropsetTunerPin->QuerySupported(KSPROPSETID_BdaTunerExtensionProperties,
+		KSPROPERTY_BDA_SETTSID, &TypeSupport);
+	if FAILED(hr)
+		return E_NOINTERFACE;
+
+	hr = m_pPropsetTunerPin->Set(KSPROPSETID_BdaTunerExtensionProperties,
+		KSPROPERTY_BDA_SETTSID,
+		&TSID, sizeof(long),
+		&TSID, sizeof(long));
+	if FAILED(hr)
+		return E_NOTIMPL;
+
+	return S_OK;
+
+}
+
 const HRESULT CTBSSpecials::FinalizeHook(void)
 {
 

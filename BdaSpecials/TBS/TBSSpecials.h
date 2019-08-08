@@ -23,6 +23,7 @@ public:
 	const HRESULT SetLNBPower(bool bActive);
 
 	const HRESULT Set22KHz(long nTone);
+	const HRESULT SetTSid(long TSID); //add 20190715 by Davin zhang TBS
 
 	virtual void Release(void);
 
@@ -66,7 +67,8 @@ private:
 		KSPROPERTY_BDA_ERROR_CONTROL,       //Custom property for controlling error correction and BER window
 		KSPROPERTY_BDA_CHANNEL_INFO,        //Custom property for exposing the locked values of frequency,symbol rate etc after
                                      		//corrections and adjustments
-		KSPROPERTY_BDA_NBC_PARAMS
+		KSPROPERTY_BDA_NBC_PARAMS,
+		KSPROPERTY_BDA_SETTSID = 96,		// added 20190704 for ISDB-S/S3 for BonBDA drivers
 	} KSPROPERTY_BDA_TUNER_EXTENSION;
 
 	/*******************************************************************************************************/
