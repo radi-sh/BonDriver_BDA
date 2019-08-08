@@ -3208,6 +3208,9 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 
 	if (m_pIBdaSpecials2) {
+		// チューナ固有のTSID関数があれば呼び出す
+		hr = m_pIBdaSpecials2->SetTSid(pTuningParam->TSID);
+
 		// m_pIBdaSpecialsでput_TuneRequestの前に何らかの処理が必要なら行う
 		hr = m_pIBdaSpecials2->PreTuneRequest(pTuningParam, pITuneRequest);
 	}
@@ -3380,7 +3383,7 @@ void CBonTuner::LoadTunerDependCode(std::wstring tunerGUID, std::wstring tunerFr
 		m_pIBdaSpecials = func(m_pTunerDevice);
 	}
 
-	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b4 *>(m_pIBdaSpecials);
+	m_pIBdaSpecials2 = dynamic_cast<IBdaSpecials2b5 *>(m_pIBdaSpecials);
 	if (!m_pIBdaSpecials2)
 		OutputDebug(L"LoadTunerDependCode: Not IBdaSpecials2 Interface DLL.\n");
 
