@@ -16,7 +16,7 @@ DEFINE_GUID( GUID_TUNER_S_LOCK,
 class CDVBWorldSpecials : public IBdaSpecials2b5
 {
 public:
-	CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
+	CDVBWorldSpecials(CComPtr<IBaseFilter> pTunerDevice);
 	virtual ~CDVBWorldSpecials(void);
 
 	const HRESULT InitializeHook(void);
@@ -29,8 +29,9 @@ public:
 
 	virtual void Release(void);
 
+	static HMODULE m_hMySelf;
+
 private:
-	HMODULE m_hMySelf;
 	HANDLE m_hTuner;
 	CComPtr<IBaseFilter> m_pTunerDevice;
 

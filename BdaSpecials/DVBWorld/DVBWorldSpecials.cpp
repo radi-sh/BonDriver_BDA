@@ -34,7 +34,7 @@ FILE *g_fpLog = NULL;
 // Module handle (global)
 /////////////////////////////////////////////
 
-HMODULE hMySelf;
+HMODULE CDVBWorldSpecials::m_hMySelf = NULL;
 
 // DllMain
 /////////////////////////////////////////////
@@ -47,7 +47,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		::_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 		// モジュールハンドル保存
-		hMySelf = hModule;
+		CDVBWorldSpecials::m_hMySelf = hModule;
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -60,14 +60,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 /////////////////////////////////////////////
 __declspec(dllexport) IBdaSpecials * CreateBdaSpecials(CComPtr<IBaseFilter> pTunerDevice)
 {
-	return new CDVBWorldSpecials(hMySelf, pTunerDevice);
+	return new CDVBWorldSpecials(pTunerDevice);
 }
 
 // Constructor
 /////////////////////////////////////
 
-CDVBWorldSpecials::CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice)
-: m_hMySelf(hMySelf), m_pTunerDevice(pTunerDevice), m_hTuner(NULL)
+CDVBWorldSpecials::CDVBWorldSpecials(CComPtr<IBaseFilter> pTunerDevice)
+	: m_pTunerDevice(pTunerDevice), m_hTuner(NULL)
 {
 	if (m_pTunerDevice == NULL) {
 		return;
@@ -87,7 +87,6 @@ CDVBWorldSpecials::CDVBWorldSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTune
 
 CDVBWorldSpecials::~CDVBWorldSpecials()
 {
-	m_hMySelf = NULL;
 	m_hTuner = NULL;
 	return;
 }
@@ -136,7 +135,6 @@ const HRESULT CDVBWorldSpecials::Set22KHz(long nTone)
 
 const HRESULT CDVBWorldSpecials::FinalizeHook(void)
 {
-	m_hMySelf = NULL;
 	m_hTuner = NULL;
 	return S_OK;
 }
