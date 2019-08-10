@@ -39,7 +39,7 @@ HMODULE CDVBWorldSpecials::m_hMySelf = NULL;
 // DllMain
 /////////////////////////////////////////////
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID /*lpReserved*/)
 {
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH:
@@ -58,7 +58,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 // CreateBdaSpecials(void) method
 /////////////////////////////////////////////
-__declspec(dllexport) IBdaSpecials * CreateBdaSpecials(CComPtr<IBaseFilter> pTunerDevice)
+__declspec(dllexport) IBdaSpecials* CreateBdaSpecials(CComPtr<IBaseFilter> pTunerDevice)
 {
 	return new CDVBWorldSpecials(pTunerDevice);
 }
@@ -166,7 +166,7 @@ const HRESULT CDVBWorldSpecials::LockChannel(BYTE bySatellite, BOOL bHorizontal,
 	return hr;
 }
 
-const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam *pTuningParam)
+const HRESULT CDVBWorldSpecials::LockChannel(const TuningParam* pTuningParam)
 {
     Tuner_S_Param2 sTuneParam;
 	ZeroMemory(&sTuneParam, sizeof(sTuneParam));
