@@ -8,6 +8,8 @@
 class IBdaSpecials2b5 : public IBdaSpecials
 {
 public:
+#pragma warning (push)
+#pragma warning (disable: 4100)
 	virtual const HRESULT Set22KHz(bool bActive)
 	{
 		return E_NOINTERFACE;
@@ -88,6 +90,7 @@ public:
 	{
 		return S_OK;
 	};
+#pragma warning (pop)
 
 	virtual void Release(void) = 0;
 };
