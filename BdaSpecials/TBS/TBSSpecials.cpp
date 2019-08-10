@@ -25,7 +25,7 @@ FILE *g_fpLog = NULL;
 // Module handle (global)
 /////////////////////////////////////////////
 
-HMODULE hMySelf;
+HMODULE CTBSSpecials::m_hMySelf = NULL;
 
 // DllMain
 /////////////////////////////////////////////
@@ -38,7 +38,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		::_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 		// モジュールハンドル保存
-		hMySelf = hModule;
+		CTBSSpecials::m_hMySelf = hModule;
 		break;
 
 	case DLL_PROCESS_DETACH:
@@ -51,14 +51,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 /////////////////////////////////////////////
 __declspec(dllexport) IBdaSpecials * CreateBdaSpecials(CComPtr<IBaseFilter> pTunerDevice)
 {
-	return new CTBSSpecials(hMySelf, pTunerDevice);
+	return new CTBSSpecials(pTunerDevice);
 }
 
 // Constructor
 /////////////////////////////////////
 
-CTBSSpecials::CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice)
-: m_hMySelf(hMySelf), m_pTunerDevice(pTunerDevice)
+CTBSSpecials::CTBSSpecials(CComPtr<IBaseFilter> pTunerDevice)
+	: m_pTunerDevice(pTunerDevice)
 {
 	if (m_pTunerDevice) {
 		CDSEnumPins DSEnumPins(m_pTunerDevice);
@@ -82,8 +82,6 @@ CTBSSpecials::CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice)
 
 CTBSSpecials::~CTBSSpecials()
 {
-	m_hMySelf = NULL;
-
 	return;
 }
 
@@ -172,8 +170,6 @@ const HRESULT CTBSSpecials::FinalizeHook(void)
 	if (hr != S_OK) {
 		OutputDebug(L"SetLNBPower failed.\n");
 	}
-
-	m_hMySelf = NULL;
 
 	return S_OK;
 }

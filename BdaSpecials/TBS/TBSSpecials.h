@@ -14,7 +14,7 @@ const GUID KSPROPSETID_BdaTunerExtensionProperties =
 class CTBSSpecials : public IBdaSpecials2b5
 {
 public:
-	CTBSSpecials(HMODULE hMySelf, CComPtr<IBaseFilter> pTunerDevice);
+	CTBSSpecials(CComPtr<IBaseFilter> pTunerDevice);
 	virtual ~CTBSSpecials(void);
 
 	const HRESULT InitializeHook(void);
@@ -27,8 +27,9 @@ public:
 
 	virtual void Release(void);
 
+	static HMODULE m_hMySelf;
+
 private:
-	HMODULE m_hMySelf;
 	CComPtr<IKsPropertySet> m_pPropsetTunerPin;
 	CComPtr<IBaseFilter> m_pTunerDevice;
 
