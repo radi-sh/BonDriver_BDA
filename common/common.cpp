@@ -43,7 +43,10 @@ std::basic_string<TCHAR> common::TStringPrintf(LPCTSTR format, ...)
 
 std::string common::WStringToString(std::wstring Src)
 {
+#pragma warning (push)
+#pragma warning (disable: 4244)
 	return std::string(Src.cbegin(), Src.cend());
+#pragma warning (pop)
 }
 
 std::wstring common::StringToWString(std::string Src)
@@ -53,7 +56,10 @@ std::wstring common::StringToWString(std::string Src)
 
 std::basic_string<TCHAR> common::WStringToTString(std::wstring Src)
 {
+#pragma warning (push)
+#pragma warning (disable: 4244)
 	return std::basic_string<TCHAR>(Src.cbegin(), Src.cend());
+#pragma warning (pop)
 }
 
 std::wstring common::WStringToUpperCase(std::wstring Src)
