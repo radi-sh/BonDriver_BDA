@@ -5,12 +5,12 @@
 
 #pragma once
 
-#include <dshow.h>
-#include <bdaiface.h>
-
 #include <string>
 #include <map>
 #include <atlbase.h>
+
+#include <dshow.h>
+#include <bdaiface.h>
 
 class CDSFilterEnum
 {
