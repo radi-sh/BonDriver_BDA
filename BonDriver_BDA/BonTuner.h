@@ -19,6 +19,13 @@
 #include "DSFilterEnum.h"
 #include "TSMF.h"
 
+#pragma warning (push)
+#pragma warning (disable: 4310)
+#include "..\muparser\include\muParser.h"
+#pragma warning (pop)
+
+#pragma comment(lib, "muparser.lib")
+
 struct ITsWriter;
 
 // CBonTuner class
@@ -489,22 +496,25 @@ protected:
 	// SignalLevel 算出方法
 	enum enumSignalLevelCalcType {
 		eSignalLevelCalcTypeSSMin = 0,
-		eSignalLevelCalcTypeSSStrength = 0,			// RF Tuner Node の IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-		eSignalLevelCalcTypeSSQuality = 1,			// RF Tuner Node の IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-		eSignalLevelCalcTypeSSMul = 2,				// RF Tuner Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeSSAdd = 3,				// RF Tuner Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSStrength = 0,			// RF Tuner NodeのIBDA_SignalStatisticsから取得したStrength値 ÷ StrengthCoefficient ＋ StrengthBias
+		eSignalLevelCalcTypeSSQuality = 1,			// RF Tuner NodeのIBDA_SignalStatisticsから取得したQuality値 ÷ QualityCoefficient ＋ QualityBias
+		eSignalLevelCalcTypeSSMul = 2,				// RF Tuner NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) × (Quality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSAdd = 3,				// RF Tuner NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (Quality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeSSFormula = 9,			// RF Tuner NodeのIBDA_SignalStatisticsから取得したStrength/Quality値をSignalLevelCalcFormulaに設定したユーザー定義数式で算出
 		eSignalLevelCalcTypeSSMax = 9,
 		eSignalLevelCalcTypeTunerMin = 10,
-		eSignalLevelCalcTypeTunerStrength = 10,		// ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-		eSignalLevelCalcTypeTunerQuality = 11,		// ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-		eSignalLevelCalcTypeTunerMul = 12,			// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) × (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeTunerAdd = 13,			// (ITuner::get_SignalStrengthのStrength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (ITuner::get_SignalStrengthのQuality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerStrength = 10,		// ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficient ＋ StrengthBias
+		eSignalLevelCalcTypeTunerQuality = 11,		// ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficient ＋ QualityBias
+		eSignalLevelCalcTypeTunerMul = 12,			// ITuner::get_SignalStrengthで取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) × (Quality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerAdd = 13,			// ITuner::get_SignalStrengthで取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (Quality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeTunerFormula = 19,		// ITuner::get_SignalStrengthで取得したStrength/Quality値をSignalLevelCalcFormulaに設定したユーザー定義数式で算出
 		eSignalLevelCalcTypeTunerMax = 19,
 		eSignalLevelCalcTypeDemodSSMin = 20,
-		eSignalLevelCalcTypeDemodSSStrength = 20,	// Demodulator Node の IBDA_SignalStatistics::get_SignalStrengthで取得した値 ÷ StrengthCoefficientで指定した数値 ＋ StrengthBiasで指定した数値
-		eSignalLevelCalcTypeDemodSSQuality = 21,	// Demodulator Node の IBDA_SignalStatistics::get_SignalQualityで取得した値 ÷ QualityCoefficientで指定した数値 ＋ QualityBiasで指定した数値
-		eSignalLevelCalcTypeDemodSSMul = 22,		// Demodulator Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) × (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeDemodSSAdd = 23,		// Demodulator Node の (IBDA_SignalStatistics::get_SignalStrength ÷ StrengthCoefficient ＋ StrengthBias) ＋ (IBDA_SignalStatistics::get_SignalQuality ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeDemodSSStrength = 20,	// Demodulator NodeのIBDA_SignalStatisticsから取得したStrength値 ÷ StrengthCoefficient ＋ StrengthBias
+		eSignalLevelCalcTypeDemodSSQuality = 21,	// Demodulator NodeのIBDA_SignalStatisticsから取得したQuality値 ÷ QualityCoefficient ＋ QualityBias
+		eSignalLevelCalcTypeDemodSSMul = 22,		// Demodulator NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) × (Quality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeDemodSSAdd = 23,		// Demodulator NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (Quality値 ÷ QualityCoefficient ＋ QualityBias)
+		eSignalLevelCalcTypeDemodSSFormula = 29,	// Demodulator NodeのIBDA_SignalStatisticsから取得したStrength/Quality値をSignalLevelCalcFormulaに設定したユーザー定義数式で算出
 		eSignalLevelCalcTypeDemodSSMax = 29,
 		eSignalLevelCalcTypeBR = 100,				// ビットレート値(Mibps)
 	};
@@ -515,8 +525,6 @@ protected:
 	BOOL m_bSignalLevelGetTypeBR;			// SignalLevel 算出に ビットレート値を使用する
 	BOOL m_bSignalLevelNeedStrength;		// SignalLevel 算出に SignalStrength 値を使用する
 	BOOL m_bSignalLevelNeedQuality;			// SignalLevel 算出に SignalQuality 値を使用する
-	BOOL m_bSignalLevelCalcTypeMul;			// SignalLevel 算出に SignalStrength と SignalQuality の掛け算を使用する
-	BOOL m_bSignalLevelCalcTypeAdd;			// SignalLevel 算出に SignalStrength と SignalQuality の足し算を使用する
 
 	// Strength 値補正係数
 	double m_fStrengthCoefficient;
@@ -529,6 +537,14 @@ protected:
 
 	// Quality 値補正バイアス
 	double m_fQualityBias;
+
+	// SignalLevel算出用ユーザー定義数式
+	std::wstring m_sSignalLevelCalcFormula;
+
+	// SignalLevel算出用
+	mu::Parser m_muParser;	// muparser
+	double m_fStrength;		// muparser用Strength値参照変数
+	double m_fQuality;		// muparser用Quality値参照変数
 
 	// チューニング状態の判断方法
 	enum enumSignalLockedJudgeType {

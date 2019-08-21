@@ -108,12 +108,12 @@ CBonTuner::CBonTuner()
 	m_bSignalLevelGetTypeBR(FALSE),
 	m_bSignalLevelNeedStrength(FALSE),
 	m_bSignalLevelNeedQuality(FALSE),
-	m_bSignalLevelCalcTypeMul(FALSE),
-	m_bSignalLevelCalcTypeAdd(FALSE),
 	m_fStrengthCoefficient(1),
 	m_fQualityCoefficient(1),
 	m_fStrengthBias(0),
 	m_fQualityBias(0),
+	m_fStrength(0),
+	m_fQuality(0),
 	m_nSignalLockedJudgeType(eSignalLockedJudgeTypeSS),
 	m_bSignalLockedJudgeTypeSS(FALSE),
 	m_bSignalLockedJudgeTypeTuner(FALSE),
@@ -436,25 +436,25 @@ const float CBonTuner::_GetSignalLevel(void)
 
 	if (m_dwTargetChannel == CBonTuner::CHANNEL_INVALID)
 		// SetChannel()が一度も呼ばれていない場合は0を返す
-		return 0;
+		return 0.0F;
 
 	GetSignalState(&nStrength, &nQuality, &nLock);
 	if (!nLock)
 		// Lock出来ていない場合は0を返す
-		return 0;
+		return 0.0F;
 	if (nStrength < 0 && m_bSignalLevelNeedStrength)
 		// Strengthは-1を返す場合がある
 		return (float)nStrength;
-	double s = 0.0;
-	double q = 0.0;
-	if (m_bSignalLevelNeedStrength)
-		s = (double)nStrength / m_fStrengthCoefficient + m_fStrengthBias;
-	if (m_bSignalLevelNeedQuality)
-		q = (double)nQuality / m_fQualityCoefficient + m_fQualityBias;
 
-	if (m_bSignalLevelCalcTypeMul)
-		return (float)(s * q);
-	return (float)(s + q);
+	m_fStrength = (double)nStrength;
+	m_fQuality = (double)nQuality;
+
+	try {
+		f = (float)m_muParser.Eval();
+	}
+	catch (...) {
+	}
+	return f;
 }
 
 const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
@@ -1296,21 +1296,29 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 	const std::map<const std::wstring, const int, std::less<>> mapSignalLevelCalcType = {
-		{ L"SSSTRENGTH",     0 },
-		{ L"SSQUALITY",      1 },
-		{ L"SSMUL",          2 },
-		{ L"SSADD",          3 },
-		{ L"TUNERSTRENGTH", 10 },
-		{ L"TUNERQUALITY",  11 },
-		{ L"TUNERMUL",      12 },
-		{ L"TUNERADD",      13 },
-		{ L"BITRATE",      100 },
+		{ L"SSSTRENGTH",      enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength },
+		{ L"SSQUALITY",       enumSignalLevelCalcType::eSignalLevelCalcTypeSSQuality },
+		{ L"SSMUL",           enumSignalLevelCalcType::eSignalLevelCalcTypeSSMul },
+		{ L"SSADD",           enumSignalLevelCalcType::eSignalLevelCalcTypeSSAdd },
+		{ L"SSFORMULA",       enumSignalLevelCalcType::eSignalLevelCalcTypeSSFormula },
+		{ L"TUNERSTRENGTH",   enumSignalLevelCalcType::eSignalLevelCalcTypeTunerStrength },
+		{ L"TUNERQUALITY",    enumSignalLevelCalcType::eSignalLevelCalcTypeTunerQuality },
+		{ L"TUNERMUL",        enumSignalLevelCalcType::eSignalLevelCalcTypeTunerMul },
+		{ L"TUNERADD",        enumSignalLevelCalcType::eSignalLevelCalcTypeTunerAdd },
+		{ L"TUNERFORMULA",    enumSignalLevelCalcType::eSignalLevelCalcTypeTunerFormula },
+		{ L"DEMODSSSTRENGTH", enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSStrength },
+		{ L"DEMODSSQUALITY",  enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSQuality },
+		{ L"DEMODSSMUL",      enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSMul },
+		{ L"DEMODSSADD",      enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSAdd },
+		{ L"DEMODSSFORMULA",  enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSFormula },
+		{ L"BITRATE",         enumSignalLevelCalcType::eSignalLevelCalcTypeBR },
 	};
 
 	const std::map<const std::wstring, const int, std::less<>> mapSignalLockedJudgeType = {
-		{ L"ALWAYS",        0 },
-		{ L"SSLOCKED",      1 },
-		{ L"TUNERSTRENGTH", 2 },
+		{ L"ALWAYS",        enumSignalLockedJudgeType::eSignalLockedJudgeTypeAlways },
+		{ L"SSLOCKED",      enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS },
+		{ L"TUNERSTRENGTH", enumSignalLockedJudgeType::eSignalLockedJudgeTypeTuner },
+		{ L"DEMODSSLOCKED", enumSignalLockedJudgeType::eSignalLockedJudgeTypeDemodSS },
 	};
 
 	const std::map<const std::wstring, const int, std::less<>> mapDiSEqC = {
@@ -1437,18 +1445,30 @@ void CBonTuner::ReadIniFile(void)
 		m_bSignalLevelGetTypeDemodSS = TRUE;
 	else if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR)
 		m_bSignalLevelGetTypeBR = TRUE;
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
-			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd ||
-			m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd)
+
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSStrength) {
 		m_bSignalLevelNeedStrength = TRUE;
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd ||
-			m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd ||
-			m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd)
+		m_sSignalLevelCalcFormula = L"S / SC + SB";
+	}
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSQuality) {
 		m_bSignalLevelNeedQuality = TRUE;
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul)
-		m_bSignalLevelCalcTypeMul = TRUE;
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd)
-		m_bSignalLevelCalcTypeAdd = TRUE;
+		m_sSignalLevelCalcFormula = L"Q / QC + QB";
+	}
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul) {
+		m_bSignalLevelNeedStrength = TRUE;
+		m_bSignalLevelNeedQuality = TRUE;
+		m_sSignalLevelCalcFormula = L"(S / SC + SB) * (Q / QC + QB)";
+	}
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd) {
+		m_bSignalLevelNeedStrength = TRUE;
+		m_bSignalLevelNeedQuality = TRUE;
+		m_sSignalLevelCalcFormula = L"(S / SC + SB) + (Q / QC + QB)";
+	}
+	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSFormula || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerFormula || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSFormula) {
+		m_bSignalLevelNeedStrength = TRUE;
+		m_bSignalLevelNeedQuality = TRUE;
+		m_sSignalLevelCalcFormula = IniFileAccess.ReadKeySSectionData(L"SignalLevelCalcFormula", L"S / SC + SB");
+	}
 
 	// Strength 値補正係数
 	m_fStrengthCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthCoefficient", 1.0);
@@ -1465,6 +1485,20 @@ void CBonTuner::ReadIniFile(void)
 
 	// Quality 値補正バイアス
 	m_fQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", 0.0);
+
+	// muparser初期化
+	try {
+		m_muParser.DefineVar(_T("S"), &m_fStrength);
+		m_muParser.DefineVar(_T("SC"), &m_fStrengthCoefficient);
+		m_muParser.DefineVar(_T("SB"), &m_fStrengthBias);
+		m_muParser.DefineVar(_T("Q"), &m_fQuality);
+		m_muParser.DefineVar(_T("QC"), &m_fQualityCoefficient);
+		m_muParser.DefineVar(_T("QB"), &m_fQualityBias);
+		m_muParser.SetExpr(common::WStringToTString(m_sSignalLevelCalcFormula));
+	}
+	catch (...) {
+		OutputDebug(L"muParser exception. Wrong formula format?\n");
+	}
 
 	// チューニング状態の判断方法
 	m_nSignalLockedJudgeType = (enumSignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS, mapSignalLockedJudgeType);
