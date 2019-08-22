@@ -231,7 +231,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -248,7 +248,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-XP|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -268,7 +268,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -287,7 +287,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -302,7 +302,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -323,7 +323,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-XP|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -344,7 +344,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Static|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -365,7 +365,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release-XP_Static|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -389,7 +389,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <StringPooling>true</StringPooling>
@@ -411,7 +411,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <StringPooling>true</StringPooling>
@@ -433,7 +433,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <StringPooling>true</StringPooling>
@@ -455,7 +455,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level2</WarningLevel>
       <StringPooling>true</StringPooling>
@@ -473,75 +473,75 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="amextra.cpp" />
-    <ClCompile Include="amfilter.cpp" />
-    <ClCompile Include="amvideo.cpp" />
-    <ClCompile Include="arithutil.cpp" />
-    <ClCompile Include="combase.cpp" />
-    <ClCompile Include="cprop.cpp" />
-    <ClCompile Include="ctlutil.cpp" />
-    <ClCompile Include="ddmm.cpp" />
-    <ClCompile Include="dllentry.cpp" />
-    <ClCompile Include="dllsetup.cpp" />
-    <ClCompile Include="mtype.cpp" />
-    <ClCompile Include="outputq.cpp" />
-    <ClCompile Include="perflog.cpp" />
-    <ClCompile Include="pstream.cpp" />
-    <ClCompile Include="pullpin.cpp" />
-    <ClCompile Include="refclock.cpp" />
-    <ClCompile Include="renbase.cpp" />
-    <ClCompile Include="schedule.cpp" />
-    <ClCompile Include="seekpt.cpp" />
-    <ClCompile Include="source.cpp" />
-    <ClCompile Include="strmctl.cpp" />
-    <ClCompile Include="sysclock.cpp" />
-    <ClCompile Include="transfrm.cpp" />
-    <ClCompile Include="transip.cpp" />
-    <ClCompile Include="videoctl.cpp" />
-    <ClCompile Include="vtrans.cpp" />
-    <ClCompile Include="winctrl.cpp" />
-    <ClCompile Include="winutil.cpp" />
-    <ClCompile Include="wxdebug.cpp" />
-    <ClCompile Include="wxlist.cpp" />
-    <ClCompile Include="wxutil.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amextra.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amfilter.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amvideo.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\arithutil.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\combase.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\cprop.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ctlutil.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ddmm.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dllentry.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dllsetup.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\mtype.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\outputq.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\perflog.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pstream.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pullpin.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\refclock.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\renbase.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\schedule.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\seekpt.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\source.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\strmctl.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\sysclock.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transfrm.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transip.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\videoctl.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\vtrans.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winctrl.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winutil.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxdebug.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxlist.cpp" />
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxutil.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="amextra.h" />
-    <ClInclude Include="amfilter.h" />
-    <ClInclude Include="cache.h" />
-    <ClInclude Include="combase.h" />
-    <ClInclude Include="cprop.h" />
-    <ClInclude Include="ctlutil.h" />
-    <ClInclude Include="ddmm.h" />
-    <ClInclude Include="dllsetup.h" />
-    <ClInclude Include="dxmperf.h" />
-    <ClInclude Include="fourcc.h" />
-    <ClInclude Include="measure.h" />
-    <ClInclude Include="msgthrd.h" />
-    <ClInclude Include="mtype.h" />
-    <ClInclude Include="outputq.h" />
-    <ClInclude Include="perflog.h" />
-    <ClInclude Include="perfstruct.h" />
-    <ClInclude Include="pstream.h" />
-    <ClInclude Include="pullpin.h" />
-    <ClInclude Include="refclock.h" />
-    <ClInclude Include="reftime.h" />
-    <ClInclude Include="renbase.h" />
-    <ClInclude Include="schedule.h" />
-    <ClInclude Include="seekpt.h" />
-    <ClInclude Include="source.h" />
-    <ClInclude Include="streams.h" />
-    <ClInclude Include="strmctl.h" />
-    <ClInclude Include="sysclock.h" />
-    <ClInclude Include="transfrm.h" />
-    <ClInclude Include="transip.h" />
-    <ClInclude Include="videoctl.h" />
-    <ClInclude Include="vtrans.h" />
-    <ClInclude Include="winctrl.h" />
-    <ClInclude Include="winutil.h" />
-    <ClInclude Include="wxdebug.h" />
-    <ClInclude Include="wxlist.h" />
-    <ClInclude Include="wxutil.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amextra.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amfilter.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\cache.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\combase.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\cprop.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ctlutil.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ddmm.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dllsetup.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dxmperf.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\fourcc.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\measure.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\msgthrd.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\mtype.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\outputq.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\perflog.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\perfstruct.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pstream.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pullpin.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\refclock.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\reftime.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\renbase.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\schedule.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\seekpt.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\source.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\streams.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\strmctl.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\sysclock.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transfrm.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transip.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\videoctl.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\vtrans.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winctrl.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winutil.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxdebug.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxlist.h" />
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxutil.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

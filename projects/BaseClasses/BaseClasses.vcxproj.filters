@@ -1,0 +1,222 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="リソース ファイル">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="ヘッダー ファイル">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="ソース ファイル">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amextra.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amfilter.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amvideo.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\arithutil.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\combase.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\cprop.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ctlutil.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ddmm.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dllentry.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dllsetup.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\mtype.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\outputq.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\perflog.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pstream.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pullpin.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\refclock.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\renbase.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\schedule.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\seekpt.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\source.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\strmctl.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\sysclock.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transfrm.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transip.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\videoctl.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\vtrans.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winctrl.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winutil.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxdebug.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxlist.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxutil.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amextra.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\amfilter.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\cache.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\combase.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\cprop.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ctlutil.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\ddmm.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dllsetup.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\dxmperf.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\fourcc.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\measure.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\msgthrd.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\mtype.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\outputq.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\perflog.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\perfstruct.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pstream.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\pullpin.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\refclock.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\reftime.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\renbase.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\schedule.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\seekpt.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\source.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\streams.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\strmctl.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\sysclock.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transfrm.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\transip.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\videoctl.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\vtrans.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winctrl.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\winutil.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxdebug.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxlist.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\3rdParties\Windows-classic-samples\Samples\Win7Samples\multimedia\directshow\baseclasses\wxutil.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
