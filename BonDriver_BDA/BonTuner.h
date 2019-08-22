@@ -21,7 +21,7 @@
 
 #pragma warning (push)
 #pragma warning (disable: 4310)
-#include "..\muparser\include\muParser.h"
+#include "..\3rdParties\muparser\include\muParser.h"
 #pragma warning (pop)
 
 #pragma comment(lib, "muparser.lib")

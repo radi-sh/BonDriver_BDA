@@ -231,7 +231,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -244,7 +244,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -257,7 +257,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -270,7 +270,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -285,7 +285,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -305,7 +305,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -325,7 +325,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -346,7 +346,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -367,7 +367,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -386,7 +386,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -405,7 +405,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -425,7 +425,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\3rdParties\muparser\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WIN32;MUPARSERLIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -440,31 +440,31 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\muparser\include\muParser.h" />
-    <ClInclude Include="..\muparser\include\muParserBase.h" />
-    <ClInclude Include="..\muparser\include\muParserBytecode.h" />
-    <ClInclude Include="..\muparser\include\muParserCallback.h" />
-    <ClInclude Include="..\muparser\include\muParserDef.h" />
-    <ClInclude Include="..\muparser\include\muParserDLL.h" />
-    <ClInclude Include="..\muparser\include\muParserError.h" />
-    <ClInclude Include="..\muparser\include\muParserFixes.h" />
-    <ClInclude Include="..\muparser\include\muParserInt.h" />
-    <ClInclude Include="..\muparser\include\muParserStack.h" />
-    <ClInclude Include="..\muparser\include\muParserTemplateMagic.h" />
-    <ClInclude Include="..\muparser\include\muParserTest.h" />
-    <ClInclude Include="..\muparser\include\muParserToken.h" />
-    <ClInclude Include="..\muparser\include\muParserTokenReader.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParser.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserBase.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserBytecode.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserCallback.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserDef.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserDLL.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserError.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserFixes.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserInt.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserStack.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserTemplateMagic.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserTest.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserToken.h" />
+    <ClInclude Include="..\..\3rdParties\muparser\include\muParserTokenReader.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\muparser\src\muParser.cpp" />
-    <ClCompile Include="..\muparser\src\muParserBase.cpp" />
-    <ClCompile Include="..\muparser\src\muParserBytecode.cpp" />
-    <ClCompile Include="..\muparser\src\muParserCallback.cpp" />
-    <ClCompile Include="..\muparser\src\muParserDLL.cpp" />
-    <ClCompile Include="..\muparser\src\muParserError.cpp" />
-    <ClCompile Include="..\muparser\src\muParserInt.cpp" />
-    <ClCompile Include="..\muparser\src\muParserTest.cpp" />
-    <ClCompile Include="..\muparser\src\muParserTokenReader.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParser.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserBase.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserBytecode.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserCallback.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserDLL.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserError.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserInt.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserTest.cpp" />
+    <ClCompile Include="..\..\3rdParties\muparser\src\muParserTokenReader.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

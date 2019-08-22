@@ -32,7 +32,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DD", "BdaSpecials\DD\DD.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LWire", "BdaSpecials\LWire\LWire.vcxproj", "{7BCCFC23-6E28-4571-802A-45A542A4C260}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "muparser", "muparser_vc\muparser.vcxproj", "{4EA41084-A45F-4D67-AB40-3E9C1FBA4473}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "muparser", "projects\muparser\muparser.vcxproj", "{4EA41084-A45F-4D67-AB40-3E9C1FBA4473}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
