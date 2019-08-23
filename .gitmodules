@@ -1,3 +1,6 @@
 [submodule "3rdParties/Windows-classic-samples"]
 	path = 3rdParties/Windows-classic-samples
 	url = https://github.com/microsoft/Windows-classic-samples.git
+[submodule "3rdParties/muparser"]
+	path = 3rdParties/muparser
+	url = https://github.com/beltoforion/muparser.git
