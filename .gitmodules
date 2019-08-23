@@ -4,3 +4,6 @@
 [submodule "3rdParties/muparser"]
 	path = 3rdParties/muparser
 	url = https://github.com/beltoforion/muparser.git
+[submodule "common"]
+	path = common
+	url = https://github.com/radi-sh/BonDriver_BDA-CommonLibs.git
