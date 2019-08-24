@@ -1809,9 +1809,9 @@ void CBonTuner::ReadIniFile(void)
 			modulationNumberDVBS2 = modulation;
 			m_sModulationName[modulation] = L"DVB-S2";							// チャンネル名生成用変調方式名称
 			m_aModulationType[modulation].Modulation = BDA_MOD_NBC_8PSK;		// 変調タイプ
-			m_aModulationType[modulation].InnerFEC = BDA_FEC_VITERBI;			// 内部前方誤り訂正タイプ
+			m_aModulationType[modulation].InnerFEC = BDA_FEC_LDPC;				// 内部前方誤り訂正タイプ
 			m_aModulationType[modulation].InnerFECRate = BDA_BCC_RATE_3_5;		// 内部FECレート
-			m_aModulationType[modulation].OuterFEC = BDA_FEC_RS_204_188;		// 外部前方誤り訂正タイプ
+			m_aModulationType[modulation].OuterFEC = BDA_FEC_BCH;				// 外部前方誤り訂正タイプ
 			m_aModulationType[modulation].OuterFECRate = BDA_BCC_RATE_NOT_SET;	// 外部FECレート
 			m_aModulationType[modulation].SymbolRate = 23303;					// シンボルレート
 		}
