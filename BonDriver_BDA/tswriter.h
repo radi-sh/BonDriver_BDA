@@ -1,6 +1,6 @@
 #pragma once
 
-#include <streams.h>
+#include "streams.h"
 #include <initguid.h>
 
 typedef int (CALLBACK * RECV_PROC)(void * pParam, BYTE * pbData, size_t size);
