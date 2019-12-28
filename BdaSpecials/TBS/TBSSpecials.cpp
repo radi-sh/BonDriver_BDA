@@ -21,8 +21,6 @@
 #include "CIniFileAccess.h"
 #include "DSFilterEnum.h"
 
-FILE *g_fpLog = NULL;
-
 // Module handle (global)
 /////////////////////////////////////////////
 
