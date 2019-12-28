@@ -1126,7 +1126,7 @@ void CBonTuner::StopRecv(void)
 
 void CBonTuner::ReadIniFile(void)
 {
-	const std::map<const std::wstring, const int, std::less<>> mapThreadPriority = {
+	const CIniFileAccess::Map mapThreadPriority = {
 		{ L"",                              THREAD_PRIORITY_ERROR_RETURN },
 		{ L"THREAD_PRIORITY_IDLE",          THREAD_PRIORITY_IDLE },
 		{ L"THREAD_PRIORITY_LOWEST",        THREAD_PRIORITY_LOWEST },
@@ -1137,7 +1137,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"THREAD_PRIORITY_TIME_CRITICAL", THREAD_PRIORITY_TIME_CRITICAL },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapModulationType = {
+	const CIniFileAccess::Map mapModulationType = {
 		{ L"BDA_MOD_NOT_SET",          ModulationType::BDA_MOD_NOT_SET },
 		{ L"BDA_MOD_NOT_DEFINED",      ModulationType::BDA_MOD_NOT_DEFINED },
 		{ L"BDA_MOD_16QAM",            ModulationType::BDA_MOD_16QAM },
@@ -1177,7 +1177,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BDA_MOD_ISDB_S_TMCC",      ModulationType::BDA_MOD_ISDB_S_TMCC },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapFECMethod = {
+	const CIniFileAccess::Map mapFECMethod = {
 		{ L"BDA_FEC_METHOD_NOT_SET",     FECMethod::BDA_FEC_METHOD_NOT_SET },
 		{ L"BDA_FEC_METHOD_NOT_DEFINED", FECMethod::BDA_FEC_METHOD_NOT_DEFINED },
 		{ L"BDA_FEC_VITERBI",            FECMethod::BDA_FEC_VITERBI },
@@ -1187,7 +1187,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BDA_FEC_RS_147_130",         FECMethod::BDA_FEC_RS_147_130 },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapBinaryConvolutionCodeRate = {
+	const CIniFileAccess::Map mapBinaryConvolutionCodeRate = {
 		{ L"BDA_BCC_RATE_NOT_SET",     BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_SET },
 		{ L"BDA_BCC_RATE_NOT_DEFINED", BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_DEFINED },
 		{ L"BDA_BCC_RATE_1_2",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_2 },
@@ -1206,7 +1206,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BDA_BCC_RATE_9_10",        BinaryConvolutionCodeRate::BDA_BCC_RATE_9_10 },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapTuningSpaceType = {
+	const CIniFileAccess::Map mapTuningSpaceType = {
 		{ L"DVB-S/DVB-S2",  enumTunerType::eTunerTypeDVBS },
 		{ L"DVB-S2",        enumTunerType::eTunerTypeDVBS },
 		{ L"DVB-S",         enumTunerType::eTunerTypeDVBS },
@@ -1221,7 +1221,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DIGITAL CABLE", enumTunerType::eTunerTypeDigitalCable },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapSpecifyTuningSpace = {
+	const CIniFileAccess::Map mapSpecifyTuningSpace = {
 		{ L"AUTO",                     enumTuningSpace::eTuningSpaceAuto },
 		{ L"DVBTUNINGSPACE",           enumTuningSpace::eTuningSpaceDVB },
 		{ L"DVBSTUNINGSPACE",          enumTuningSpace::eTuningSpaceDVBS },
@@ -1230,7 +1230,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DIGITALCABLETUNINGSPACE",  enumTuningSpace::eTuningSpaceDigitalCable },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapSpecifyLocator = {
+	const CIniFileAccess::Map mapSpecifyLocator = {
 		{ L"AUTO", eLocatorAuto },
 		{ L"DVBTLOCATOR",         enumLocator::eLocatorDVBT },
 		{ L"DVBTLOCATOR2",        enumLocator::eLocatorDVBT2 },
@@ -1241,7 +1241,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DIGITALCABLELOCATOR", enumLocator::eLocatorDigitalCable },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapSpecifyITuningSpaceNetworkType = {
+	const CIniFileAccess::Map mapSpecifyITuningSpaceNetworkType = {
 		{ L"AUTO",                                       enumNetworkType::eNetworkTypeAuto },
 		{ L"STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE",     enumNetworkType::eNetworkTypeDVBT },
 		{ L"STATIC_DVB_SATELLITE_TV_NETWORK_TYPE",       enumNetworkType::eNetworkTypeDVBS },
@@ -1256,7 +1256,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE",  enumNetworkType::eNetworkTypeEchoStar },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapSpecifyIDVBTuningSpaceSystemType = {
+	const CIniFileAccess::Map mapSpecifyIDVBTuningSpaceSystemType = {
 		{ L"AUTO",             enumDVBSystemType::eDVBSystemTypeAuto },
 		{ L"DVB_CABLE",        enumDVBSystemType::eDVBSystemTypeDVBC },
 		{ L"DVB_TERRESTRIAL",  enumDVBSystemType::eDVBSystemTypeDVBT },
@@ -1266,13 +1266,13 @@ void CBonTuner::ReadIniFile(void)
 	};
 
 
-	const std::map<const std::wstring, const int, std::less<>> mapSpecifyIAnalogTVTuningSpaceInputType = {
+	const CIniFileAccess::Map mapSpecifyIAnalogTVTuningSpaceInputType = {
 		{ L"AUTO",              enumTunerInputType::eTunerInputTypeAuto },
 		{ L"TUNERINPUTCABLE",   enumTunerInputType::eTunerInputTypeCable },
 		{ L"TUNERINPUTANTENNA", enumTunerInputType::eTunerInputTypeAntenna },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapNetworkProvider = {
+	const CIniFileAccess::Map mapNetworkProvider = {
 		{ L"AUTO",                             enumNetworkProvider::eNetworkProviderAuto },
 		{ L"MICROSOFT NETWORK PROVIDER",       enumNetworkProvider::eNetworkProviderGeneric },
 		{ L"MICROSOFT DVB-S NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBS },
@@ -1281,7 +1281,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"MICROSOFT ATSC NETWORK PROVIDER",  enumNetworkProvider::eNetworkProviderATSC },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapDefaultNetwork = {
+	const CIniFileAccess::Map mapDefaultNetwork = {
 		{ L"NONE",     enumDefaultNetwork::eDefaultNetworkNone },
 		{ L"SPHD",     enumDefaultNetwork::eDefaultNetworkSPHD },
 		{ L"BS/CS110", enumDefaultNetwork::eDefaultNetworkBSCS },
@@ -1293,7 +1293,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"DUAL",     enumDefaultNetwork::eDefaultNetworkDual },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapSignalLevelCalcType = {
+	const CIniFileAccess::Map mapSignalLevelCalcType = {
 		{ L"SSSTRENGTH",      enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength },
 		{ L"SSQUALITY",       enumSignalLevelCalcType::eSignalLevelCalcTypeSSQuality },
 		{ L"SSMUL",           enumSignalLevelCalcType::eSignalLevelCalcTypeSSMul },
@@ -1312,14 +1312,14 @@ void CBonTuner::ReadIniFile(void)
 		{ L"BITRATE",         enumSignalLevelCalcType::eSignalLevelCalcTypeBR },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapSignalLockedJudgeType = {
+	const CIniFileAccess::Map mapSignalLockedJudgeType = {
 		{ L"ALWAYS",        enumSignalLockedJudgeType::eSignalLockedJudgeTypeAlways },
 		{ L"SSLOCKED",      enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS },
 		{ L"TUNERSTRENGTH", enumSignalLockedJudgeType::eSignalLockedJudgeTypeTuner },
 		{ L"DEMODSSLOCKED", enumSignalLockedJudgeType::eSignalLockedJudgeTypeDemodSS },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapDiSEqC = {
+	const CIniFileAccess::Map mapDiSEqC = {
 		{ L"",       LNB_Source::BDA_LNB_SOURCE_NOT_SET },
 		{ L"PORT-A", LNB_Source::BDA_LNB_SOURCE_A },
 		{ L"PORT-B", LNB_Source::BDA_LNB_SOURCE_B },
@@ -1327,7 +1327,7 @@ void CBonTuner::ReadIniFile(void)
 		{ L"PORT-D", LNB_Source::BDA_LNB_SOURCE_D },
 	};
 
-	const std::map<const std::wstring, const int, std::less<>> mapTSMFMode = {
+	const CIniFileAccess::Map mapTSMFMode = {
 		{ L"OFF",      0 },
 		{ L"TSID",     1 },
 		{ L"RELATIVE", 2 },
@@ -1337,7 +1337,7 @@ void CBonTuner::ReadIniFile(void)
 	std::wstring tempPath = common::GetModuleName(st_hModule);
 	m_sIniFilePath = tempPath + L"ini";
 
-	CIniFileAccess IniFileAccess(m_sIniFilePath);
+	CIniFileAccess IniFileAccess(m_sIniFilePath.c_str());
 	int val;
 
 	// DebugLogを記録するかどうか
@@ -1358,13 +1358,13 @@ void CBonTuner::ReadIniFile(void)
 	for (unsigned int i = 0; i < MAX_GUID; i++) {
 		std::wstring key;
 		key = L"GUID" + std::to_wstring(i);
-		std::wstring tunerGuid = IniFileAccess.ReadKeySSectionData(key, L"");
+		std::wstring tunerGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
 		key = L"FriendlyName" + std::to_wstring(i);
-		std::wstring tunerFriendlyName = IniFileAccess.ReadKeySSectionData(key, L"");
+		std::wstring tunerFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
 		key = L"CaptureGUID" + std::to_wstring(i);
-		std::wstring captureGuid = IniFileAccess.ReadKeySSectionData(key, L"");
+		std::wstring captureGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
 		key = L"CaptureFriendlyName" + std::to_wstring(i);
-		std::wstring captureFriendlyName = IniFileAccess.ReadKeySSectionData(key, L"");
+		std::wstring captureFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
 		if (tunerGuid.length() == 0 && tunerFriendlyName.length() == 0 && captureGuid.length() == 0 && captureFriendlyName.length() == 0) {
 			// どれも指定されていない
 			if (i == 0) {
@@ -1434,7 +1434,7 @@ void CBonTuner::ReadIniFile(void)
 	std::wstring sTempTuningSpaceName = IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", L"スカパー");
 
 	// SignalLevel 算出方法
-	m_nSignalLevelCalcType = (enumSignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength, mapSignalLevelCalcType);
+	m_nSignalLevelCalcType = (enumSignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength, &mapSignalLevelCalcType);
 	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeSSMax)
 		m_bSignalLevelGetTypeSS = TRUE;
 	else if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeTunerMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeTunerMax)
@@ -1499,7 +1499,7 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// チューニング状態の判断方法
-	m_nSignalLockedJudgeType = (enumSignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS, mapSignalLockedJudgeType);
+	m_nSignalLockedJudgeType = (enumSignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS, &mapSignalLockedJudgeType);
 	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeSS)
 		m_bSignalLockedJudgeTypeSS = TRUE;
 	else if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeTuner)
@@ -1521,27 +1521,27 @@ void CBonTuner::ReadIniFile(void)
 		for (unsigned int j = st; j < 2; j++) {
 			// チューナーの使用するTuningSpaceの種類
 			key = prefix[j];
-			typeData.nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nDVBSystemType, mapTuningSpaceType);
+			typeData.nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nDVBSystemType, &mapTuningSpaceType);
 
 			// 使用するITuningSpace interface
 			key = prefix[j] + L"TuningSpace";
-			typeData.nTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nTuningSpace, mapSpecifyTuningSpace);
+			typeData.nTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nTuningSpace, &mapSpecifyTuningSpace);
 
 			// 使用するILocator interface
 			key = prefix[j] + L"Locator";
-			typeData.nLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nLocator, mapSpecifyLocator);
+			typeData.nLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nLocator, &mapSpecifyLocator);
 
 			// ITuningSpaceに設定するNetworkType
 			key = prefix[j] + L"ITuningSpaceNetworkType";
-			typeData.nITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nITuningSpaceNetworkType, mapSpecifyITuningSpaceNetworkType);
+			typeData.nITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nITuningSpaceNetworkType, &mapSpecifyITuningSpaceNetworkType);
 
 			// IDVBTuningSpaceに設定するSystemType
 			key = prefix[j] + L"IDVBTuningSpaceSystemType";
-			typeData.nIDVBTuningSpaceSystemType = (enumDVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIDVBTuningSpaceSystemType, mapSpecifyIDVBTuningSpaceSystemType);
+			typeData.nIDVBTuningSpaceSystemType = (enumDVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nIDVBTuningSpaceSystemType, &mapSpecifyIDVBTuningSpaceSystemType);
 
 			// IAnalogTVTuningSpaceに設定するInputType
 			key = prefix[j] + L"IAnalogTVTuningSpaceInputType";
-			typeData.nIAnalogTVTuningSpaceInputType = (enumTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key, typeData.nIAnalogTVTuningSpaceInputType, mapSpecifyIAnalogTVTuningSpaceInputType);
+			typeData.nIAnalogTVTuningSpaceInputType = (enumTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nIAnalogTVTuningSpaceInputType, &mapSpecifyIAnalogTVTuningSpaceInputType);
 		}
 
 		if (typeData.nDVBSystemType == enumTunerType::eTunerTypeNone && (typeData.nTuningSpace == enumTuningSpace::eTuningSpaceAuto || typeData.nLocator == enumLocator::eLocatorAuto)) {
@@ -1557,10 +1557,10 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// チューナーに使用するNetworkProvider
-	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", enumNetworkProvider::eNetworkProviderAuto, mapNetworkProvider);
+	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", enumNetworkProvider::eNetworkProviderAuto, &mapNetworkProvider);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
-	m_nDefaultNetwork = (enumDefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", enumDefaultNetwork::eDefaultNetworkSPHD, mapDefaultNetwork);
+	m_nDefaultNetwork = (enumDefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", enumDefaultNetwork::eDefaultNetworkSPHD, &mapDefaultNetwork);
 
 	//
 	// BonDriver セクション
@@ -1589,13 +1589,13 @@ void CBonTuner::ReadIniFile(void)
 	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", FALSE);
 
 	// COMProcThreadのスレッドプライオリティ
-	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
+	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN, &mapThreadPriority);
 
 	// DecodeProcThreadのスレッドプライオリティ
-	m_nThreadPriorityDecode = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
+	m_nThreadPriorityDecode = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN, &mapThreadPriority);
 
 	// ストリームスレッドプライオリティ
-	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, mapThreadPriority);
+	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, &mapThreadPriority);
 
 	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
 	m_nPeriodicTimer = IniFileAccess.ReadKeyISectionData(L"PeriodicTimer", 0);
@@ -1641,7 +1641,7 @@ void CBonTuner::ReadIniFile(void)
 
 		// 衛星設定自動生成
 		key = prefix1 + L"SettingsAuto";
-		sateliteSettingsAuto[satellite] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key, sateliteSettingsAuto[satellite]));
+		sateliteSettingsAuto[satellite] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key.c_str(), sateliteSettingsAuto[satellite].c_str()));
 
 		if (sateliteSettingsAuto[satellite] == L"JCSAT-3") {
 			// JCSAT-3A
@@ -1673,7 +1673,7 @@ void CBonTuner::ReadIniFile(void)
 
 		// サービス表示用衛星名称
 		key = prefix1 + L"Name";
-		m_sSatelliteName[satellite] = IniFileAccess.ReadKeySSectionData(key, m_sSatelliteName[satellite]);
+		m_sSatelliteName[satellite] = IniFileAccess.ReadKeySSectionData(key.c_str(), m_sSatelliteName[satellite].c_str());
 
 		// 偏波種類1～4のアンテナ設定を読込
 		for (unsigned int polarisation = 1; polarisation < POLARISATION_SIZE; polarisation++) {
@@ -1682,53 +1682,53 @@ void CBonTuner::ReadIniFile(void)
 			// 全偏波共通での設定があれば読み込む
 			key = prefix1 + L"Oscillator";
 			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator = m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
 			key = prefix1 + L"HighOscillator";
 			m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
 			key = prefix1 + L"LowOscillator";
 			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].LowOscillator);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].LowOscillator);
 			// 個別設定があれば上書きで読み込む
 			key = prefix2 + L"Oscillator";
 			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator = m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
 			key = prefix2 + L"HighOscillator";
 			m_aSatellite[satellite].Polarisation[polarisation].HighOscillator
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].HighOscillator);
 			key = prefix2 + L"LowOscillator";
 			m_aSatellite[satellite].Polarisation[polarisation].LowOscillator
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].LowOscillator);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].LowOscillator);
 
 			// LNB切替周波数 (KHz)
 			// 全偏波共通での設定があれば読み込む
 			key = prefix1 + L"LNBSwitch";
 			m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch);
 			// 個別設定があれば上書きで読み込む
 			key = prefix2 + L"LNBSwitch";
 			m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch
-				= (long)IniFileAccess.ReadKeyISectionData(key, m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch);
+				= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].LNBSwitch);
 
 			// トーン信号 (0 or 1)
 			// 全偏波共通での設定があれば読み込む
 			key = prefix1 + L"ToneSignal";
 			m_aSatellite[satellite].Polarisation[polarisation].Tone
-				= (long)IniFileAccess.ReadKeyBSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].Tone);
+				= (long)IniFileAccess.ReadKeyBSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].Tone);
 			// 個別設定があれば上書きで読み込む
 			key = prefix2 + L"ToneSignal";
 			m_aSatellite[satellite].Polarisation[polarisation].Tone
-				= (long)IniFileAccess.ReadKeyBSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].Tone);
+				= (long)IniFileAccess.ReadKeyBSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].Tone);
 
 			// DiSEqC
 			// 全偏波共通での設定があれば読み込む
 			key = prefix1 + L"DiSEqC";
 			m_aSatellite[satellite].Polarisation[polarisation].DiSEqC
-				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, mapDiSEqC);
+				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, &mapDiSEqC);
 			// 個別設定があれば上書きで読み込む
 			key = prefix2 + L"DiSEqC";
 			m_aSatellite[satellite].Polarisation[polarisation].DiSEqC
-				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, mapDiSEqC);
+				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, &mapDiSEqC);
 		}
 	}
 
@@ -1789,7 +1789,7 @@ void CBonTuner::ReadIniFile(void)
 
 		// 変調方式設定自動生成
 		key = prefix + L"SettingsAuto";
-		modulationSettingsAuto[modulation] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key, modulationSettingsAuto[modulation]));
+		modulationSettingsAuto[modulation] = common::WStringToUpperCase(IniFileAccess.ReadKeySSectionData(key.c_str(), modulationSettingsAuto[modulation].c_str()));
 
 		if (modulationSettingsAuto[modulation] == L"DVB-S") {
 			// SPHD DVB-S
@@ -1880,42 +1880,42 @@ void CBonTuner::ReadIniFile(void)
 
 		// チャンネル名生成用変調方式名称
 		key = prefix + L"Name";
-		m_sModulationName[modulation] = IniFileAccess.ReadKeySSectionData(key, m_sModulationName[modulation]);
+		m_sModulationName[modulation] = IniFileAccess.ReadKeySSectionData(key.c_str(), m_sModulationName[modulation].c_str());
 
 		// 変調タイプ
 		key = prefix + L"Modulation";
 		m_aModulationType[modulation].Modulation
-			= (ModulationType)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].Modulation, mapModulationType);
+			= (ModulationType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].Modulation, &mapModulationType);
 
 		// 内部前方誤り訂正タイプ
 		key = prefix + L"InnerFEC";
 		m_aModulationType[modulation].InnerFEC
-			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].InnerFEC, mapFECMethod);
+			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].InnerFEC, &mapFECMethod);
 
 		// 内部FECレート
 		key = prefix + L"InnerFECRate";
 		m_aModulationType[modulation].InnerFECRate
-			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].InnerFECRate, mapBinaryConvolutionCodeRate);
+			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].InnerFECRate, &mapBinaryConvolutionCodeRate);
 
 		// 外部前方誤り訂正タイプ
 		key = prefix + L"OuterFEC";
 		m_aModulationType[modulation].OuterFEC
-			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].OuterFEC, mapFECMethod);
+			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].OuterFEC, &mapFECMethod);
 
 		// 外部FECレート
 		key = prefix + L"OuterFECRate";
 		m_aModulationType[modulation].OuterFECRate
-			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key, m_aModulationType[modulation].OuterFECRate, mapBinaryConvolutionCodeRate);
+			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].OuterFECRate, &mapBinaryConvolutionCodeRate);
 
 		// シンボルレート
 		key = prefix + L"SymbolRate";
 		m_aModulationType[modulation].SymbolRate
-			= (long)IniFileAccess.ReadKeyISectionData(key, m_aModulationType[modulation].SymbolRate);
+			= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aModulationType[modulation].SymbolRate);
 
 		// 帯域幅(MHz)
 		key = prefix + L"BandWidth";
 		m_aModulationType[modulation].BandWidth
-			= (long)IniFileAccess.ReadKeyISectionData(key, m_aModulationType[modulation].BandWidth);
+			= (long)IniFileAccess.ReadKeyISectionData(key.c_str(), m_aModulationType[modulation].BandWidth);
 	}
 
 	//
@@ -1929,7 +1929,7 @@ void CBonTuner::ReadIniFile(void)
 	// チューニング空間00～99の設定を読込
 	for (DWORD space = 0; space < 100; space++)	{
 		std::wstring section = common::WStringPrintf(L"TUNINGSPACE%02d", space);
-		if (IniFileAccess.ReadSection(section) <= 0) {
+		if (IniFileAccess.ReadSection(section.c_str()) <= 0) {
 			// TuningSpaceXXのセクションが存在しない場合
 			if (space != 0)
 				continue;
@@ -1956,7 +1956,7 @@ void CBonTuner::ReadIniFile(void)
 		else
 			temp = L"NoName";
 		
-		itSpace->second.sTuningSpaceName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", temp));
+		itSpace->second.sTuningSpaceName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", temp.c_str()));
 
 		// iniファイルの1つのチューニング空間で定義できる最大ChannelGenerateの数
 		static constexpr unsigned int MAX_CH_GENERATE = 100;
@@ -2287,7 +2287,7 @@ void CBonTuner::ReadIniFile(void)
 		for (int i = 0; i < MAX_CH_GENERATE; i++) {
 			ChGenerate Generate;
 			std::wstring key = L"ChannelGenerate" + std::to_wstring(i);
-			ChannelGenerate[i] = IniFileAccess.ReadKeySSectionData(key, ChannelGenerate[i]);
+			ChannelGenerate[i] = IniFileAccess.ReadKeySSectionData(key.c_str(), ChannelGenerate[i].c_str());
 			if (ChannelGenerate[i].length() == 0)
 				break;
 			// カンマ区切りで9つに分解
@@ -2638,7 +2638,7 @@ void CBonTuner::ReadIniFile(void)
 		itSpace->second.DVBSystemTypeNumber = IniFileAccess.ReadKeyISectionData(L"DVBSystemTypeNumber", 0);
 
 		// TSMFの処理モード
-		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, mapTSMFMode);
+		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, &mapTSMFMode);
 
 		// CH設定
 		//    チャンネル番号 = 衛星番号,周波数,偏波,変調方式[,チャンネル名[,SID/MinorChannel[,TSID/Channel[,ONID/PhysicalChannel[,MajorChannel[,SourceID]]]]]]
