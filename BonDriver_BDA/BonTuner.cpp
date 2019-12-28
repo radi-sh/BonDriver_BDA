@@ -37,8 +37,6 @@
 
 #pragma comment(lib, "winmm.lib")
 
-FILE *g_fpLog = NULL;
-
 //////////////////////////////////////////////////////////////////////
 // 静的メンバ変数
 //////////////////////////////////////////////////////////////////////
@@ -3341,19 +3339,10 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::w
 		}
 	}
 
-	// ここで DLL をロードする。
-	WCHAR szPath[_MAX_PATH + 1] = L"";
-	::GetModuleFileNameW(st_hModule, szPath, _MAX_PATH + 1);
-	// フルパスを分解
-	WCHAR szDrive[_MAX_DRIVE];
-	WCHAR szDir[_MAX_DIR];
-	WCHAR szFName[_MAX_FNAME];
-	WCHAR szExt[_MAX_EXT];
-	::_wsplitpath_s(szPath, szDrive, szDir, szFName, szExt);
-
 	// フォルダ名取得
-	std::wstring sDllName;
-	sDllName = common::WStringPrintf(L"%s%s%s.dll", szDrive, szDir, m_aTunerParam.sDLLBaseName.c_str());
+	std::wstring sPath;
+	common::GetModuleFilePath(st_hModule, &sPath, NULL, NULL);
+	std::wstring sDllName = sPath + m_aTunerParam.sDLLBaseName + L".dll";
 
 	if ((m_hModuleTunerSpecials = ::LoadLibraryW(sDllName.c_str())) == NULL) {
 		// ロードできない場合、どうする? 
