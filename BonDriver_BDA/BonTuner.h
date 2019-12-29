@@ -17,6 +17,7 @@
 #include "IBonDriver2.h"
 #include "LockChannel.h"
 #include "DSFilterEnum.h"
+#include "TunerComboList.h"
 #include "TSMF.h"
 
 #pragma warning (push)
@@ -150,9 +151,6 @@ protected:
 	HRESULT LoadNetworkProvider(void);
 	void UnloadNetworkProvider(void);
 
-	// チューナ・キャプチャデバイスの読込みリスト取得
-	HRESULT InitDSFilterEnum(void);
-
 	// チューナ・キャプチャデバイスを含めてすべてのフィルタグラフをロードしてRunを試みる
 	HRESULT LoadAndConnectDevice(void);
 
@@ -190,7 +188,7 @@ protected:
 
 	// CCOM処理専用スレッドから呼び出される関数
 	const BOOL _OpenTuner(void);
-	void _CloseTuner(void);
+	void _CloseTuner(BOOL putoff);
 	const BOOL _SetChannel(const DWORD dwSpace, const DWORD dwChannel);
 	const float _GetSignalLevel(void);
 	const BOOL _IsTunerOpening(void);
@@ -422,43 +420,14 @@ protected:
 	// INIファイルで指定できるGUID/FriendlyName最大数
 	static constexpr unsigned int MAX_GUID = 100U;
 
-	// チューナ・キャプチャ検索に使用するGUID文字列とFriendlyName文字列の組合せ
-	struct TunerSearchData {
-		std::wstring TunerGUID;
-		std::wstring TunerFriendlyName;
-		std::wstring CaptureGUID;
-		std::wstring CaptureFriendlyName;
-		TunerSearchData(void)
-		{
-		}
-		TunerSearchData(std::wstring tunerGuid, std::wstring tunerFriendlyName, std::wstring captureGuid, std::wstring captureFriendlyName)
-			: TunerFriendlyName(tunerFriendlyName),
-			  CaptureFriendlyName(captureFriendlyName)
-		{
-			TunerGUID = common::WStringToLowerCase(tunerGuid);
-			CaptureGUID = common::WStringToLowerCase(captureGuid);
-		}
-	};
+	// チューナ・キャプチャデバイスの読込みリスト取得クラス
+	CTunerComboList m_TunerComboList;
 
-	// INI ファイルで指定するチューナパラメータ
-	struct TunerParam {
-		std::map<unsigned int, TunerSearchData> Tuner;
-												// TunerとCaptureのGUID/FriendlyName指定
-		BOOL bNotExistCaptureDevice;			// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
-		BOOL bCheckDeviceInstancePath;			// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-		std::basic_string<TCHAR> sTunerName;	// GetTunerNameで返す名前
-		std::wstring sDLLBaseName;				// 固有DLL
-		TunerParam(void)
-			: bNotExistCaptureDevice(TRUE),
-			  bCheckDeviceInstancePath(TRUE)
-		{
-		}
-		~TunerParam(void)
-		{
-			Tuner.clear();
-		}
-	};
-	TunerParam m_aTunerParam;
+	// GetTunerNameで返す名前
+	std::basic_string<TCHAR> m_sTunerName;
+
+	// 固有DLL
+	std::wstring m_sDLLBaseName;
 
 	// Tone信号切替時のWait時間
 	unsigned int m_nToneWait;
@@ -857,38 +826,6 @@ protected:
 	// チューナ信号状態取得用インターフェース
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsTunerNode;
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsDemodNode;
-
-	// DSフィルター列挙 CDSFilterEnum
-	CDSFilterEnum *m_pDSFilterEnumTuner;
-	CDSFilterEnum *m_pDSFilterEnumCapture;
-
-	// DSフィルターの情報
-	struct DSListData {
-		std::wstring GUID;
-		std::wstring FriendlyName;
-		ULONG Order;
-		DSListData(std::wstring _GUID, std::wstring _FriendlyName, ULONG _Order)
-			: GUID(_GUID),
-			FriendlyName(_FriendlyName),
-			Order(_Order)
-		{
-		}
-	};
-
-	// ロードすべきチューナ・キャプチャのリスト
-	struct TunerCaptureList {
-		DSListData Tuner;
-		std::vector<DSListData> CaptureList;
-		TunerCaptureList(std::wstring TunerGUID, std::wstring TunerFriendlyName, ULONG TunerOrder)
-			: Tuner(TunerGUID, TunerFriendlyName, TunerOrder)
-		{
-		}
-		TunerCaptureList(DSListData _Tuner)
-			: Tuner(_Tuner)
-		{
-		}
-	};
-	std::list<TunerCaptureList> m_UsableTunerCaptureList;
 
 	// チューナーの使用するTuningSpaceの種類
 	enum enumTunerType {

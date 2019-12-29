@@ -494,6 +494,7 @@
     <ClCompile Include="TSMF.cpp" />
     <ClCompile Include="tswriter.cpp" />
     <ClCompile Include="TS_BUFF.cpp" />
+    <ClCompile Include="TunerComboList.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\CIniFileAccess.h" />
@@ -510,6 +511,7 @@
     <ClInclude Include="TSMF.h" />
     <ClInclude Include="tswriter.h" />
     <ClInclude Include="TS_BUFF.h" />
+    <ClInclude Include="TunerComboList.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\doc\BonDriver_BDA-BSCS-sample.ini" />

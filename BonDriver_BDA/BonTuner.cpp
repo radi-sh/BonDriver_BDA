@@ -133,8 +133,6 @@ CBonTuner::CBonTuner()
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
-	m_pDSFilterEnumTuner(NULL),
-	m_pDSFilterEnumCapture(NULL),
 	m_nNetworkProvider(eNetworkProviderAuto),
 	m_nDefaultNetwork(eDefaultNetworkSPHD),
 	m_bOpened(FALSE),
@@ -260,10 +258,6 @@ const BOOL CBonTuner::_OpenTuner(void)
 		if (FAILED(hr = InitTuningSpace()))
 			break;
 
-		// ロードすべきチューナ・キャプチャのリスト作成
-		if (m_UsableTunerCaptureList.empty() && FAILED(hr = InitDSFilterEnum()))
-			break;
-
 		// チューナ・キャプチャ以後の構築と実行
 		if (FAILED(hr = LoadAndConnectDevice()))
 			break;
@@ -302,7 +296,7 @@ const BOOL CBonTuner::_OpenTuner(void)
 	} while(0);
 
 	// ここに到達したということは何らかのエラーで失敗した
-	_CloseTuner();
+	_CloseTuner(m_bTryAnotherTuner);
 
 	return FALSE;
 }
@@ -328,7 +322,7 @@ void CBonTuner::CloseTuner(void)
 	return;
 }
 
-void CBonTuner::_CloseTuner(void)
+void CBonTuner::_CloseTuner(BOOL putoff)
 {
 	m_bOpened = FALSE;
 
@@ -360,6 +354,11 @@ void CBonTuner::_CloseTuner(void)
 
 	// グラフ解放
 	CleanupGraph();
+
+	if (putoff) {
+		// 使用していたTunerをListの最後尾に移動する
+		m_TunerComboList.PutOff();
+	}
 
 	m_dwTargetSpace = m_dwCurSpace = CBonTuner::SPACE_INVALID;
 	m_dwTargetChannel = m_dwCurChannel = CBonTuner::CHANNEL_INVALID;
@@ -528,7 +527,7 @@ void CBonTuner::PurgeTsStream(void)
 
 LPCTSTR CBonTuner::GetTunerName(void)
 {
-	return m_aTunerParam.sTunerName.c_str();
+	return m_sTunerName.c_str();
 }
 
 const BOOL CBonTuner::IsTunerOpening(void)
@@ -796,6 +795,9 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 	// COM初期化
 	hr = ::CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE | COINIT_SPEED_OVER_MEMORY);
 
+	// ロードすべきチューナ・キャプチャのリスト作成
+	pSys->m_TunerComboList.BuildComboDB();
+
 	HANDLE h[2] = {
 		pCOMProc->hTerminateRequest,
 		pCOMProc->hReqEvent
@@ -823,7 +825,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 				pCOMProc->ResetReOpenTuner();
 				pCOMProc->ResetReLockChannel();
 
-				pSys->_CloseTuner();
+				pSys->_CloseTuner(FALSE);
 				::SetEvent(pCOMProc->hEndEvent);
 				break;
 
@@ -955,7 +957,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			// CH切替動作試行後のOpenTuner再実行
 			if (pCOMProc->bDoReOpenTuner) {
 				// OpenTuner再実行
-				pSys->_CloseTuner();
+				pSys->_CloseTuner(pSys->m_bTryAnotherTuner);
 				if (pSys->_OpenTuner() && (!pCOMProc->CheckReOpenChannel() || pSys->_SetChannel(pCOMProc->dwReOpenSpace, pCOMProc->dwReOpenChannel))) {
 					// OpenTunerに成功し、SetChannnelに成功もしくは必要ない
 					OutputDebug(L"COMProcThread: Re-OpenTuner SUCCESS.\n");
@@ -993,12 +995,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 	} // while (!terminate)
 
 	// グラフ関係の解放
-	pSys->_CloseTuner();
-
-	// DSフィルター列挙とチューナ・キャプチャのリストを削除
-	SAFE_DELETE(pSys->m_pDSFilterEnumTuner);
-	SAFE_DELETE(pSys->m_pDSFilterEnumCapture);
-	pSys->m_UsableTunerCaptureList.clear();
+	pSys->_CloseTuner(FALSE);
 
 	::CoUninitialize();
 	OutputDebug(L"COMProcThread: Thread terminated.\n");
@@ -1378,24 +1375,24 @@ void CBonTuner::ReadIniFile(void)
 			else
 				break;
 		}
-		m_aTunerParam.Tuner.emplace(i, TunerSearchData(tunerGuid, tunerFriendlyName, captureGuid, captureFriendlyName));
+		m_TunerComboList.AddSearchData(0, i, tunerGuid, tunerFriendlyName, captureGuid, captureFriendlyName);
 	}
 
 	// TunerデバイスのみでCaptureデバイスが存在しない
-	m_aTunerParam.bNotExistCaptureDevice = IniFileAccess.ReadKeyBSectionData(L"NotExistCaptureDevice", FALSE);
+	m_TunerComboList.bNotExistCaptureDevice = IniFileAccess.ReadKeyBSectionData(L"NotExistCaptureDevice", FALSE);
 
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-	m_aTunerParam.bCheckDeviceInstancePath = IniFileAccess.ReadKeyBSectionData(L"CheckDeviceInstancePath", TRUE);
+	m_TunerComboList.bCheckDeviceInstancePath = IniFileAccess.ReadKeyBSectionData(L"CheckDeviceInstancePath", TRUE);
 
 	// Tuner名: GetTunerNameで返すチューナ名 ... 指定されなければデフォルト名が
 	//   使われる。この場合、複数チューナを名前で区別する事はできない
-	m_aTunerParam.sTunerName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"Name", L"DVB-S2"));
+	m_sTunerName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"Name", L"DVB-S2"));
 
 	// チューナ固有関数を使用するかどうか。
 	//   以下を INI ファイルで指定可能
 	//     "" ... 使用しない(default); "AUTO" ... AUTO
 	//     "DLLName" ... チューナ固有関数の入ったDLL名を直接指定
-	m_aTunerParam.sDLLBaseName = IniFileAccess.ReadKeySSectionData(L"UseSpecial", L"");
+	m_sDLLBaseName = IniFileAccess.ReadKeySSectionData(L"UseSpecial", L"");
 
 	// Tone信号切替時のWait時間
 	m_nToneWait = IniFileAccess.ReadKeyISectionData(L"ToneSignalWait", 100);
@@ -3317,19 +3314,19 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 // チューナ固有Dllのロード
 HRESULT CBonTuner::CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::wstring tunerGUID, std::wstring tunerFriendlyName)
 {
-	if (m_aTunerParam.sDLLBaseName == L"") {
+	if (m_sDLLBaseName == L"") {
 		// チューナ固有関数を使わない場合
 		return S_OK;
 	}
 
-	if (common::WStringToUpperCase(m_aTunerParam.sDLLBaseName) == L"AUTO") {
+	if (common::WStringToUpperCase(m_sDLLBaseName) == L"AUTO") {
 		// INI ファイルで "AUTO" 指定の場合
 		BOOL found = FALSE;
 		for (unsigned int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
 			std::wstring dbGUID(aTunerSpecialData[i].sTunerGUID);
 			if ((dbGUID != L"") && (tunerGUID.find(dbGUID)) != std::wstring::npos) {
 				// この時のチューナ依存コードをチューナパラメータに変数にセットする
-				m_aTunerParam.sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;
+				m_sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;
 				break;
 			}
 		}
@@ -3342,7 +3339,7 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::w
 	// フォルダ名取得
 	std::wstring sPath;
 	common::GetModuleFilePath(st_hModule, &sPath, NULL, NULL);
-	std::wstring sDllName = sPath + m_aTunerParam.sDLLBaseName + L".dll";
+	std::wstring sDllName = sPath + m_sDLLBaseName + L".dll";
 
 	if ((m_hModuleTunerSpecials = ::LoadLibraryW(sDllName.c_str())) == NULL) {
 		// ロードできない場合、どうする? 
@@ -4283,150 +4280,6 @@ void CBonTuner::UnloadNetworkProvider(void)
 	m_pNetworkProvider.Release();
 }
 
-// ini ファイルで指定されたチューナ・キャプチャの組合せListを作成
-HRESULT CBonTuner::InitDSFilterEnum(void)
-{
-	HRESULT hr;
-
-	// システムに存在するチューナ・キャプチャのリスト
-	std::vector<DSListData> TunerList;
-	std::vector<DSListData> CaptureList;
-
-	ULONG order;
-
-	SAFE_DELETE(m_pDSFilterEnumTuner);
-	SAFE_DELETE(m_pDSFilterEnumCapture);
-
-	m_pDSFilterEnumTuner = new CDSFilterEnum(KSCATEGORY_BDA_NETWORK_TUNER, CDEF_DEVMON_PNP_DEVICE);
-	order = 0;
-	while (SUCCEEDED(hr = m_pDSFilterEnumTuner->next()) && hr == S_OK) {
-		std::wstring sDisplayName;
-		std::wstring sFriendlyName;
-
-		// チューナの DisplayName, FriendlyName を得る
-		m_pDSFilterEnumTuner->getDisplayName(&sDisplayName);
-		m_pDSFilterEnumTuner->getFriendlyName(&sFriendlyName);
-
-		// 一覧に追加
-		TunerList.emplace_back(sDisplayName, sFriendlyName, order);
-
-		order++;
-	}
-
-	m_pDSFilterEnumCapture = new CDSFilterEnum(KSCATEGORY_BDA_RECEIVER_COMPONENT, CDEF_DEVMON_PNP_DEVICE);
-	order = 0;
-	while (SUCCEEDED(hr = m_pDSFilterEnumCapture->next()) && hr == S_OK) {
-		std::wstring sDisplayName;
-		std::wstring sFriendlyName;
-
-		// チューナの DisplayName, FriendlyName を得る
-		m_pDSFilterEnumCapture->getDisplayName(&sDisplayName);
-		m_pDSFilterEnumCapture->getFriendlyName(&sFriendlyName);
-
-		// 一覧に追加
-		CaptureList.emplace_back(sDisplayName, sFriendlyName, order);
-
-		order++;
-	}
-
-	unsigned int total = 0;
-	m_UsableTunerCaptureList.clear();
-
-	for (unsigned int i = 0; i < m_aTunerParam.Tuner.size(); i++) {
-		for (auto it = TunerList.begin(); it != TunerList.end(); it++) {
-			// DisplayName に GUID が含まれるか検査して、NOだったら次のチューナへ
-			if (m_aTunerParam.Tuner[i].TunerGUID.compare(L"") != 0 && it->GUID.find(m_aTunerParam.Tuner[i].TunerGUID) == std::wstring::npos) {
-				continue;
-			}
-
-			// FriendlyName が含まれるか検査して、NOだったら次のチューナへ
-			if (m_aTunerParam.Tuner[i].TunerFriendlyName.compare(L"") != 0 && it->FriendlyName.find(m_aTunerParam.Tuner[i].TunerFriendlyName) == std::wstring::npos) {
-				continue;
-			}
-
-			// 対象のチューナデバイスだった
-			OutputDebug(L"[InitDSFilterEnum] Found tuner device=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
-			if (!m_aTunerParam.bNotExistCaptureDevice) {
-				// Captureデバイスを使用する
-				std::vector<DSListData> TempCaptureList;
-				for (auto it2 = CaptureList.begin(); it2 != CaptureList.end(); it2++) {
-					// DisplayName に GUID が含まれるか検査して、NOだったら次のキャプチャへ
-					if (m_aTunerParam.Tuner[i].CaptureGUID.compare(L"") != 0 && it2->GUID.find(m_aTunerParam.Tuner[i].CaptureGUID) == std::wstring::npos) {
-						continue;
-					}
-
-					// FriendlyName が含まれるか検査して、NOだったら次のキャプチャへ
-					if (m_aTunerParam.Tuner[i].CaptureFriendlyName.compare(L"") != 0 && it2->FriendlyName.find(m_aTunerParam.Tuner[i].CaptureFriendlyName) == std::wstring::npos) {
-						continue;
-					}
-
-					// 対象のキャプチャデバイスだった
-					OutputDebug(L"[InitDSFilterEnum]   Found capture device=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
-					TempCaptureList.emplace_back(*it2);
-				}
-
-				if (TempCaptureList.empty()) {
-					// キャプチャデバイスが見つからなかったので次のチューナへ
-					OutputDebug(L"[InitDSFilterEnum]   No combined capture devices.\n");
-					continue;
-				}
-
-				// チューナをListに追加
-				m_UsableTunerCaptureList.emplace_back(*it);
-
-				unsigned int count = 0;
-				if (m_aTunerParam.bCheckDeviceInstancePath) {
-					// チューナデバイスとキャプチャデバイスのデバイスインスタンスパスが一致しているか確認
-					OutputDebug(L"[InitDSFilterEnum]   Checking device instance path.\n");
-					std::wstring dip = CDSFilterEnum::getDeviceInstancePathrFromDisplayName(it->GUID);
-					for (auto it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
-						if (CDSFilterEnum::getDeviceInstancePathrFromDisplayName(it2->GUID) == dip) {
-							// デバイスパスが一致するものをListに追加
-							OutputDebug(L"[InitDSFilterEnum]     Adding matched tuner and capture device.\n");
-							OutputDebug(L"[InitDSFilterEnum]       tuner=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
-							OutputDebug(L"[InitDSFilterEnum]       capture=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
-							m_UsableTunerCaptureList.back().CaptureList.emplace_back(*it2);
-							count++;
-						}
-					}
-				}
-
-				if (count == 0) {
-					// デバイスパスが一致するものがなかった or 確認しない
-					if (m_aTunerParam.bCheckDeviceInstancePath) {
-						OutputDebug(L"[InitDSFilterEnum]     No matched devices.\n");
-					}
-					for (auto it2 = TempCaptureList.begin(); it2 != TempCaptureList.end(); it2++) {
-						// すべてListに追加
-						OutputDebug(L"[InitDSFilterEnum]   Adding tuner and capture device.\n");
-						OutputDebug(L"[InitDSFilterEnum]     tuner=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
-						OutputDebug(L"[InitDSFilterEnum]     capture=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
-						m_UsableTunerCaptureList.back().CaptureList.emplace_back(*it2);
-						count++;
-					}
-				}
-
-				OutputDebug(L"[InitDSFilterEnum]   %d of combination was added.\n", count);
-				total += count;
-			}
-			else
-			{
-				// Captureデバイスを使用しない
-				OutputDebug(L"[InitDSFilterEnum]   Adding tuner device only.\n");
-				OutputDebug(L"[InitDSFilterEnum]     tuner=FriendlyName:%s,  GUID:%s\n", it->FriendlyName.c_str(), it->GUID.c_str());
-				m_UsableTunerCaptureList.emplace_back(*it);
-			}
-		}
-	}
-	if (m_UsableTunerCaptureList.empty()) {
-		OutputDebug(L"[InitDSFilterEnum] No devices found.\n");
-		return E_FAIL;
-	}
-
-	OutputDebug(L"[InitDSFilterEnum] Total %d of combination was added.\n", total);
-	return S_OK;
-}
-
 // チューナ・キャプチャの組合わせリストから動作するものを探す
 HRESULT CBonTuner::LoadAndConnectDevice(void)
 {
@@ -4435,17 +4288,15 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		OutputDebug(L"[P->T] TuningSpace or NetworkProvider NOT SET.\n");
 		return E_POINTER;
 	}
-
-	if (!m_pDSFilterEnumTuner || (!m_pDSFilterEnumCapture && !m_aTunerParam.bNotExistCaptureDevice)) {
-		OutputDebug(L"[P->T] DSFilterEnum NOT SET.\n");
-		return E_POINTER;
-	}
-
-	for (auto it = m_UsableTunerCaptureList.begin(); it != m_UsableTunerCaptureList.end(); it++) {
-		OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s,  GUID:%s\n", it->Tuner.FriendlyName.c_str(), it->Tuner.GUID.c_str());
+	for (BOOL bTuner = m_TunerComboList.ResetTuner(0); bTuner == TRUE; bTuner = m_TunerComboList.NextTuner()) {
 		// チューナデバイスループ
+		const std::wstring* pTunerGUID = NULL;
+		const std::wstring* pTunerFriendlyName = NULL;
+		m_TunerComboList.GetTunerData(&pTunerGUID, &pTunerFriendlyName, NULL);
+		OutputDebug(L"[P->T] Trying tuner device=FriendlyName:%s,  GUID:%s\n", pTunerFriendlyName->c_str(), pTunerGUID->c_str());
+
 		// 排他処理用にセマフォ用文字列を作成 ('\' -> '/')
-		std::wstring semName = it->Tuner.GUID;
+		std::wstring semName = *pTunerGUID;
 		std::replace(semName.begin(), semName.end(), L'\\', L'/');
 		semName = L"Global\\" + semName;
 
@@ -4455,19 +4306,19 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 		if (result != WAIT_OBJECT_0) {
 			// 使用中なので次のチューナを探す
 			OutputDebug(L"[P->T] Another is using.\n");
-		} 
+		}
 		else {
 			// 排他確認OK
 			CComPtr<IBaseFilter> pTunerDevice;
 			// チューナデバイスのフィルタを取得
-			if (FAILED(hr = m_pDSFilterEnumTuner->getFilter(&pTunerDevice, it->Tuner.Order))) {
+			if (FAILED(hr = m_TunerComboList.GetTunerFilter(&pTunerDevice))) {
 				// フィルタを取得できなかったので次のチューナへ
 				OutputDebug(L"[P->T] Fail to get TunerDevice IBaseFilter interface.\n");
 			}
 			else {
 				// フィルタ取得成功
 				// Graph Builderにチューナデバイスのフィルタを追加
-				if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTunerDevice, it->Tuner.FriendlyName.c_str()))) {
+				if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTunerDevice, pTunerFriendlyName->c_str()))) {
 					// フィルタの追加に失敗したので次のチューナへ
 					OutputDebug(L"[P->T] Fail to add TunerDevice IBaseFilter into graph.\n");
 				}
@@ -4482,19 +4333,22 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 						// connect 成功
 						OutputDebug(L"[P->T] Connect OK.\n");
 						// チューナ固有Dllが必要なら読込み、固有の初期化処理があれば呼び出す
-						if (FAILED(hr = CheckAndInitTunerDependDll(pTunerDevice, it->Tuner.GUID, it->Tuner.FriendlyName))) {
+						if (FAILED(hr = CheckAndInitTunerDependDll(pTunerDevice, *pTunerGUID, *pTunerFriendlyName))) {
 							// 固有Dllの処理が失敗したので次のチューナへ
 							OutputDebug(L"[P->T] Discarded by BDASpecial's CheckAndInitTuner function.\n");
 						}
 						else {
 							// 固有Dll処理OK
-							if (!m_aTunerParam.bNotExistCaptureDevice) {
+							if (!m_TunerComboList.bNotExistCaptureDevice) {
 								// キャプチャデバイスを使用する場合
-								for (auto it2 = it->CaptureList.begin(); it2 != it->CaptureList.end(); it2++) {
+								for (BOOL bCapture = m_TunerComboList.ResetCapture(); bCapture == TRUE; bCapture = m_TunerComboList.NextCapture()) {
 									// キャプチャデバイスループ
-									OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s,  GUID:%s\n", it2->FriendlyName.c_str(), it2->GUID.c_str());
+									const std::wstring* pCaptureGUID = NULL;
+									const std::wstring* pCaptureFriendlyName = NULL;
+									m_TunerComboList.GetCaptureData(&pCaptureGUID, &pCaptureFriendlyName, NULL);
+									OutputDebug(L"[T->C] Trying capture device=FriendlyName:%s,  GUID:%s\n", pCaptureFriendlyName->c_str(), pCaptureGUID->c_str());
 									// チューナ固有Dllでの確認処理があれば呼び出す
-									if (FAILED(hr = CheckCapture(it->Tuner.GUID, it->Tuner.FriendlyName, it2->GUID, it2->FriendlyName))) {
+									if (FAILED(hr = CheckCapture(*pTunerGUID, *pTunerFriendlyName, *pCaptureGUID, *pCaptureFriendlyName))) {
 										// 固有Dllがダメと言っているので次のキャプチャデバイスへ
 										OutputDebug(L"[T->C] Discarded by BDASpecial's CheckCapture function.\n");
 									}
@@ -4502,14 +4356,14 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 										// 固有Dllの確認OK
 										CComPtr<IBaseFilter> pCaptureDevice;
 										// キャプチャデバイスのフィルタを取得
-										if (!m_pDSFilterEnumCapture || FAILED(hr = m_pDSFilterEnumCapture->getFilter(&pCaptureDevice, it2->Order))) {
+										if (FAILED(hr = m_TunerComboList.GetCaptureFilter(&pCaptureDevice))) {
 											// フィルタを取得できなかったので次のキャプチャデバイスへ
 											OutputDebug(L"[T->C] Fail to get CaptureDevice IBaseFilter interface.\n");
 										}
 										else {
 											// フィルタ取得成功
 											// Graph Builderにキャプチャデバイスのフィルタを追加
-											if (FAILED(hr = m_pIGraphBuilder->AddFilter(pCaptureDevice, it2->FriendlyName.c_str()))) {
+											if (FAILED(hr = m_pIGraphBuilder->AddFilter(pCaptureDevice, pCaptureFriendlyName->c_str()))) {
 												// フィルタの追加に失敗したので次のキャプチャデバイスへ
 												OutputDebug(L"[T->C] Fail to add CaptureDevice IBaseFilter into graph.\n");
 											}
@@ -4529,10 +4383,9 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 														m_pTunerDevice = pTunerDevice;
 														m_pCaptureDevice = pCaptureDevice;
 														// チューナ固有関数のロード
-														LoadTunerDependCode(it->Tuner.GUID, it->Tuner.FriendlyName, it2->GUID, it2->FriendlyName);
-														if (m_bTryAnotherTuner)
-															// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
-															m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
+														LoadTunerDependCode(*pTunerGUID, *pTunerFriendlyName, *pCaptureGUID, *pCaptureFriendlyName);
+														// 今回の組合せをチューナ・キャプチャリストに記憶
+														m_TunerComboList.Remenber();
 														return S_OK;
 													}
 													// キャプチャデバイスをdisconnect
@@ -4555,10 +4408,9 @@ HRESULT CBonTuner::LoadAndConnectDevice(void)
 									// すべて成功
 									m_pTunerDevice = pTunerDevice;
 									// チューナ固有関数のロード
-									LoadTunerDependCode(it->Tuner.GUID, it->Tuner.FriendlyName, L"", L"");
-									if (m_bTryAnotherTuner)
-										// 今回の組合せをチューナ・キャプチャリストの最後尾に移動
-										m_UsableTunerCaptureList.splice(m_UsableTunerCaptureList.end(), m_UsableTunerCaptureList, it);
+									LoadTunerDependCode(*pTunerGUID, *pTunerFriendlyName, L"", L"");
+									// 今回の組合せをチューナ・キャプチャリストに記憶
+									m_TunerComboList.Remenber();
 									return S_OK;
 								}
 							}
@@ -4641,61 +4493,61 @@ HRESULT CBonTuner::LoadAndConnectMiscFilters(IBaseFilter* pTunerDevice, IBaseFil
 HRESULT CBonTuner::LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter* pCaptureDevice)
 {
 	// TS Writerの名称:AddFilter時に登録する名前
-	static constexpr WCHAR * const FILTER_GRAPH_NAME_TSWRITER = L"TS Writer";
+	static constexpr WCHAR* const FILTER_GRAPH_NAME_TSWRITER = L"TS Writer";
 
 	HRESULT hr = E_FAIL;
+	std::wstring sDebugPrefix = m_TunerComboList.bNotExistCaptureDevice ? L"[T->W]" : L"[C->W]";
 
-	if (!pTunerDevice || (!pCaptureDevice && !m_aTunerParam.bNotExistCaptureDevice)) {
-		OutputDebug(L"[C->W/T->W] TunerDevice or CaptureDevice NOT SET.\n");
+	if (!pTunerDevice || (!pCaptureDevice && !m_TunerComboList.bNotExistCaptureDevice)) {
+		OutputDebug(L"%s TunerDevice or CaptureDevice NOT SET.\n", sDebugPrefix.c_str());
 		return E_POINTER;
 	}
 
 	// フィルタクラスのロード
-	CTsWriter *pCTsWriter = (CTsWriter *)CTsWriter::CreateInstance(NULL, &hr);
+	CTsWriter* pCTsWriter = (CTsWriter*)CTsWriter::CreateInstance(NULL, &hr);
 	if (!pCTsWriter) {
-		OutputDebug(L"[C->W/T->W] Fail to create CTsWriter filter class instance.\n");
+		OutputDebug(L"%s Fail to create CTsWriter filter class instance.\n", sDebugPrefix.c_str());
 		hr = E_FAIL;
 	}
 	else {
 		// フィルタを取得
 		CComQIPtr<IBaseFilter> pTsWriter(pCTsWriter);
 		if (!pTsWriter) {
-			OutputDebug(L"[C->W/T->W] Fail to get TsWriter IBaseFilter interface.\n");
+			OutputDebug(L"%s Fail to get TsWriter IBaseFilter interface.\n", sDebugPrefix.c_str());
 			hr = E_FAIL;
 		}
 		else {
 			// フィルタ取得成功
-			OutputDebug(L"[C->W/T->W] %s is loaded.\n", FILTER_GRAPH_NAME_TSWRITER);
+			OutputDebug(L"%s %s is loaded.\n", sDebugPrefix.c_str(), FILTER_GRAPH_NAME_TSWRITER);
 			// Graph Builderにフィルタを追加
 			if (FAILED(hr = m_pIGraphBuilder->AddFilter(pTsWriter, FILTER_GRAPH_NAME_TSWRITER))) {
-				OutputDebug(L"[C->W/T->W] Fail to add TsWriter IBaseFilter into graph.\n");
+				OutputDebug(L"%s Fail to add TsWriter IBaseFilter into graph.\n", sDebugPrefix.c_str());
 			}
 			else {
 				// フィルタ追加成功
 				// ITsWriter interfaceを取得
 				CComQIPtr<ITsWriter> pITsWriter(pTsWriter);
 				if (!pITsWriter) {
-					OutputDebug(L"[C->W/T->W] Fail to get ITsWriter interface.\n");
+					OutputDebug(L"%s Fail to get ITsWriter interface.\n", sDebugPrefix.c_str());
 					hr = E_FAIL;
 				}
 				else {
 					// ITsWriter interfaceの取得成功
 					// connect してみる
-					if (m_aTunerParam.bNotExistCaptureDevice) {
+					if (m_TunerComboList.bNotExistCaptureDevice) {
 						// Captureデバイスが存在しない場合はTunerと接続
-						if (FAILED(hr = Connect(pTunerDevice, pTsWriter))) {
-							OutputDebug(L"[T->W] Failed to connect.\n");
-						}
+						hr = Connect(m_pTunerDevice, pTsWriter);
 					}
 					else {
 						// Captureデバイスと接続
-						if (FAILED(hr = Connect(pCaptureDevice, pTsWriter))) {
-							OutputDebug(L"[C->W] Fail to connect.\n");
-						}
+						hr = Connect(m_pCaptureDevice, pTsWriter);
 					}
-					if (SUCCEEDED(hr)) {
+					if (FAILED(hr)) {
+						OutputDebug(L"%s Failed to connect.\n", sDebugPrefix.c_str());
+					}
+					else {
 						// connect 成功なのでこのまま終了
-						OutputDebug(L"[C->W/T->W] Connect OK.\n");
+						OutputDebug(L"%s Connect OK.\n", sDebugPrefix.c_str());
 						m_pTsWriter = pTsWriter;
 						m_pITsWriter = pITsWriter;
 						return hr;
