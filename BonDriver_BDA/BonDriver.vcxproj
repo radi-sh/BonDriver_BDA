@@ -494,6 +494,7 @@
     <ClCompile Include="CBitRate.cpp" />
     <ClCompile Include="CCOMProc.cpp" />
     <ClCompile Include="CDecodeProc.cpp" />
+    <ClCompile Include="EnumSettingValue.cpp" />
     <ClCompile Include="TSMF.cpp" />
     <ClCompile Include="tswriter.cpp" />
     <ClCompile Include="TS_BUFF.cpp" />
@@ -512,6 +513,7 @@
     <ClInclude Include="CBitRate.h" />
     <ClInclude Include="CCOMProc.h" />
     <ClInclude Include="CDecodeProc.h" />
+    <ClInclude Include="EnumSettingValue.h" />
     <ClInclude Include="IBonDriver.h" />
     <ClInclude Include="IBonDriver2.h" />
     <ClInclude Include="TSMF.h" />

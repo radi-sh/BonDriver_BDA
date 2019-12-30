@@ -19,6 +19,7 @@
 #include "LockChannel.h"
 #include "TunerComboList.h"
 #include "TSMF.h"
+#include "EnumSettingValue.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4310)
@@ -268,37 +269,13 @@ protected:
 	BOOL m_bBackgroundChannelLock;
 
 	// SignalLevel 算出方法
-	enum enumSignalLevelCalcType {
-		eSignalLevelCalcTypeSSMin = 0,
-		eSignalLevelCalcTypeSSStrength = 0,			// RF Tuner NodeのIBDA_SignalStatisticsから取得したStrength値 ÷ StrengthCoefficient ＋ StrengthBias
-		eSignalLevelCalcTypeSSQuality = 1,			// RF Tuner NodeのIBDA_SignalStatisticsから取得したQuality値 ÷ QualityCoefficient ＋ QualityBias
-		eSignalLevelCalcTypeSSMul = 2,				// RF Tuner NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) × (Quality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeSSAdd = 3,				// RF Tuner NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (Quality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeSSFormula = 9,			// RF Tuner NodeのIBDA_SignalStatisticsから取得したStrength/Quality値をSignalLevelCalcFormulaに設定したユーザー定義数式で算出
-		eSignalLevelCalcTypeSSMax = 9,
-		eSignalLevelCalcTypeTunerMin = 10,
-		eSignalLevelCalcTypeTunerStrength = 10,		// ITuner::get_SignalStrengthで取得したStrength値 ÷ StrengthCoefficient ＋ StrengthBias
-		eSignalLevelCalcTypeTunerQuality = 11,		// ITuner::get_SignalStrengthで取得したQuality値 ÷ QualityCoefficient ＋ QualityBias
-		eSignalLevelCalcTypeTunerMul = 12,			// ITuner::get_SignalStrengthで取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) × (Quality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeTunerAdd = 13,			// ITuner::get_SignalStrengthで取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (Quality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeTunerFormula = 19,		// ITuner::get_SignalStrengthで取得したStrength/Quality値をSignalLevelCalcFormulaに設定したユーザー定義数式で算出
-		eSignalLevelCalcTypeTunerMax = 19,
-		eSignalLevelCalcTypeDemodSSMin = 20,
-		eSignalLevelCalcTypeDemodSSStrength = 20,	// Demodulator NodeのIBDA_SignalStatisticsから取得したStrength値 ÷ StrengthCoefficient ＋ StrengthBias
-		eSignalLevelCalcTypeDemodSSQuality = 21,	// Demodulator NodeのIBDA_SignalStatisticsから取得したQuality値 ÷ QualityCoefficient ＋ QualityBias
-		eSignalLevelCalcTypeDemodSSMul = 22,		// Demodulator NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) × (Quality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeDemodSSAdd = 23,		// Demodulator NodeのIBDA_SignalStatisticsから取得した(Strength値 ÷ StrengthCoefficient ＋ StrengthBias) ＋ (Quality値 ÷ QualityCoefficient ＋ QualityBias)
-		eSignalLevelCalcTypeDemodSSFormula = 29,	// Demodulator NodeのIBDA_SignalStatisticsから取得したStrength/Quality値をSignalLevelCalcFormulaに設定したユーザー定義数式で算出
-		eSignalLevelCalcTypeDemodSSMax = 29,
-		eSignalLevelCalcTypeBR = 100,				// ビットレート値(Mibps)
-	};
-	enumSignalLevelCalcType m_nSignalLevelCalcType;
-	BOOL m_bSignalLevelGetTypeSS;			// SignalLevel 算出に RF Tuner Node の IBDA_SignalStatistics を使用する
-	BOOL m_bSignalLevelGetTypeTuner;		// SignalLevel 算出に ITuner を使用する
-	BOOL m_bSignalLevelGetTypeDemodSS;		// SignalLevel 算出に Demodulator Node の IBDA_SignalStatistics を使用する
-	BOOL m_bSignalLevelGetTypeBR;			// SignalLevel 算出に ビットレート値を使用する
-	BOOL m_bSignalLevelNeedStrength;		// SignalLevel 算出に SignalStrength 値を使用する
-	BOOL m_bSignalLevelNeedQuality;			// SignalLevel 算出に SignalQuality 値を使用する
+	EnumSettingValue::SignalLevelCalcType m_nSignalLevelCalcType = EnumSettingValue::SignalLevelCalcType::SSStrength;
+	BOOL m_bSignalLevelGetTypeSS = FALSE;			// SignalLevel 算出に RF Tuner Node の IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLevelGetTypeTuner = FALSE;		// SignalLevel 算出に ITuner を使用する
+	BOOL m_bSignalLevelGetTypeDemodSS = FALSE;		// SignalLevel 算出に Demodulator Node の IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLevelGetTypeBR= FALSE;			// SignalLevel 算出に ビットレート値を使用する
+	BOOL m_bSignalLevelNeedStrength = FALSE;		// SignalLevel 算出に SignalStrength 値を使用する
+	BOOL m_bSignalLevelNeedQuality = FALSE;			// SignalLevel 算出に SignalQuality 値を使用する
 
 	// Strength 値補正係数
 	double m_fStrengthCoefficient;
@@ -321,16 +298,10 @@ protected:
 	double m_fQuality;		// muparser用Quality値参照変数
 
 	// チューニング状態の判断方法
-	enum enumSignalLockedJudgeType {
-		eSignalLockedJudgeTypeAlways = 0,	// 常にチューニングに成功している状態として判断する
-		eSignalLockedJudgeTypeSS = 1,		// RF Tuner Node の IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
-		eSignalLockedJudgeTypeTuner = 2,	// ITuner::get_SignalStrengthで取得した値で判断する
-		eSignalLockedJudgeTypeDemodSS = 3,	// Demodulator Node の IBDA_SignalStatistics::get_SignalLockedで取得した値で判断する
-	};
-	enumSignalLockedJudgeType m_nSignalLockedJudgeType;
-	BOOL m_bSignalLockedJudgeTypeSS;		// チューニング状態の判断に IBDA_SignalStatistics を使用する
-	BOOL m_bSignalLockedJudgeTypeTuner;		// チューニング状態の判断に ITuner を使用する
-	BOOL m_bSignalLockedJudgeTypeDemodSS;	// チューニング状態の判断に Demodulator Node の IBDA_SignalStatistics を使用する
+	EnumSettingValue::SignalLockedJudgeType m_nSignalLockedJudgeType = EnumSettingValue::SignalLockedJudgeType::SS;
+	BOOL m_bSignalLockedJudgeTypeSS = FALSE;		// チューニング状態の判断に IBDA_SignalStatistics を使用する
+	BOOL m_bSignalLockedJudgeTypeTuner = FALSE;		// チューニング状態の判断に ITuner を使用する
+	BOOL m_bSignalLockedJudgeTypeDemodSS = FALSE;	// チューニング状態の判断に Demodulator Node の IBDA_SignalStatistics を使用する
 
 	////////////////////////////////////////
 	// BonDriver パラメータ関係
@@ -559,94 +530,15 @@ protected:
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsTunerNode;
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsDemodNode;
 
-	// チューナーの使用するTuningSpaceの種類
-	enum enumTunerType {
-		eTunerTypeNone = -1,
-		eTunerTypeDVBS = 1,				// DBV-S/DVB-S2
-		eTunerTypeDVBT = 2,				// DVB-T
-		eTunerTypeDVBC = 3,				// DVB-C
-		eTunerTypeDVBT2 = 4,			// DVB-T2
-		eTunerTypeISDBS = 11,			// ISDB-S
-		eTunerTypeISDBT = 12,			// ISDB-T
-		eTunerTypeISDBC = 13,			// ISDB-C
-		eTunerTypeATSC_Antenna = 21,	// ATSC
-		eTunerTypeATSC_Cable = 22,		// ATSC Cable
-		eTunerTypeDigitalCable = 23,	// Digital Cable
-	};
-
-	// 使用するTuningSpace オブジェクト
-	enum enumTuningSpace {
-		eTuningSpaceAuto = -1,			// DVBSystemTypeの値によって自動選択
-		eTuningSpaceDVB = 1,			// DVBTuningSpace
-		eTuningSpaceDVBS = 2,			// DVBSTuningSpace
-		eTuningSpaceAnalogTV = 21,		// AnalogTVTuningSpace
-		eTuningSpaceATSC = 22,			// ATSCTuningSpace
-		eTuningSpaceDigitalCable = 23,	// DigitalCableTuningSpace
-	};
-
-	// 使用するLocator オブジェクト
-	enum enumLocator {
-		eLocatorAuto = -1,				// DVBSystemTypeの値によって自動選択
-		eLocatorDVBT = 1,				// DVBTLocator
-		eLocatorDVBT2 = 2,				// DVBTLocator2
-		eLocatorDVBS = 3,				// DVBSLocator
-		eLocatorDVBC = 4,				// DVBCLocator
-		eLocatorISDBS = 11,				// ISDBSLocator
-		eLocatorATSC = 21,				// ATSCLocator
-		eLocatorDigitalCable = 22,		// DigitalCableLocator
-	};
-
-	// ITuningSpaceに設定するNetworkType
-	enum enumNetworkType {
-		eNetworkTypeAuto = -1,			// DVBSystemTypeの値によって自動選択
-		eNetworkTypeDVBT = 1,			// STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE
-		eNetworkTypeDVBS = 2,			// STATIC_DVB_SATELLITE_TV_NETWORK_TYPE
-		eNetworkTypeDVBC = 3,			// STATIC_DVB_CABLE_TV_NETWORK_TYPE
-		eNetworkTypeISDBT = 11,			// STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE
-		eNetworkTypeISDBS = 12,			// STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE
-		eNetworkTypeISDBC = 13,			// STATIC_ISDB_CABLE_TV_NETWORK_TYPE
-		eNetworkTypeATSC = 21,			// STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE
-		eNetworkTypeDigitalCable = 22,	// STATIC_DIGITAL_CABLE_NETWORK_TYPE
-		eNetworkTypeBSkyB = 101,		// STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE
-		eNetworkTypeDIRECTV = 102,		// STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE
-		eNetworkTypeEchoStar = 103,		// STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE
-	};
-
-	// IDVBTuningSpaceに設定するSystemType
-	enum enumDVBSystemType {
-		eDVBSystemTypeAuto = -1,								// DVBSystemTypeの値によって自動選択
-		eDVBSystemTypeDVBC = DVBSystemType::DVB_Cable,			// DVB_Cable
-		eDVBSystemTypeDVBT = DVBSystemType::DVB_Terrestrial,	// DVB_Terrestrial
-		eDVBSystemTypeDVBS = DVBSystemType::DVB_Satellite,		// DVB_Satellite
-		eDVBSystemTypeISDBT = DVBSystemType::ISDB_Terrestrial,	// ISDB_Terrestrial
-		eDVBSystemTypeISDBS = DVBSystemType::ISDB_Satellite,	// ISDB_Satellite
-	};
-
-	// IAnalogTVTuningSpaceに設定するInputType
-	enum enumTunerInputType {
-		eTunerInputTypeAuto = -1,										// DVBSystemTypeの値によって自動選択
-		eTunerInputTypeCable = tagTunerInputType::TunerInputCable,		// TunerInputCable
-		eTunerInputTypeAntenna = tagTunerInputType::TunerInputAntenna,	// TunerInputAntenna
-	};
-
 	// チューナーの使用するTuningSpaceの種類データ
 	struct DVBSystemTypeData {
-		enumTunerType nDVBSystemType;						// チューナーの使用するTuningSpaceの種類
-		enumTuningSpace nTuningSpace;						// 使用するTuningSpace オブジェクト
-		enumLocator nLocator;								// 使用するLocator オブジェクト
-		enumNetworkType nITuningSpaceNetworkType;			// ITuningSpaceに設定するNetworkType
-		enumDVBSystemType nIDVBTuningSpaceSystemType;		// IDVBTuningSpaceに設定するSystemType
-		enumTunerInputType nIAnalogTVTuningSpaceInputType;	// IAnalogTVTuningSpaceに設定するInputType
-		CComPtr<ITuningSpace> pITuningSpace;				// Tuning Space の ITuningSpace interface
-		DVBSystemTypeData(void)
-			: nDVBSystemType(eTunerTypeNone),
-			  nTuningSpace(eTuningSpaceAuto),
-			  nLocator(eLocatorAuto),
-			  nITuningSpaceNetworkType(eNetworkTypeAuto),
-			  nIDVBTuningSpaceSystemType(eDVBSystemTypeAuto),
-			  nIAnalogTVTuningSpaceInputType(eTunerInputTypeAuto)
-		{
-		}
+		EnumSettingValue::TunerType nDVBSystemType = EnumSettingValue::TunerType::None;								// チューナーの使用するTuningSpaceの種類
+		EnumSettingValue::TuningSpace nTuningSpace = EnumSettingValue::TuningSpace::Auto;							// 使用するTuningSpace オブジェクト
+		EnumSettingValue::Locator nLocator = EnumSettingValue::Locator::Auto;										// 使用するLocator オブジェクト
+		EnumSettingValue::NetworkType nITuningSpaceNetworkType = EnumSettingValue::NetworkType::Auto;				// ITuningSpaceに設定するNetworkType
+		EnumSettingValue::DVBSystemType nIDVBTuningSpaceSystemType = EnumSettingValue::DVBSystemType::Auto;			// IDVBTuningSpaceに設定するSystemType
+		EnumSettingValue::TunerInputType nIAnalogTVTuningSpaceInputType = EnumSettingValue::TunerInputType::Auto;	// IAnalogTVTuningSpaceに設定するInputType
+		CComPtr<ITuningSpace> pITuningSpace;																		// Tuning Space の ITuningSpace interface
 	};
 
 	// TuningSpaceの種類データベース
@@ -683,25 +575,10 @@ protected:
 	static constexpr unsigned int MAX_DVB_SYSTEM_TYPE = 10U;
 
 	// チューナーに使用するNetworkProvider 
-	enum enumNetworkProvider {
-		eNetworkProviderAuto = 0,		// DVBSystemTypeの値によって自動選択
-		eNetworkProviderGeneric = 1,	// Microsoft Network Provider
-		eNetworkProviderDVBS = 2,		// Microsoft DVB-S Network Provider
-		eNetworkProviderDVBT = 3,		// Microsoft DVB-T Network Provider
-		eNetworkProviderDVBC = 4,		// Microsoft DVB-C Network Provider
-		eNetworkProviderATSC = 5,		// Microsoft ATSC Network Provider
-	};
-	enumNetworkProvider m_nNetworkProvider;
+	EnumSettingValue::NetworkProvider m_nNetworkProvider = EnumSettingValue::NetworkProvider::Auto;
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
-	enum enumDefaultNetwork {
-		eDefaultNetworkNone = 0,		// 設定しない
-		eDefaultNetworkSPHD = 1,		// SPHD
-		eDefaultNetworkBSCS = 2,		// BS/CS110
-		eDefaultNetworkUHF = 3,			// UHF/CATV
-		eDefaultNetworkDual = 4,		// Dual Mode (BS/CS110とUHF/CATV)
-	};
-	enumDefaultNetwork m_nDefaultNetwork;
+	EnumSettingValue::DefaultNetwork m_nDefaultNetwork = EnumSettingValue::DefaultNetwork::SPHD;
 
 	// Tuner is opened
 	BOOL m_bOpened;

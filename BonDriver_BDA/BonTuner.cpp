@@ -107,23 +107,12 @@ CBonTuner::CBonTuner()
 	m_nReOpenWhenGiveUpReLock(0),
 	m_bTryAnotherTuner(FALSE),
 	m_bBackgroundChannelLock(FALSE),
-	m_nSignalLevelCalcType(eSignalLevelCalcTypeSSStrength),
-	m_bSignalLevelGetTypeSS(FALSE),
-	m_bSignalLevelGetTypeTuner(FALSE),
-	m_bSignalLevelGetTypeDemodSS(FALSE),
-	m_bSignalLevelGetTypeBR(FALSE),
-	m_bSignalLevelNeedStrength(FALSE),
-	m_bSignalLevelNeedQuality(FALSE),
 	m_fStrengthCoefficient(1),
 	m_fQualityCoefficient(1),
 	m_fStrengthBias(0),
 	m_fQualityBias(0),
 	m_fStrength(0),
 	m_fQuality(0),
-	m_nSignalLockedJudgeType(eSignalLockedJudgeTypeSS),
-	m_bSignalLockedJudgeTypeSS(FALSE),
-	m_bSignalLockedJudgeTypeTuner(FALSE),
-	m_bSignalLockedJudgeTypeDemodSS(FALSE),
 	m_nBuffSize(188 * 1024),
 	m_nMaxBuffCount(512),
 	m_nWaitTsCount(1),
@@ -138,8 +127,6 @@ CBonTuner::CBonTuner()
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
-	m_nNetworkProvider(eNetworkProviderAuto),
-	m_nDefaultNetwork(eDefaultNetworkSPHD),
 	m_bOpened(FALSE),
 	m_dwTargetSpace(CBonTuner::SPACE_INVALID),
 	m_dwCurSpace(CBonTuner::SPACE_INVALID),
@@ -1045,213 +1032,6 @@ void CBonTuner::StopRecv(void)
 
 void CBonTuner::ReadIniFile(void)
 {
-	const CIniFileAccess::Map mapThreadPriority = {
-		{ L"",                              THREAD_PRIORITY_ERROR_RETURN },
-		{ L"THREAD_PRIORITY_IDLE",          THREAD_PRIORITY_IDLE },
-		{ L"THREAD_PRIORITY_LOWEST",        THREAD_PRIORITY_LOWEST },
-		{ L"THREAD_PRIORITY_BELOW_NORMAL",  THREAD_PRIORITY_BELOW_NORMAL },
-		{ L"THREAD_PRIORITY_NORMAL",        THREAD_PRIORITY_NORMAL },
-		{ L"THREAD_PRIORITY_ABOVE_NORMAL",  THREAD_PRIORITY_ABOVE_NORMAL },
-		{ L"THREAD_PRIORITY_HIGHEST",       THREAD_PRIORITY_HIGHEST },
-		{ L"THREAD_PRIORITY_TIME_CRITICAL", THREAD_PRIORITY_TIME_CRITICAL },
-	};
-
-	const CIniFileAccess::Map mapModulationType = {
-		{ L"BDA_MOD_NOT_SET",          ModulationType::BDA_MOD_NOT_SET },
-		{ L"BDA_MOD_NOT_DEFINED",      ModulationType::BDA_MOD_NOT_DEFINED },
-		{ L"BDA_MOD_16QAM",            ModulationType::BDA_MOD_16QAM },
-		{ L"BDA_MOD_32QAM",            ModulationType::BDA_MOD_32QAM },
-		{ L"BDA_MOD_64QAM",            ModulationType::BDA_MOD_64QAM },
-		{ L"BDA_MOD_80QAM",            ModulationType::BDA_MOD_80QAM },
-		{ L"BDA_MOD_96QAM",            ModulationType::BDA_MOD_96QAM },
-		{ L"BDA_MOD_112QAM",           ModulationType::BDA_MOD_112QAM },
-		{ L"BDA_MOD_128QAM",           ModulationType::BDA_MOD_128QAM },
-		{ L"BDA_MOD_160QAM",           ModulationType::BDA_MOD_160QAM },
-		{ L"BDA_MOD_192QAM",           ModulationType::BDA_MOD_192QAM },
-		{ L"BDA_MOD_224QAM",           ModulationType::BDA_MOD_224QAM },
-		{ L"BDA_MOD_256QAM",           ModulationType::BDA_MOD_256QAM },
-		{ L"BDA_MOD_320QAM",           ModulationType::BDA_MOD_320QAM },
-		{ L"BDA_MOD_384QAM",           ModulationType::BDA_MOD_384QAM },
-		{ L"BDA_MOD_448QAM",           ModulationType::BDA_MOD_448QAM },
-		{ L"BDA_MOD_512QAM",           ModulationType::BDA_MOD_512QAM },
-		{ L"BDA_MOD_640QAM",           ModulationType::BDA_MOD_640QAM },
-		{ L"BDA_MOD_768QAM",           ModulationType::BDA_MOD_768QAM },
-		{ L"BDA_MOD_896QAM",           ModulationType::BDA_MOD_896QAM },
-		{ L"BDA_MOD_1024QAM",          ModulationType::BDA_MOD_1024QAM },
-		{ L"BDA_MOD_QPSK",             ModulationType::BDA_MOD_QPSK },
-		{ L"BDA_MOD_BPSK",             ModulationType::BDA_MOD_BPSK },
-		{ L"BDA_MOD_OQPSK",            ModulationType::BDA_MOD_OQPSK },
-		{ L"BDA_MOD_8VSB",             ModulationType::BDA_MOD_8VSB },
-		{ L"BDA_MOD_16VSB",            ModulationType::BDA_MOD_16VSB },
-		{ L"BDA_MOD_ANALOG_AMPLITUDE", ModulationType::BDA_MOD_ANALOG_AMPLITUDE },
-		{ L"BDA_MOD_ANALOG_FREQUENCY", ModulationType::BDA_MOD_ANALOG_FREQUENCY },
-		{ L"BDA_MOD_8PSK",             ModulationType::BDA_MOD_8PSK },
-		{ L"BDA_MOD_RF",               ModulationType::BDA_MOD_RF },
-		{ L"BDA_MOD_16APSK",           ModulationType::BDA_MOD_16APSK },
-		{ L"BDA_MOD_32APSK",           ModulationType::BDA_MOD_32APSK },
-		{ L"BDA_MOD_NBC_QPSK",         ModulationType::BDA_MOD_NBC_QPSK },
-		{ L"BDA_MOD_NBC_8PSK",         ModulationType::BDA_MOD_NBC_8PSK },
-		{ L"BDA_MOD_DIRECTV",          ModulationType::BDA_MOD_DIRECTV },
-		{ L"BDA_MOD_ISDB_T_TMCC",      ModulationType::BDA_MOD_ISDB_T_TMCC },
-		{ L"BDA_MOD_ISDB_S_TMCC",      ModulationType::BDA_MOD_ISDB_S_TMCC },
-	};
-
-	const CIniFileAccess::Map mapFECMethod = {
-		{ L"BDA_FEC_METHOD_NOT_SET",     FECMethod::BDA_FEC_METHOD_NOT_SET },
-		{ L"BDA_FEC_METHOD_NOT_DEFINED", FECMethod::BDA_FEC_METHOD_NOT_DEFINED },
-		{ L"BDA_FEC_VITERBI",            FECMethod::BDA_FEC_VITERBI },
-		{ L"BDA_FEC_RS_204_188",         FECMethod::BDA_FEC_RS_204_188 },
-		{ L"BDA_FEC_LDPC",               FECMethod::BDA_FEC_LDPC },
-		{ L"BDA_FEC_BCH",                FECMethod::BDA_FEC_BCH },
-		{ L"BDA_FEC_RS_147_130",         FECMethod::BDA_FEC_RS_147_130 },
-	};
-
-	const CIniFileAccess::Map mapBinaryConvolutionCodeRate = {
-		{ L"BDA_BCC_RATE_NOT_SET",     BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_SET },
-		{ L"BDA_BCC_RATE_NOT_DEFINED", BinaryConvolutionCodeRate::BDA_BCC_RATE_NOT_DEFINED },
-		{ L"BDA_BCC_RATE_1_2",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_2 },
-		{ L"BDA_BCC_RATE_2_3",         BinaryConvolutionCodeRate::BDA_BCC_RATE_2_3 },
-		{ L"BDA_BCC_RATE_3_4",         BinaryConvolutionCodeRate::BDA_BCC_RATE_3_4 },
-		{ L"BDA_BCC_RATE_3_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_3_5 },
-		{ L"BDA_BCC_RATE_4_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_4_5 },
-		{ L"BDA_BCC_RATE_5_6",         BinaryConvolutionCodeRate::BDA_BCC_RATE_5_6 },
-		{ L"BDA_BCC_RATE_5_11",        BinaryConvolutionCodeRate::BDA_BCC_RATE_5_11 },
-		{ L"BDA_BCC_RATE_7_8",         BinaryConvolutionCodeRate::BDA_BCC_RATE_7_8 },
-		{ L"BDA_BCC_RATE_1_4",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_4 },
-		{ L"BDA_BCC_RATE_1_3",         BinaryConvolutionCodeRate::BDA_BCC_RATE_1_3 },
-		{ L"BDA_BCC_RATE_2_5",         BinaryConvolutionCodeRate::BDA_BCC_RATE_2_5 },
-		{ L"BDA_BCC_RATE_6_7",         BinaryConvolutionCodeRate::BDA_BCC_RATE_6_7 },
-		{ L"BDA_BCC_RATE_8_9",         BinaryConvolutionCodeRate::BDA_BCC_RATE_8_9 },
-		{ L"BDA_BCC_RATE_9_10",        BinaryConvolutionCodeRate::BDA_BCC_RATE_9_10 },
-	};
-
-	const CIniFileAccess::Map mapTuningSpaceType = {
-		{ L"DVB-S/DVB-S2",  enumTunerType::eTunerTypeDVBS },
-		{ L"DVB-S2",        enumTunerType::eTunerTypeDVBS },
-		{ L"DVB-S",         enumTunerType::eTunerTypeDVBS },
-		{ L"DVB-T",         enumTunerType::eTunerTypeDVBT },
-		{ L"DVB-C",         enumTunerType::eTunerTypeDVBC },
-		{ L"DVB-T2",        enumTunerType::eTunerTypeDVBT2 },
-		{ L"ISDB-S",        enumTunerType::eTunerTypeISDBS },
-		{ L"ISDB-T",        enumTunerType::eTunerTypeISDBT },
-		{ L"ISDB-C",        enumTunerType::eTunerTypeISDBC },
-		{ L"ATSC",          enumTunerType::eTunerTypeATSC_Antenna },
-		{ L"ATSC CABLE",    enumTunerType::eTunerTypeATSC_Cable },
-		{ L"DIGITAL CABLE", enumTunerType::eTunerTypeDigitalCable },
-	};
-
-	const CIniFileAccess::Map mapSpecifyTuningSpace = {
-		{ L"AUTO",                     enumTuningSpace::eTuningSpaceAuto },
-		{ L"DVBTUNINGSPACE",           enumTuningSpace::eTuningSpaceDVB },
-		{ L"DVBSTUNINGSPACE",          enumTuningSpace::eTuningSpaceDVBS },
-		{ L"ANALOGTVTUNINGSPACE",      enumTuningSpace::eTuningSpaceAnalogTV },
-		{ L"ATSCTUNINGSPACE",	       enumTuningSpace::eTuningSpaceATSC },
-		{ L"DIGITALCABLETUNINGSPACE",  enumTuningSpace::eTuningSpaceDigitalCable },
-	};
-
-	const CIniFileAccess::Map mapSpecifyLocator = {
-		{ L"AUTO", eLocatorAuto },
-		{ L"DVBTLOCATOR",         enumLocator::eLocatorDVBT },
-		{ L"DVBTLOCATOR2",        enumLocator::eLocatorDVBT2 },
-		{ L"DVBSLOCATOR",         enumLocator::eLocatorDVBS },
-		{ L"DVBCLOCATOR",         enumLocator::eLocatorDVBC },
-		{ L"ISDBSLOCATOR",        enumLocator::eLocatorISDBS },
-		{ L"ATSCLOCATOR",         enumLocator::eLocatorATSC },
-		{ L"DIGITALCABLELOCATOR", enumLocator::eLocatorDigitalCable },
-	};
-
-	const CIniFileAccess::Map mapSpecifyITuningSpaceNetworkType = {
-		{ L"AUTO",                                       enumNetworkType::eNetworkTypeAuto },
-		{ L"STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE",     enumNetworkType::eNetworkTypeDVBT },
-		{ L"STATIC_DVB_SATELLITE_TV_NETWORK_TYPE",       enumNetworkType::eNetworkTypeDVBS },
-		{ L"STATIC_DVB_CABLE_TV_NETWORK_TYPE",           enumNetworkType::eNetworkTypeDVBC },
-		{ L"STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE",    enumNetworkType::eNetworkTypeISDBT },
-		{ L"STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE",      enumNetworkType::eNetworkTypeISDBS },
-		{ L"STATIC_ISDB_CABLE_TV_NETWORK_TYPE",          enumNetworkType::eNetworkTypeISDBC },
-		{ L"STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE",    enumNetworkType::eNetworkTypeATSC },
-		{ L"STATIC_DIGITAL_CABLE_NETWORK_TYPE",          enumNetworkType::eNetworkTypeDigitalCable },
-		{ L"STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE",   enumNetworkType::eNetworkTypeBSkyB },
-		{ L"STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE", enumNetworkType::eNetworkTypeDIRECTV },
-		{ L"STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE",  enumNetworkType::eNetworkTypeEchoStar },
-	};
-
-	const CIniFileAccess::Map mapSpecifyIDVBTuningSpaceSystemType = {
-		{ L"AUTO",             enumDVBSystemType::eDVBSystemTypeAuto },
-		{ L"DVB_CABLE",        enumDVBSystemType::eDVBSystemTypeDVBC },
-		{ L"DVB_TERRESTRIAL",  enumDVBSystemType::eDVBSystemTypeDVBT },
-		{ L"DVB_SATELLITE",    enumDVBSystemType::eDVBSystemTypeDVBS },
-		{ L"ISDB_TERRESTRIAL", enumDVBSystemType::eDVBSystemTypeISDBT },
-		{ L"ISDB_SATELLITE",   enumDVBSystemType::eDVBSystemTypeISDBS },
-	};
-
-
-	const CIniFileAccess::Map mapSpecifyIAnalogTVTuningSpaceInputType = {
-		{ L"AUTO",              enumTunerInputType::eTunerInputTypeAuto },
-		{ L"TUNERINPUTCABLE",   enumTunerInputType::eTunerInputTypeCable },
-		{ L"TUNERINPUTANTENNA", enumTunerInputType::eTunerInputTypeAntenna },
-	};
-
-	const CIniFileAccess::Map mapNetworkProvider = {
-		{ L"AUTO",                             enumNetworkProvider::eNetworkProviderAuto },
-		{ L"MICROSOFT NETWORK PROVIDER",       enumNetworkProvider::eNetworkProviderGeneric },
-		{ L"MICROSOFT DVB-S NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBS },
-		{ L"MICROSOFT DVB-T NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBT },
-		{ L"MICROSOFT DVB-C NETWORK PROVIDER", enumNetworkProvider::eNetworkProviderDVBC },
-		{ L"MICROSOFT ATSC NETWORK PROVIDER",  enumNetworkProvider::eNetworkProviderATSC },
-	};
-
-	const CIniFileAccess::Map mapDefaultNetwork = {
-		{ L"NONE",     enumDefaultNetwork::eDefaultNetworkNone },
-		{ L"SPHD",     enumDefaultNetwork::eDefaultNetworkSPHD },
-		{ L"BS/CS110", enumDefaultNetwork::eDefaultNetworkBSCS },
-		{ L"BS",       enumDefaultNetwork::eDefaultNetworkBSCS },
-		{ L"CS110",    enumDefaultNetwork::eDefaultNetworkBSCS },
-		{ L"UHF/CATV", enumDefaultNetwork::eDefaultNetworkUHF },
-		{ L"UHF",      enumDefaultNetwork::eDefaultNetworkUHF },
-		{ L"CATV",     enumDefaultNetwork::eDefaultNetworkUHF },
-		{ L"DUAL",     enumDefaultNetwork::eDefaultNetworkDual },
-	};
-
-	const CIniFileAccess::Map mapSignalLevelCalcType = {
-		{ L"SSSTRENGTH",      enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength },
-		{ L"SSQUALITY",       enumSignalLevelCalcType::eSignalLevelCalcTypeSSQuality },
-		{ L"SSMUL",           enumSignalLevelCalcType::eSignalLevelCalcTypeSSMul },
-		{ L"SSADD",           enumSignalLevelCalcType::eSignalLevelCalcTypeSSAdd },
-		{ L"SSFORMULA",       enumSignalLevelCalcType::eSignalLevelCalcTypeSSFormula },
-		{ L"TUNERSTRENGTH",   enumSignalLevelCalcType::eSignalLevelCalcTypeTunerStrength },
-		{ L"TUNERQUALITY",    enumSignalLevelCalcType::eSignalLevelCalcTypeTunerQuality },
-		{ L"TUNERMUL",        enumSignalLevelCalcType::eSignalLevelCalcTypeTunerMul },
-		{ L"TUNERADD",        enumSignalLevelCalcType::eSignalLevelCalcTypeTunerAdd },
-		{ L"TUNERFORMULA",    enumSignalLevelCalcType::eSignalLevelCalcTypeTunerFormula },
-		{ L"DEMODSSSTRENGTH", enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSStrength },
-		{ L"DEMODSSQUALITY",  enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSQuality },
-		{ L"DEMODSSMUL",      enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSMul },
-		{ L"DEMODSSADD",      enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSAdd },
-		{ L"DEMODSSFORMULA",  enumSignalLevelCalcType::eSignalLevelCalcTypeDemodSSFormula },
-		{ L"BITRATE",         enumSignalLevelCalcType::eSignalLevelCalcTypeBR },
-	};
-
-	const CIniFileAccess::Map mapSignalLockedJudgeType = {
-		{ L"ALWAYS",        enumSignalLockedJudgeType::eSignalLockedJudgeTypeAlways },
-		{ L"SSLOCKED",      enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS },
-		{ L"TUNERSTRENGTH", enumSignalLockedJudgeType::eSignalLockedJudgeTypeTuner },
-		{ L"DEMODSSLOCKED", enumSignalLockedJudgeType::eSignalLockedJudgeTypeDemodSS },
-	};
-
-	const CIniFileAccess::Map mapDiSEqC = {
-		{ L"",       LNB_Source::BDA_LNB_SOURCE_NOT_SET },
-		{ L"PORT-A", LNB_Source::BDA_LNB_SOURCE_A },
-		{ L"PORT-B", LNB_Source::BDA_LNB_SOURCE_B },
-		{ L"PORT-C", LNB_Source::BDA_LNB_SOURCE_C },
-		{ L"PORT-D", LNB_Source::BDA_LNB_SOURCE_D },
-	};
-
-	const CIniFileAccess::Map mapTSMFMode = {
-		{ L"OFF",      0 },
-		{ L"TSID",     1 },
-		{ L"RELATIVE", 2 },
-	};
-
 	// INIファイルのファイル名取得
 	std::wstring tempPath = common::GetModuleName(st_hModule);
 	m_sIniFilePath = tempPath + L"ini";
@@ -1357,38 +1137,38 @@ void CBonTuner::ReadIniFile(void)
 	std::wstring sTempTuningSpaceName = IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", L"スカパー");
 
 	// SignalLevel 算出方法
-	m_nSignalLevelCalcType = (enumSignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", enumSignalLevelCalcType::eSignalLevelCalcTypeSSStrength, &mapSignalLevelCalcType);
-	if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeSSMax)
+	m_nSignalLevelCalcType = (EnumSettingValue::SignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", (int)m_nSignalLevelCalcType, &EnumSettingValue::mapSignalLevelCalcType);
+	if (m_nSignalLevelCalcType >= EnumSettingValue::SignalLevelCalcType::SSMin && m_nSignalLevelCalcType <= EnumSettingValue::SignalLevelCalcType::SSMax)
 		m_bSignalLevelGetTypeSS = TRUE;
-	else if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeTunerMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeTunerMax)
+	else if (m_nSignalLevelCalcType >= EnumSettingValue::SignalLevelCalcType::TunerMin && m_nSignalLevelCalcType <= EnumSettingValue::SignalLevelCalcType::TunerMax)
 		m_bSignalLevelGetTypeTuner = TRUE;
-	else if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeDemodSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeDemodSSMax)
+	else if (m_nSignalLevelCalcType >= EnumSettingValue::SignalLevelCalcType::DemodSSMin && m_nSignalLevelCalcType <= EnumSettingValue::SignalLevelCalcType::DemodSSMax)
 		m_bSignalLevelGetTypeDemodSS = TRUE;
-	else if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR) {
+	else if (m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::BR) {
 		m_bSignalLevelGetTypeBR = TRUE;
 		m_bNeedBitRate = TRUE;
 		m_bNeedDecodeProc = TRUE;
 	}
 
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSStrength) {
+	if (m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::SSStrength || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::TunerStrength || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::DemodSSStrength) {
 		m_bSignalLevelNeedStrength = TRUE;
 		m_sSignalLevelCalcFormula = L"S / SC + SB";
 	}
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerQuality || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSQuality) {
+	if (m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::SSQuality || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::TunerQuality || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::DemodSSQuality) {
 		m_bSignalLevelNeedQuality = TRUE;
 		m_sSignalLevelCalcFormula = L"Q / QC + QB";
 	}
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerMul || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSMul) {
+	if (m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::SSMul || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::TunerMul || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::DemodSSMul) {
 		m_bSignalLevelNeedStrength = TRUE;
 		m_bSignalLevelNeedQuality = TRUE;
 		m_sSignalLevelCalcFormula = L"(S / SC + SB) * (Q / QC + QB)";
 	}
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerAdd || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSAdd) {
+	if (m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::SSAdd || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::TunerAdd || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::DemodSSAdd) {
 		m_bSignalLevelNeedStrength = TRUE;
 		m_bSignalLevelNeedQuality = TRUE;
 		m_sSignalLevelCalcFormula = L"(S / SC + SB) + (Q / QC + QB)";
 	}
-	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSFormula || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerFormula || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSFormula) {
+	if (m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::SSFormula || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::TunerFormula || m_nSignalLevelCalcType == EnumSettingValue::SignalLevelCalcType::DemodSSFormula) {
 		m_bSignalLevelNeedStrength = TRUE;
 		m_bSignalLevelNeedQuality = TRUE;
 		m_sSignalLevelCalcFormula = IniFileAccess.ReadKeySSectionData(L"SignalLevelCalcFormula", L"S / SC + SB");
@@ -1425,12 +1205,12 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// チューニング状態の判断方法
-	m_nSignalLockedJudgeType = (enumSignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", enumSignalLockedJudgeType::eSignalLockedJudgeTypeSS, &mapSignalLockedJudgeType);
-	if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeSS)
+	m_nSignalLockedJudgeType = (EnumSettingValue::SignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", (int)m_nSignalLockedJudgeType, &EnumSettingValue::mapSignalLockedJudgeType);
+	if (m_nSignalLockedJudgeType == EnumSettingValue::SignalLockedJudgeType::SS)
 		m_bSignalLockedJudgeTypeSS = TRUE;
-	else if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeTuner)
+	else if (m_nSignalLockedJudgeType == EnumSettingValue::SignalLockedJudgeType::Tuner)
 		m_bSignalLockedJudgeTypeTuner = TRUE;
-	else if (m_nSignalLockedJudgeType == eSignalLockedJudgeTypeDemodSS)
+	else if (m_nSignalLockedJudgeType == EnumSettingValue::SignalLockedJudgeType::DemodSS)
 		m_bSignalLockedJudgeTypeDemodSS = TRUE;
 
 	for (unsigned int i = 0; i < MAX_DVB_SYSTEM_TYPE; i++) {
@@ -1438,7 +1218,7 @@ void CBonTuner::ReadIniFile(void)
 		DVBSystemTypeData typeData;
 		if (i == 0) {
 			// チューナーの使用するTuningSpaceの種類
-			typeData.nDVBSystemType = enumTunerType::eTunerTypeDVBS;
+			typeData.nDVBSystemType = EnumSettingValue::TunerType::DVBS;
 		}
 
 		unsigned int st = i == 0 ? 0 : 1;
@@ -1447,30 +1227,30 @@ void CBonTuner::ReadIniFile(void)
 		for (unsigned int j = st; j < 2; j++) {
 			// チューナーの使用するTuningSpaceの種類
 			key = prefix[j];
-			typeData.nDVBSystemType = (enumTunerType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nDVBSystemType, &mapTuningSpaceType);
+			typeData.nDVBSystemType = (EnumSettingValue::TunerType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)typeData.nDVBSystemType, &EnumSettingValue::mapTuningSpaceType);
 
 			// 使用するITuningSpace interface
 			key = prefix[j] + L"TuningSpace";
-			typeData.nTuningSpace = (enumTuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nTuningSpace, &mapSpecifyTuningSpace);
+			typeData.nTuningSpace = (EnumSettingValue::TuningSpace)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)typeData.nTuningSpace, &EnumSettingValue::mapSpecifyTuningSpace);
 
 			// 使用するILocator interface
 			key = prefix[j] + L"Locator";
-			typeData.nLocator = (enumLocator)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nLocator, &mapSpecifyLocator);
+			typeData.nLocator = (EnumSettingValue::Locator)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)typeData.nLocator, &EnumSettingValue::mapSpecifyLocator);
 
 			// ITuningSpaceに設定するNetworkType
 			key = prefix[j] + L"ITuningSpaceNetworkType";
-			typeData.nITuningSpaceNetworkType = (enumNetworkType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nITuningSpaceNetworkType, &mapSpecifyITuningSpaceNetworkType);
+			typeData.nITuningSpaceNetworkType = (EnumSettingValue::NetworkType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)typeData.nITuningSpaceNetworkType, &EnumSettingValue::mapSpecifyITuningSpaceNetworkType);
 
 			// IDVBTuningSpaceに設定するSystemType
 			key = prefix[j] + L"IDVBTuningSpaceSystemType";
-			typeData.nIDVBTuningSpaceSystemType = (enumDVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nIDVBTuningSpaceSystemType, &mapSpecifyIDVBTuningSpaceSystemType);
+			typeData.nIDVBTuningSpaceSystemType = (EnumSettingValue::DVBSystemType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)typeData.nIDVBTuningSpaceSystemType, &EnumSettingValue::mapSpecifyIDVBTuningSpaceSystemType);
 
 			// IAnalogTVTuningSpaceに設定するInputType
 			key = prefix[j] + L"IAnalogTVTuningSpaceInputType";
-			typeData.nIAnalogTVTuningSpaceInputType = (enumTunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), typeData.nIAnalogTVTuningSpaceInputType, &mapSpecifyIAnalogTVTuningSpaceInputType);
+			typeData.nIAnalogTVTuningSpaceInputType = (EnumSettingValue::TunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)typeData.nIAnalogTVTuningSpaceInputType, &EnumSettingValue::mapSpecifyIAnalogTVTuningSpaceInputType);
 		}
 
-		if (typeData.nDVBSystemType == enumTunerType::eTunerTypeNone && (typeData.nTuningSpace == enumTuningSpace::eTuningSpaceAuto || typeData.nLocator == enumLocator::eLocatorAuto)) {
+		if (typeData.nDVBSystemType == EnumSettingValue::TunerType::None && (typeData.nTuningSpace == EnumSettingValue::TuningSpace::Auto || typeData.nLocator == EnumSettingValue::Locator::Auto)) {
 			continue;
 		}
 
@@ -1483,10 +1263,10 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// チューナーに使用するNetworkProvider
-	m_nNetworkProvider = (enumNetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", enumNetworkProvider::eNetworkProviderAuto, &mapNetworkProvider);
+	m_nNetworkProvider = (EnumSettingValue::NetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", (int)m_nNetworkProvider, &EnumSettingValue::mapNetworkProvider);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
-	m_nDefaultNetwork = (enumDefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", enumDefaultNetwork::eDefaultNetworkSPHD, &mapDefaultNetwork);
+	m_nDefaultNetwork = (EnumSettingValue::DefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", (int)m_nDefaultNetwork, &EnumSettingValue::mapDefaultNetwork);
 
 	//
 	// BonDriver セクション
@@ -1515,13 +1295,13 @@ void CBonTuner::ReadIniFile(void)
 	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", FALSE);
 
 	// COMProcThreadのスレッドプライオリティ
-	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN, &mapThreadPriority);
+	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN, &EnumSettingValue::mapThreadPriority);
 
 	// DecodeProcThreadのスレッドプライオリティ
-	m_nThreadPriorityDecode = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN, &mapThreadPriority);
+	m_nThreadPriorityDecode = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN, &EnumSettingValue::mapThreadPriority);
 
 	// ストリームスレッドプライオリティ
-	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, &mapThreadPriority);
+	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, &EnumSettingValue::mapThreadPriority);
 
 	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
 	m_nPeriodicTimer = IniFileAccess.ReadKeyISectionData(L"PeriodicTimer", 0);
@@ -1541,14 +1321,14 @@ void CBonTuner::ReadIniFile(void)
 
 	// DefaultNetworkによるデフォルト値設定
 	switch (m_nDefaultNetwork) {
-	case eDefaultNetworkSPHD:
+	case EnumSettingValue::DefaultNetwork::SPHD:
 		// SPHD
 		sateliteSettingsAuto[1] = L"JCSAT-3";
 		sateliteSettingsAuto[2] = L"JCSAT-4";
 		break;
 
-	case eDefaultNetworkBSCS:
-	case eDefaultNetworkDual:
+	case EnumSettingValue::DefaultNetwork::BSCS:
+	case EnumSettingValue::DefaultNetwork::Dual:
 		sateliteSettingsAuto[1] = L"BS/CS110";
 		break;
 	}
@@ -1650,11 +1430,11 @@ void CBonTuner::ReadIniFile(void)
 			// 全偏波共通での設定があれば読み込む
 			key = prefix1 + L"DiSEqC";
 			m_aSatellite[satellite].Polarisation[polarisation].DiSEqC
-				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, &mapDiSEqC);
+				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, &EnumSettingValue::mapDiSEqC);
 			// 個別設定があれば上書きで読み込む
 			key = prefix2 + L"DiSEqC";
 			m_aSatellite[satellite].Polarisation[polarisation].DiSEqC
-				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, &mapDiSEqC);
+				= (long)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aSatellite[satellite].Polarisation[polarisation].DiSEqC, &EnumSettingValue::mapDiSEqC);
 		}
 	}
 
@@ -1669,23 +1449,23 @@ void CBonTuner::ReadIniFile(void)
 
 	// DefaultNetworkによるデフォルト値設定
 	switch (m_nDefaultNetwork) {
-	case eDefaultNetworkSPHD:
+	case EnumSettingValue::DefaultNetwork::SPHD:
 		//SPHD
 		modulationSettingsAuto[0] = L"DVB-S";
 		modulationSettingsAuto[1] = L"DVB-S2";
 		break;
 
-	case eDefaultNetworkBSCS:
+	case EnumSettingValue::DefaultNetwork::BSCS:
 		// BS/CS110
 		modulationSettingsAuto[0] = L"ISDB-S";
 		break;
 
-	case eDefaultNetworkUHF:
+	case EnumSettingValue::DefaultNetwork::UHF:
 		// UHF/CATV
 		modulationSettingsAuto[0] = L"ISDB-T";
 		break;
 
-	case eDefaultNetworkDual:
+	case EnumSettingValue::DefaultNetwork::Dual:
 		modulationSettingsAuto[0] = L"ISDB-T";
 		modulationSettingsAuto[1] = L"ISDB-S";
 		break;
@@ -1811,27 +1591,27 @@ void CBonTuner::ReadIniFile(void)
 		// 変調タイプ
 		key = prefix + L"Modulation";
 		m_aModulationType[modulation].Modulation
-			= (ModulationType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].Modulation, &mapModulationType);
+			= (ModulationType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].Modulation, &EnumSettingValue::mapModulationType);
 
 		// 内部前方誤り訂正タイプ
 		key = prefix + L"InnerFEC";
 		m_aModulationType[modulation].InnerFEC
-			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].InnerFEC, &mapFECMethod);
+			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].InnerFEC, &EnumSettingValue::mapFECMethod);
 
 		// 内部FECレート
 		key = prefix + L"InnerFECRate";
 		m_aModulationType[modulation].InnerFECRate
-			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].InnerFECRate, &mapBinaryConvolutionCodeRate);
+			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].InnerFECRate, &EnumSettingValue::mapBinaryConvolutionCodeRate);
 
 		// 外部前方誤り訂正タイプ
 		key = prefix + L"OuterFEC";
 		m_aModulationType[modulation].OuterFEC
-			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].OuterFEC, &mapFECMethod);
+			= (FECMethod)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].OuterFEC, &EnumSettingValue::mapFECMethod);
 
 		// 外部FECレート
 		key = prefix + L"OuterFECRate";
 		m_aModulationType[modulation].OuterFECRate
-			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].OuterFECRate, &mapBinaryConvolutionCodeRate);
+			= (BinaryConvolutionCodeRate)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), m_aModulationType[modulation].OuterFECRate, &EnumSettingValue::mapBinaryConvolutionCodeRate);
 
 		// シンボルレート
 		key = prefix + L"SymbolRate";
@@ -2564,7 +2344,7 @@ void CBonTuner::ReadIniFile(void)
 		itSpace->second.DVBSystemTypeNumber = IniFileAccess.ReadKeyISectionData(L"DVBSystemTypeNumber", 0);
 
 		// TSMFの処理モード
-		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, &mapTSMFMode);
+		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, &EnumSettingValue::mapTSMFMode);
 		if (itSpace->second.TSMFMode != 0) {
 			m_bNeedTSMFParser = TRUE;
 			m_bNeedDecodeProc = TRUE;
@@ -2767,7 +2547,7 @@ void CBonTuner::ReadIniFile(void)
 
 	if (!itSpace0->second.Channels.size()) {
 		// CH定義が一つもされていない
-		if (m_nDefaultNetwork == eDefaultNetworkSPHD) {
+		if (m_nDefaultNetwork == EnumSettingValue::DefaultNetwork::SPHD) {
 			// SPHDの場合のみ過去のバージョン互換動作
 			// 3つのTPをデフォルトでセットしておく
 			//   128.0E 12.658GHz V DVB-S *** 2015-10-10現在、NITには存在するけど停波中
@@ -3493,130 +3273,130 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 		OutputDebug(L"[CreateTuningSpace] Processing number %ld.\n", it->first);
 
 		// オブジェクト作成用変数
-		enumTuningSpace specifyTuningSpace = eTuningSpaceAuto;					// 使用するTuningSpaceオブジェクト
-		CLSID clsidTuningSpace = CLSID_NULL;									// TuningSpaceオブジェクトのクラスid
-		enumLocator specifyLocator = eLocatorAuto;								// 使用するLocatorオブジェクト
-		CLSID clsidLocator = CLSID_NULL;										// Locatorオブジェクトのクラスid
+		EnumSettingValue::TuningSpace specifyTuningSpace = EnumSettingValue::TuningSpace::Auto;				// 使用するTuningSpaceオブジェクト
+		CLSID clsidTuningSpace = CLSID_NULL;																// TuningSpaceオブジェクトのクラスid
+		EnumSettingValue::Locator specifyLocator = EnumSettingValue::Locator::Auto;							// 使用するLocatorオブジェクト
+		CLSID clsidLocator = CLSID_NULL;																	// Locatorオブジェクトのクラスid
 
 		// TuningSpace設定用変数
 		// ITuningSpace
-		_bstr_t bstrUniqueName;													// ITuningSpaceに設定するUniqueName
-		_bstr_t bstrFriendlyName;												// ITuningSpaceに設定するFriendlyName
-		enumNetworkType specifyITuningSpaceNetworkType = eNetworkTypeAuto;		// ITuningSpaceに設定するNetworkType
-		IID iidNetworkType = IID_NULL;											// ITuningSpaceに設定するNetworkTypeのGUID
+		_bstr_t bstrUniqueName;																				// ITuningSpaceに設定するUniqueName
+		_bstr_t bstrFriendlyName;																			// ITuningSpaceに設定するFriendlyName
+		EnumSettingValue::NetworkType specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::Auto;	// ITuningSpaceに設定するNetworkType
+		IID iidNetworkType = IID_NULL;																		// ITuningSpaceに設定するNetworkTypeのGUID
 		// IDVBTuningSpace
-		DVBSystemType dvbSystemType = DVB_Satellite;							// DVBのシステムタイプ
+		DVBSystemType dvbSystemType = DVB_Satellite;														// DVBのシステムタイプ
 		// IDVBTuningSpace2
-		long networkID = -1;													// Network ID
+		long networkID = -1;																				// Network ID
 		// IDVBSTuningSpace
-		long highOscillator = -1;												// High側Oscillator周波数
-		long lowOscillator = -1;												// Low側Oscillator周波数
-		long lnbSwitch = -1;													// LNBスイッチ周波数
-		SpectralInversion spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;	// スペクトル反転
+		long highOscillator = -1;																			// High側Oscillator周波数
+		long lowOscillator = -1;																			// Low側Oscillator周波数
+		long lnbSwitch = -1;																				// LNBスイッチ周波数
+		SpectralInversion spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;								// スペクトル反転
 		// IAnalogTVTuningSpace
-		TunerInputType inputType = TunerInputCable;								// アンテナ・ケーブルの入力タイプ
-		long countryCode = 0;													// 国・地域コード
-		long minChannel = 0;													// Channel番号の最小値
-		long maxChannel = 0;													// Channel番号の最大値
+		TunerInputType inputType = TunerInputCable;															// アンテナ・ケーブルの入力タイプ
+		long countryCode = 0;																				// 国・地域コード
+		long minChannel = 0;																				// Channel番号の最小値
+		long maxChannel = 0;																				// Channel番号の最大値
 		// IATSCTuningSpace
-		long minPhysicalChannel = 0;											// Physical Channel番号の最小値
-		long maxPhysicalChannel = 0;											// Physical Channel番号の最大値
-		long minMinorChannel = 0;												// Minor Channel番号の最小値
-		long maxMinorChannel = 0;												// Minor Channel番号の最大値
+		long minPhysicalChannel = 0;																		// Physical Channel番号の最小値
+		long maxPhysicalChannel = 0;																		// Physical Channel番号の最大値
+		long minMinorChannel = 0;																			// Minor Channel番号の最小値
+		long maxMinorChannel = 0;																			// Minor Channel番号の最大値
 		// IDigitalCableTuningSpace
-		long minMajorChannel = 0;												// Major Channel番号の最小値
-		long maxMajorChannel = 0;												// Major Channel番号の最大値
-		long minSourceID = 0;													// Source IDの最小値
-		long maxSourceID = 0;													// Source IDの最大値
+		long minMajorChannel = 0;																			// Major Channel番号の最小値
+		long maxMajorChannel = 0;																			// Major Channel番号の最大値
+		long minSourceID = 0;																				// Source IDの最小値
+		long maxSourceID = 0;																				// Source IDの最大値
 
 		// Default Locator設定用変数
 		// ILocator
-		long frequency = -1;													// RF信号の周波数
-		long symbolRate = -1;													// シンボルレート
-		FECMethod innerFECMethod = BDA_FEC_METHOD_NOT_SET;						// 内部前方誤り訂正タイプ
-		BinaryConvolutionCodeRate innerFECRate = BDA_BCC_RATE_NOT_SET;			// 内部FECレート
-		FECMethod outerFECMethod = BDA_FEC_METHOD_NOT_SET;						// 外部前方誤り訂正タイプ
-		BinaryConvolutionCodeRate outerFECRate = BDA_BCC_RATE_NOT_SET;			// 外部FECレート
-		ModulationType modulationType = BDA_MOD_NOT_SET;						// 変調タイプ
+		long frequency = -1;																				// RF信号の周波数
+		long symbolRate = -1;																				// シンボルレート
+		FECMethod innerFECMethod = BDA_FEC_METHOD_NOT_SET;													// 内部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate innerFECRate = BDA_BCC_RATE_NOT_SET;										// 内部FECレート
+		FECMethod outerFECMethod = BDA_FEC_METHOD_NOT_SET;													// 外部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate outerFECRate = BDA_BCC_RATE_NOT_SET;										// 外部FECレート
+		ModulationType modulationType = BDA_MOD_NOT_SET;													// 変調タイプ
 		// IDVBSLocator
-		VARIANT_BOOL westPosition = VARIANT_TRUE;								// 衛星の経度を西経と東経のどちらで表現するか(Trueで西経)
-		long orbitalPosition = -1;												// 衛星の経度(1/10°)
-		long elevation = -1;													// 衛星の仰角(1/10°)
-		long azimuth = -1;														// 衛星の方位角(1/10°)
-		Polarisation polarisation = BDA_POLARISATION_NOT_SET;					// 偏波値
+		VARIANT_BOOL westPosition = VARIANT_TRUE;															// 衛星の経度を西経と東経のどちらで表現するか(Trueで西経)
+		long orbitalPosition = -1;																			// 衛星の経度(1/10°)
+		long elevation = -1;																				// 衛星の仰角(1/10°)
+		long azimuth = -1;																					// 衛星の方位角(1/10°)
+		Polarisation polarisation = BDA_POLARISATION_NOT_SET;												// 偏波値
 		// IDVBSLocator2
-		LNB_Source diseqLNBSource = BDA_LNB_SOURCE_NOT_SET;						// DiSeqC LNB入力ソース
-		Pilot pilot = BDA_PILOT_NOT_SET;										// DVB-S2パイロットモード
-		RollOff rollOff = BDA_ROLL_OFF_NOT_SET;									// DVB-S2ロールオフ係数
+		LNB_Source diseqLNBSource = BDA_LNB_SOURCE_NOT_SET;													// DiSeqC LNB入力ソース
+		Pilot pilot = BDA_PILOT_NOT_SET;																	// DVB-S2パイロットモード
+		RollOff rollOff = BDA_ROLL_OFF_NOT_SET;																// DVB-S2ロールオフ係数
 		// IDVBTLocator
-		long bandwidth = -1;													// 帯域幅(MHz)
-		GuardInterval guardInterval = BDA_GUARD_NOT_SET;						// ガードインターバル
-		HierarchyAlpha hierarchyAlpha = BDA_HALPHA_NOT_SET;						// 階層状アルファ
-		FECMethod lpInnerFECMethod = BDA_FEC_METHOD_NOT_SET;					// LPストリームの内部前方誤り訂正タイプ
-		BinaryConvolutionCodeRate lpInnerFECRate = BDA_BCC_RATE_NOT_SET;		// LPストリームの内部FECレート
-		TransmissionMode transmissionMode = BDA_XMIT_MODE_NOT_SET;				// 伝送モード
-		VARIANT_BOOL otherFrequencyInUse = VARIANT_TRUE;						// 別のDVB-Tブロードキャスタで使われているかどうか
+		long bandwidth = -1;																				// 帯域幅(MHz)
+		GuardInterval guardInterval = BDA_GUARD_NOT_SET;													// ガードインターバル
+		HierarchyAlpha hierarchyAlpha = BDA_HALPHA_NOT_SET;													// 階層状アルファ
+		FECMethod lpInnerFECMethod = BDA_FEC_METHOD_NOT_SET;												// LPストリームの内部前方誤り訂正タイプ
+		BinaryConvolutionCodeRate lpInnerFECRate = BDA_BCC_RATE_NOT_SET;									// LPストリームの内部FECレート
+		TransmissionMode transmissionMode = BDA_XMIT_MODE_NOT_SET;											// 伝送モード
+		VARIANT_BOOL otherFrequencyInUse = VARIANT_TRUE;													// 別のDVB-Tブロードキャスタで使われているかどうか
 		// IDVBTLocator2
-		long physicalLayerPipeId = -1;											// PLP ID
+		long physicalLayerPipeId = -1;																		// PLP ID
 		// IATSCLocator
-		long physicalChannel = -1;												// Physical Channel番号
-		long transportStreamID = -1;											// TSID
+		long physicalChannel = -1;																			// Physical Channel番号
+		long transportStreamID = -1;																		// TSID
 		// IATSCLocator2
-		long programNumber = -1;												// Program Number
+		long programNumber = -1;																			// Program Number
 
 		switch (it->second.nDVBSystemType) {
-		case eTunerTypeDVBT:
-		case eTunerTypeDVBT2:
+		case EnumSettingValue::TunerType::DVBT:
+		case EnumSettingValue::TunerType::DVBT2:
 			bstrUniqueName = L"DVB-T";
 			bstrFriendlyName = L"Local DVB-T Digital Antenna";
-			specifyTuningSpace = eTuningSpaceDVB;
-			if (it->second.nDVBSystemType == eTunerTypeDVBT2) {
-				specifyLocator = eLocatorDVBT2;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+			if (it->second.nDVBSystemType == EnumSettingValue::TunerType::DVBT2) {
+				specifyLocator = EnumSettingValue::Locator::DVBT2;
 			}
 			else {
-				specifyLocator = eLocatorDVBT;
+				specifyLocator = EnumSettingValue::Locator::DVBT;
 			}
-			specifyITuningSpaceNetworkType = eNetworkTypeDVBT;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBT;
 			dvbSystemType = DVB_Terrestrial;
 			networkID = 0;
 			break;
 
-		case eTunerTypeDVBC:
+		case EnumSettingValue::TunerType::DVBC:
 			bstrUniqueName = L"DVB-C";
 			bstrFriendlyName = L"Local DVB-C Digital Cable";
-			specifyTuningSpace = eTuningSpaceDVB;
-			specifyLocator = eLocatorDVBC;
-			specifyITuningSpaceNetworkType = eNetworkTypeDVBC;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+			specifyLocator = EnumSettingValue::Locator::DVBC;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBC;
 			dvbSystemType = DVB_Cable;
 			networkID = 0;
 			break;
 
-		case eTunerTypeISDBT:
+		case EnumSettingValue::TunerType::ISDBT:
 			bstrUniqueName = L"ISDB-T";
 			bstrFriendlyName = L"Local ISDB-T Digital Antenna";
-			specifyTuningSpace = eTuningSpaceDVB;
-			specifyLocator = eLocatorDVBT;
-			specifyITuningSpaceNetworkType = eNetworkTypeISDBT;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+			specifyLocator = EnumSettingValue::Locator::DVBT;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBT;
 			dvbSystemType = ISDB_Terrestrial;
 			networkID = -1;
 			break;
 
-		case eTunerTypeISDBC:
+		case EnumSettingValue::TunerType::ISDBC:
 			bstrUniqueName = L"ISDB-C";
 			bstrFriendlyName = L"Local ISDB-C Digital Cable";
-			specifyTuningSpace = eTuningSpaceDVB;
-			specifyLocator = eLocatorDVBC;
-			specifyITuningSpaceNetworkType = eNetworkTypeISDBC;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+			specifyLocator = EnumSettingValue::Locator::DVBC;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBC;
 			dvbSystemType = DVB_Cable;
 			networkID = -1;
 			break;
 
-		case eTunerTypeISDBS:
+		case EnumSettingValue::TunerType::ISDBS:
 			bstrUniqueName = L"ISDB-S";
 			bstrFriendlyName = L"Default Digital ISDB-S Tuning Space";
-			specifyTuningSpace = eTuningSpaceDVBS;
-			specifyLocator = eLocatorISDBS;
-			specifyITuningSpaceNetworkType = eNetworkTypeISDBS;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::DVBS;
+			specifyLocator = EnumSettingValue::Locator::ISDBS;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBS;
 			dvbSystemType = ISDB_Satellite;
 			networkID = -1;
 			highOscillator = -1;
@@ -3625,12 +3405,12 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
 			break;
 
-		case eTunerTypeATSC_Antenna:
+		case EnumSettingValue::TunerType::ATSC_Antenna:
 			bstrUniqueName = L"ATSC";
 			bstrFriendlyName = L"Local ATSC Digital Antenna";
-			specifyTuningSpace = eTuningSpaceATSC;
-			specifyLocator = eLocatorATSC;
-			specifyITuningSpaceNetworkType = eNetworkTypeATSC;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::ATSC;
+			specifyLocator = EnumSettingValue::Locator::ATSC;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ATSC;
 			inputType = TunerInputAntenna;
 			countryCode = 0;
 			minChannel = 1;
@@ -3642,12 +3422,12 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			modulationType = BDA_MOD_128QAM;
 			break;
 
-		case eTunerTypeATSC_Cable:
+		case EnumSettingValue::TunerType::ATSC_Cable:
 			bstrUniqueName = L"ATSCCable";
 			bstrFriendlyName = L"Local ATSC Digital Cable";
-			specifyTuningSpace = eTuningSpaceATSC;
-			specifyLocator = eLocatorATSC;
-			specifyITuningSpaceNetworkType = eNetworkTypeATSC;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::ATSC;
+			specifyLocator = EnumSettingValue::Locator::ATSC;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ATSC;
 			inputType = TunerInputCable;
 			countryCode = 0;
 			minChannel = 1;
@@ -3659,12 +3439,12 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			modulationType = BDA_MOD_128QAM;
 			break;
 
-		case eTunerTypeDigitalCable:
+		case EnumSettingValue::TunerType::DigitalCable:
 			bstrUniqueName = L"Digital Cable";
 			bstrFriendlyName = L"Local Digital Cable";
-			specifyTuningSpace = eTuningSpaceDigitalCable;
-			specifyLocator = eLocatorDigitalCable;
-			specifyITuningSpaceNetworkType = eNetworkTypeDigitalCable;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::DigitalCable;
+			specifyLocator = EnumSettingValue::Locator::DigitalCable;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DigitalCable;
 			inputType = TunerInputCable;
 			countryCode = 0;
 			minChannel = 2;
@@ -3679,13 +3459,13 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			maxSourceID = 0x7fffffff;
 			break;
 
-		case eTunerTypeDVBS:
+		case EnumSettingValue::TunerType::DVBS:
 		default:
 			bstrUniqueName = L"DVB-S";
 			bstrFriendlyName = L"Default Digital DVB-S Tuning Space";
-			specifyTuningSpace = eTuningSpaceDVBS;
-			specifyLocator = eLocatorDVBS;
-			specifyITuningSpaceNetworkType = eNetworkTypeDVBS;
+			specifyTuningSpace = EnumSettingValue::TuningSpace::DVBS;
+			specifyLocator = EnumSettingValue::Locator::DVBS;
+			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBS;
 			dvbSystemType = DVB_Satellite;
 			networkID = -1;
 			highOscillator = 10600000;
@@ -3696,98 +3476,98 @@ HRESULT CBonTuner::CreateTuningSpace(void)
 			break;
 		}
 
-		if (it->second.nTuningSpace != eTuningSpaceAuto) {
+		if (it->second.nTuningSpace != EnumSettingValue::TuningSpace::Auto) {
 			specifyTuningSpace = it->second.nTuningSpace;
 		}
 		switch (specifyTuningSpace) {
-		case eTuningSpaceDVB:
+		case EnumSettingValue::TuningSpace::DVB:
 			clsidTuningSpace = __uuidof(DVBTuningSpace);
 			break;
-		case eTuningSpaceDVBS:
+		case EnumSettingValue::TuningSpace::DVBS:
 			clsidTuningSpace = __uuidof(DVBSTuningSpace);
 			break;
-		case eTuningSpaceAnalogTV:
+		case EnumSettingValue::TuningSpace::AnalogTV:
 			clsidTuningSpace = __uuidof(AnalogTVTuningSpace);
 			break;
-		case eTuningSpaceATSC:
+		case EnumSettingValue::TuningSpace::ATSC:
 			clsidTuningSpace = __uuidof(ATSCTuningSpace);
 			break;
-		case eTuningSpaceDigitalCable:
+		case EnumSettingValue::TuningSpace::DigitalCable:
 			clsidTuningSpace = __uuidof(DigitalCableTuningSpace);
 			break;
 		}
 
-		if (it->second.nLocator != eLocatorAuto) {
+		if (it->second.nLocator != EnumSettingValue::Locator::Auto) {
 			specifyLocator = it->second.nLocator;
 		}
 		switch (specifyLocator) {
-		case eLocatorDVBT:
+		case EnumSettingValue::Locator::DVBT:
 			clsidLocator = __uuidof(DVBTLocator);
 			break;
-		case eLocatorDVBT2:
+		case EnumSettingValue::Locator::DVBT2:
 			clsidLocator = __uuidof(DVBTLocator2);
 			break;
-		case eLocatorDVBS:
+		case EnumSettingValue::Locator::DVBS:
 			clsidLocator = __uuidof(DVBSLocator);
 			break;
-		case eLocatorDVBC:
+		case EnumSettingValue::Locator::DVBC:
 			clsidLocator = __uuidof(DVBCLocator);
 			break;
-		case eLocatorISDBS:
+		case EnumSettingValue::Locator::ISDBS:
 			clsidLocator = __uuidof(ISDBSLocator);
 			break;
-		case eLocatorATSC:
+		case EnumSettingValue::Locator::ATSC:
 			clsidLocator = __uuidof(ATSCLocator);
 			break;
-		case eLocatorDigitalCable:
+		case EnumSettingValue::Locator::DigitalCable:
 			clsidLocator = __uuidof(DigitalCableLocator);
 			break;
 		}
 
-		if (it->second.nITuningSpaceNetworkType != eNetworkTypeAuto) {
+		if (it->second.nITuningSpaceNetworkType != EnumSettingValue::NetworkType::Auto) {
 			specifyITuningSpaceNetworkType = it->second.nITuningSpaceNetworkType;
 		}
 		switch (specifyITuningSpaceNetworkType) {
-		case eNetworkTypeDVBT:
+		case EnumSettingValue::NetworkType::DVBT:
 			iidNetworkType = { STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeDVBS:
+		case EnumSettingValue::NetworkType::DVBS:
 			iidNetworkType = { STATIC_DVB_SATELLITE_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeDVBC:
+		case EnumSettingValue::NetworkType::DVBC:
 			iidNetworkType = { STATIC_DVB_CABLE_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeISDBT:
+		case EnumSettingValue::NetworkType::ISDBT:
 			iidNetworkType = { STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeISDBS:
+		case EnumSettingValue::NetworkType::ISDBS:
 			iidNetworkType = { STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeISDBC:
+		case EnumSettingValue::NetworkType::ISDBC:
 			iidNetworkType = { STATIC_ISDB_CABLE_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeATSC:
+		case EnumSettingValue::NetworkType::ATSC:
 			iidNetworkType = { STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeDigitalCable:
+		case EnumSettingValue::NetworkType::DigitalCable:
 			iidNetworkType = { STATIC_DIGITAL_CABLE_NETWORK_TYPE };
 			break;
-		case eNetworkTypeBSkyB:
+		case EnumSettingValue::NetworkType::BSkyB:
 			iidNetworkType = { STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeDIRECTV:
+		case EnumSettingValue::NetworkType::DIRECTV:
 			iidNetworkType = { STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE };
 			break;
-		case eNetworkTypeEchoStar:
+		case EnumSettingValue::NetworkType::EchoStar:
 			iidNetworkType = { STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE };
 			break;
 		}
 
-		if (it->second.nIDVBTuningSpaceSystemType != enumDVBSystemType::eDVBSystemTypeAuto) {
+		if (it->second.nIDVBTuningSpaceSystemType != EnumSettingValue::DVBSystemType::Auto) {
 			dvbSystemType = (DVBSystemType)it->second.nIDVBTuningSpaceSystemType;
 		}
 
-		if (it->second.nIAnalogTVTuningSpaceInputType != enumTunerInputType::eTunerInputTypeAuto) {
+		if (it->second.nIAnalogTVTuningSpaceInputType != EnumSettingValue::TunerInputType::Auto) {
 			inputType = (tagTunerInputType)it->second.nIAnalogTVTuningSpaceInputType;
 		}
 
@@ -4119,43 +3899,43 @@ HRESULT CBonTuner::LoadNetworkProvider(void)
 	CLSID clsidNetworkProvider = CLSID_NULL;
 
 	switch (m_nNetworkProvider) {
-	case eNetworkProviderGeneric:
+	case EnumSettingValue::NetworkProvider::Generic:
 		clsidNetworkProvider = CLSID_NetworkProvider;
 		break;
-	case eNetworkProviderDVBS:
+	case EnumSettingValue::NetworkProvider::DVBS:
 		clsidNetworkProvider = CLSID_DVBSNetworkProvider;
 		break;
-	case eNetworkProviderDVBT:
+	case EnumSettingValue::NetworkProvider::DVBT:
 		clsidNetworkProvider = CLSID_DVBTNetworkProvider;
 		break;
-	case eNetworkProviderDVBC:
+	case EnumSettingValue::NetworkProvider::DVBC:
 		clsidNetworkProvider = CLSID_DVBCNetworkProvider;
 		break;
-	case eNetworkProviderATSC:
+	case EnumSettingValue::NetworkProvider::ATSC:
 		clsidNetworkProvider = CLSID_ATSCNetworkProvider;
 		break;
-	case eNetworkProviderAuto:
+	case EnumSettingValue::NetworkProvider::Auto:
 	default:
 		if (m_DVBSystemTypeDB.nNumType > 1) {
 			clsidNetworkProvider = CLSID_NetworkProvider;
 		}
 		else {
 			switch (m_DVBSystemTypeDB.SystemType[0].nDVBSystemType) {
-			case eTunerTypeDVBS:
-			case eTunerTypeISDBS:
+			case EnumSettingValue::TunerType::DVBS:
+			case EnumSettingValue::TunerType::ISDBS:
 				clsidNetworkProvider = CLSID_DVBSNetworkProvider;
 				break;
-			case eTunerTypeDVBT:
-			case eTunerTypeDVBT2:
-			case eTunerTypeISDBT:
+			case EnumSettingValue::TunerType::DVBT:
+			case EnumSettingValue::TunerType::DVBT2:
+			case EnumSettingValue::TunerType::ISDBT:
 				clsidNetworkProvider = CLSID_DVBTNetworkProvider;
 				break;
-			case eTunerTypeDVBC:
+			case EnumSettingValue::TunerType::DVBC:
 				clsidNetworkProvider = CLSID_DVBCNetworkProvider;
 				break;
-			case eTunerTypeATSC_Antenna:
-			case eTunerTypeATSC_Cable:
-			case eTunerTypeDigitalCable:
+			case EnumSettingValue::TunerType::ATSC_Antenna:
+			case EnumSettingValue::TunerType::ATSC_Cable:
+			case EnumSettingValue::TunerType::DigitalCable:
 				clsidNetworkProvider = CLSID_ATSCNetworkProvider;
 				break;
 			default:
