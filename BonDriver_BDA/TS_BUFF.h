@@ -4,9 +4,11 @@
 #include <queue>
 
 // TSデータバッファ
-struct TS_DATA {
+class TS_DATA {
+public:
 	BYTE* pbyBuff;
 	size_t Size;
+public:
 	TS_DATA(void);
 	TS_DATA(BYTE* data, size_t size, BOOL copy = FALSE);
 	~TS_DATA(void);
@@ -24,6 +26,7 @@ private:
 
 public:
 	TS_BUFF(void);
+	TS_BUFF(size_t buffSize, size_t maxCount);
 	~TS_BUFF(void);
 	void SetSize(size_t buffSize, size_t maxCount);
 	void Purge(void);

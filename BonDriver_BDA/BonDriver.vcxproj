@@ -491,6 +491,9 @@
     <ClCompile Include="..\common\DSFilterEnum.cpp" />
     <ClCompile Include="BonDriver.cpp" />
     <ClCompile Include="BonTuner.cpp" />
+    <ClCompile Include="CBitRate.cpp" />
+    <ClCompile Include="CCOMProc.cpp" />
+    <ClCompile Include="CDecodeProc.cpp" />
     <ClCompile Include="TSMF.cpp" />
     <ClCompile Include="tswriter.cpp" />
     <ClCompile Include="TS_BUFF.cpp" />
@@ -506,6 +509,9 @@
     <ClInclude Include="..\common\LockChannel.h" />
     <ClInclude Include="..\common\WaitWithMsg.h" />
     <ClInclude Include="BonTuner.h" />
+    <ClInclude Include="CBitRate.h" />
+    <ClInclude Include="CCOMProc.h" />
+    <ClInclude Include="CDecodeProc.h" />
     <ClInclude Include="IBonDriver.h" />
     <ClInclude Include="IBonDriver2.h" />
     <ClInclude Include="TSMF.h" />

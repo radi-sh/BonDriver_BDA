@@ -27,6 +27,7 @@ private:
 		BYTE emergency_indicator;							// 緊急警報指示
 		BYTE relative_stream_number[52];					// 相対ストリーム番号対スロット対応情報
 	} TSMFData;												// TSMF多重フレームヘッダ情報
+	BOOL enabled;											// TSMF処理有効
 	static constexpr BYTE TS_PACKET_SYNC_BYTE = 0x47;		// TSパケットヘッダ同期バイトコード
 
 public:
@@ -40,6 +41,8 @@ public:
 	void Disable(void);
 	// TSバッファのTSMF処理を行う
 	void ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen);
+	// TSMF処理が有効かどうか
+	BOOL IsEnabled(void);
 
 private:
 	// 全ての情報をクリア

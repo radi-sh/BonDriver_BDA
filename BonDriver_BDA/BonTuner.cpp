@@ -26,8 +26,16 @@
 // bstr_t
 #include <comdef.h>
 
+#include "IBdaSpecials2.h"
 #include "CIniFileAccess.h"
 #include "WaitWithMsg.h"
+#include "DSFilterEnum.h"
+
+#include "TS_BUFF.h"
+#include "TSMF.h"
+#include "CBitRate.h"
+#include "CCOMProc.h"
+#include "CDecodeProc.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "strmbasd.lib")
@@ -126,9 +134,6 @@ CBonTuner::CBonTuner()
 	m_nThreadPriorityStream(THREAD_PRIORITY_ERROR_RETURN),
 	m_nPeriodicTimer(0),
 	m_sIniFilePath(L""),
-	m_hOnStreamEvent(NULL),
-	m_hOnDecodeEvent(NULL),
-	m_LastBuff(NULL),
 	m_bRecvStarted(FALSE),
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
@@ -141,7 +146,6 @@ CBonTuner::CBonTuner()
 	m_dwTargetChannel(CBonTuner::CHANNEL_INVALID),
 	m_dwCurChannel(CBonTuner::CHANNEL_INVALID),
 	m_nCurTone(CBonTuner::TONE_UNKNOWN),
-	m_bIsEnabledTSMF(FALSE),
 	m_hModuleTunerSpecials(NULL),
 	m_pIBdaSpecials(NULL),
 	m_pIBdaSpecials2(NULL)
@@ -158,16 +162,19 @@ CBonTuner::CBonTuner()
 
 	ReadIniFile();
 
-	m_TsBuff.SetSize(m_nBuffSize, m_nMaxBuffCount);
-	m_DecodedTsBuff.SetSize(0, m_nMaxBuffCount);
+	// TSMFパーサーのインスタンス作成
+	if (m_bNeedTSMFParser) {
+		m_pTSMFParser = new CTSMFParser();
+	}
+
+	// ビットレート計算クラスのインスタンス作成
+	if (m_bNeedBitRate) {
+		m_pBitRate = new CBitRate();
+	}
 
 	// COM処理専用スレッド起動
-	m_aCOMProc.hThread = ::CreateThread(NULL, 0, CBonTuner::COMProcThread, this, 0, NULL);
-
-	// スレッドプライオリティ
-	if (m_aCOMProc.hThread != NULL && m_nThreadPriorityCOM != THREAD_PRIORITY_ERROR_RETURN) {
-		::SetThreadPriority(m_aCOMProc.hThread, m_nThreadPriorityCOM);
-	}
+	m_pCOMProc = new CCOMProc();
+	m_pCOMProc->CreateThread(CBonTuner::COMProcThread, this, m_nThreadPriorityCOM);
 
 	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
 	if (m_nPeriodicTimer != 0) {
@@ -188,10 +195,9 @@ CBonTuner::~CBonTuner()
 	}
 
 	// COM処理専用スレッド終了
-	if (m_aCOMProc.hThread) {
-		::SetEvent(m_aCOMProc.hTerminateRequest);
-		::WaitForSingleObject(m_aCOMProc.hThread, INFINITE);
-		SAFE_CLOSE_HANDLE(m_aCOMProc.hThread);
+	if (m_pCOMProc) {
+		m_pCOMProc->TerminateThread();
+		SAFE_DELETE(m_pCOMProc);
 	}
 
 	SAFE_CLOSE_HANDLE(m_hStreamThread);
@@ -211,27 +217,12 @@ CBonTuner::~CBonTuner()
 
 const BOOL CBonTuner::OpenTuner(void)
 {
-	if (m_aCOMProc.hThread == NULL)
-		return FALSE;
-
-	DWORD dw;
-	BOOL ret = FALSE;
-
-	::EnterCriticalSection(&m_aCOMProc.csLock);
-
-	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqOpenTuner;
-	::SetEvent(m_aCOMProc.hReqEvent);
-	HANDLE h[2] = {
-		m_aCOMProc.hEndEvent,
-		m_aCOMProc.hThread
-	};
-	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
-	if (dw == WAIT_OBJECT_0) {
-		ret = m_aCOMProc.uRetVal.OpenTuner;
+	CCOMProc::COMReqArgs arg;
+	arg.nRequest = CCOMProc::enumCOMRequest::eCOMReqOpenTuner;
+	if (m_pCOMProc->RequestCOMReq(&arg)) {
+		return arg.uRetVal.OpenTuner;
 	}
-
-	::LeaveCriticalSection(&m_aCOMProc.csLock);
-	return ret;
+	return FALSE;
 }
 
 const BOOL CBonTuner::_OpenTuner(void)
@@ -272,18 +263,29 @@ const BOOL CBonTuner::_OpenTuner(void)
 			hr = LoadTunerSignalStatisticsDemodNode();
 		}
 
+		// 受信TSデータバッファ初期化
+		m_pTsBuff = new TS_BUFF(m_nBuffSize, m_nMaxBuffCount);
+
 		// TS受信イベント作成
 		m_hOnStreamEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 
-		// Decodeイベント作成
-		m_hOnDecodeEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
+		if (!m_bNeedDecodeProc) {
+			m_ppGetTsBuff = &m_pTsBuff;
+			m_phOnWaitTsEvent = &m_hOnStreamEvent;
+		}
+		else {
+			// Decode処理の終わったTSデータバッファ初期化
+			m_pDecodedTsBuff = new TS_BUFF(0, m_nMaxBuffCount);
 
-		// Decode処理専用スレッド起動
-		m_aDecodeProc.hThread = ::CreateThread(NULL, 0, CBonTuner::DecodeProcThread, this, 0, NULL);
+			// Decodeイベント作成
+			m_hOnDecodeEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 
-		// スレッドプライオリティ
-		if (m_aDecodeProc.hThread != NULL && m_nThreadPriorityDecode != THREAD_PRIORITY_ERROR_RETURN) {
-			::SetThreadPriority(m_aDecodeProc.hThread, m_nThreadPriorityDecode);
+			// Decode処理専用スレッド起動
+			m_pDecodeProc = new CDecodeProc();
+			m_pDecodeProc->CreateThread(CBonTuner::DecodeProcThread, this, THREAD_PRIORITY_ERROR_RETURN);
+
+			m_ppGetTsBuff = &m_pDecodedTsBuff;
+			m_phOnWaitTsEvent = &m_hOnDecodeEvent;
 		}
 
 		// コールバック関数セット
@@ -303,22 +305,9 @@ const BOOL CBonTuner::_OpenTuner(void)
 
 void CBonTuner::CloseTuner(void)
 {
-	if (m_aCOMProc.hThread == NULL)
-		return;
-
-	DWORD dw;
-
-	::EnterCriticalSection(&m_aCOMProc.csLock);
-
-	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqCloseTuner;
-	::SetEvent(m_aCOMProc.hReqEvent);
-	HANDLE h[2] = {
-		m_aCOMProc.hEndEvent,
-		m_aCOMProc.hThread
-	};
-	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
-
-	::LeaveCriticalSection(&m_aCOMProc.csLock);
+	CCOMProc::COMReqArgs arg;
+	arg.nRequest = CCOMProc::enumCOMRequest::eCOMReqCloseTuner;
+	m_pCOMProc->RequestCOMReq(&arg);
 	return;
 }
 
@@ -333,10 +322,9 @@ void CBonTuner::_CloseTuner(BOOL putoff)
 	StopRecv();
 
 	// Decode処理専用スレッド終了
-	if (m_aDecodeProc.hThread) {
-		::SetEvent(m_aDecodeProc.hTerminateRequest);
-		WaitForSingleObjectWithMessageLoop(m_aDecodeProc.hThread, INFINITE);
-		SAFE_CLOSE_HANDLE(m_aDecodeProc.hThread);
+	if (m_pDecodeProc) {
+		m_pDecodeProc->TerminateThread();
+		SAFE_DELETE(m_pDecodeProc);
 	}
 
 	// Decodeイベント開放
@@ -384,27 +372,12 @@ const BOOL CBonTuner::SetChannel(const BYTE byCh)
 
 const float CBonTuner::GetSignalLevel(void)
 {
-	if (m_aCOMProc.hThread == NULL)
-		return FALSE;
-
-	DWORD dw;
-	float ret = 0.0F;
-
-	::EnterCriticalSection(&m_aCOMProc.csLock);
-
-	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqGetSignalLevel;
-	::SetEvent(m_aCOMProc.hReqEvent);
-	HANDLE h[2] = {
-		m_aCOMProc.hEndEvent,
-		m_aCOMProc.hThread
-	};
-	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
-	if (dw == WAIT_OBJECT_0) {
-		ret = m_aCOMProc.uRetVal.GetSignalLevel;
+	CCOMProc::COMReqArgs arg;
+	arg.nRequest = CCOMProc::enumCOMRequest::eCOMReqGetSignalLevel;
+	if (m_pCOMProc->RequestCOMReq(&arg)) {
+		return arg.uRetVal.GetSignalLevel;
 	}
-
-	::LeaveCriticalSection(&m_aCOMProc.csLock);
-	return ret;
+	return 0.0F;
 }
 
 const float CBonTuner::_GetSignalLevel(void)
@@ -417,7 +390,12 @@ const float CBonTuner::_GetSignalLevel(void)
 
 	// ビットレートを返す場合
 	if (m_bSignalLevelGetTypeBR) {
-		return (float)m_BitRate.GetRate();
+		if (m_pBitRate) {
+			return (float)m_pBitRate->GetRate();
+		}
+		else {
+			return 0.0F;
+		}
 	}
 
 	// IBdaSpecials2固有関数があれば丸投げ
@@ -463,7 +441,7 @@ const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
 	DWORD dwRet;
 	if (m_nWaitTsSleep) {
 		// WaitTsSleep が指定されている場合
-		dwRet = ::WaitForSingleObject(m_hOnDecodeEvent, 0);
+		dwRet = ::WaitForSingleObject(*m_phOnWaitTsEvent, 0);
 		// イベントがシグナル状態でなければ指定時間待機する
 		if (dwRet != WAIT_TIMEOUT)
 			return dwRet;
@@ -472,13 +450,15 @@ const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
 	}
 
 	// イベントがシグナル状態になるのを待つ
-	dwRet = ::WaitForSingleObject(m_hOnDecodeEvent, (dwTimeOut)? dwTimeOut : INFINITE);
+	do {
+		dwRet = ::WaitForSingleObject(*m_phOnWaitTsEvent, (dwTimeOut) ? dwTimeOut : INFINITE);
+	} while ((*m_ppGetTsBuff)->Size() < m_nWaitTsCount);
 	return dwRet;
 }
 
 const DWORD CBonTuner::GetReadyCount(void)
 {
-	return (DWORD)m_DecodedTsBuff.Size();
+	return (DWORD)(*m_ppGetTsBuff)->Size();
 }
 
 const BOOL CBonTuner::GetTsStream(BYTE *pDst, DWORD *pdwSize, DWORD *pdwRemain)
@@ -496,11 +476,11 @@ const BOOL CBonTuner::GetTsStream(BYTE **ppDst, DWORD *pdwSize, DWORD *pdwRemain
 {
 	SAFE_DELETE(m_LastBuff);
 	BOOL bRet = TRUE;
-	m_LastBuff = m_DecodedTsBuff.Get();
+	m_LastBuff = (*m_ppGetTsBuff)->Get();
 	if (m_LastBuff) {
 		*pdwSize = (DWORD)m_LastBuff->Size;
 		*ppDst = m_LastBuff->pbyBuff;
-		*pdwRemain = (DWORD)m_DecodedTsBuff.Size();
+		*pdwRemain = (DWORD)(*m_ppGetTsBuff)->Size();
 	}
 	else {
 		*pdwSize = 0;
@@ -516,13 +496,18 @@ void CBonTuner::PurgeTsStream(void)
 	// m_LastBuff は参照されている可能性があるので delete しない
 
 	// 受信TSバッファ
-	m_TsBuff.Purge();
+	if (m_pTsBuff) {
+		m_pTsBuff->Purge();
+	}
 
 	// デコード後TSバッファ
-	m_DecodedTsBuff.Purge();
+	if (m_pDecodedTsBuff) {
+		m_pDecodedTsBuff->Purge();
+	}
 
 	// ビットレート計算用クラス
-	m_BitRate.Clear();
+	if (m_pBitRate)
+		m_pBitRate->Clear();
 }
 
 LPCTSTR CBonTuner::GetTunerName(void)
@@ -532,27 +517,12 @@ LPCTSTR CBonTuner::GetTunerName(void)
 
 const BOOL CBonTuner::IsTunerOpening(void)
 {
-	if (m_aCOMProc.hThread == NULL)
-		return FALSE;
-
-	DWORD dw;
-	BOOL ret = FALSE;
-
-	::EnterCriticalSection(&m_aCOMProc.csLock);
-
-	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqIsTunerOpening;
-	::SetEvent(m_aCOMProc.hReqEvent);
-	HANDLE h[2] = {
-		m_aCOMProc.hEndEvent,
-		m_aCOMProc.hThread
-	};
-	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
-	if (dw == WAIT_OBJECT_0) {
-		ret = m_aCOMProc.uRetVal.IsTunerOpening;
+	CCOMProc::COMReqArgs arg;
+	arg.nRequest = CCOMProc::enumCOMRequest::eCOMReqIsTunerOpening;
+	if (m_pCOMProc->RequestCOMReq(&arg)) {
+		return arg.uRetVal.IsTunerOpening;
 	}
-
-	::LeaveCriticalSection(&m_aCOMProc.csLock);
-	return ret;
+	return FALSE;
 }
 
 const BOOL CBonTuner::_IsTunerOpening(void)
@@ -589,29 +559,14 @@ LPCTSTR CBonTuner::EnumChannelName(const DWORD dwSpace, const DWORD dwChannel)
 
 const BOOL CBonTuner::SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 {
-	if (m_aCOMProc.hThread == NULL)
-		return FALSE;
-
-	DWORD dw;
-	BOOL ret = FALSE;
-
-	::EnterCriticalSection(&m_aCOMProc.csLock);
-
-	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqSetChannel;
-	m_aCOMProc.uParam.SetChannel.dwSpace = dwSpace;
-	m_aCOMProc.uParam.SetChannel.dwChannel = dwChannel;
-	::SetEvent(m_aCOMProc.hReqEvent);
-	HANDLE h[2] = {
-		m_aCOMProc.hEndEvent,
-		m_aCOMProc.hThread
-	};
-	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
-	if (dw == WAIT_OBJECT_0) {
-		ret = m_aCOMProc.uRetVal.SetChannel;
+	CCOMProc::COMReqArgs arg;
+	arg.nRequest = CCOMProc::enumCOMRequest::eCOMReqSetChannel;
+	arg.uParam.SetChannel.dwSpace = dwSpace;
+	arg.uParam.SetChannel.dwChannel = dwChannel;
+	if (m_pCOMProc->RequestCOMReq(&arg)) {
+		return arg.uRetVal.SetChannel;
 	}
-
-	::LeaveCriticalSection(&m_aCOMProc.csLock);
-	return ret;
+	return FALSE;
 }
 
 const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
@@ -677,16 +632,13 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	// TSMF処理設定
 	switch (itSpace->second.TSMFMode) {
 	case 0:		// OFF
-		m_TSMFParser.Disable();
-		m_bIsEnabledTSMF = FALSE;
+		m_pTSMFParser->Disable();
 		break;
 	case 1:		// TSID
-		m_TSMFParser.SetTSID((WORD)Ch->ONID, (WORD)Ch->TSID, FALSE);
-		m_bIsEnabledTSMF = TRUE;
+		m_pTSMFParser->SetTSID((WORD)Ch->ONID, (WORD)Ch->TSID, FALSE);
 		break;
 	case 2:		// Relative
-		m_TSMFParser.SetTSID(0xffff, (WORD)Ch->TSID, TRUE);
-		m_bIsEnabledTSMF = TRUE;
+		m_pTSMFParser->SetTSID(0xffff, (WORD)Ch->TSID, TRUE);
 		break;
 	}
 
@@ -712,27 +664,12 @@ const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 const DWORD CBonTuner::GetCurSpace(void)
 {
-	if (m_aCOMProc.hThread == NULL)
-		return CBonTuner::SPACE_INVALID;
-
-	DWORD dw;
-	DWORD ret = CBonTuner::SPACE_INVALID;
-
-	::EnterCriticalSection(&m_aCOMProc.csLock);
-
-	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqGetCurSpace;
-	::SetEvent(m_aCOMProc.hReqEvent);
-	HANDLE h[2] = {
-		m_aCOMProc.hEndEvent,
-		m_aCOMProc.hThread
-	};
-	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
-	if (dw == WAIT_OBJECT_0) {
-		ret = m_aCOMProc.uRetVal.GetCurSpace;
+	CCOMProc::COMReqArgs arg;
+	arg.nRequest = CCOMProc::enumCOMRequest::eCOMReqGetCurSpace;
+	if (m_pCOMProc->RequestCOMReq(&arg)) {
+		return arg.uRetVal.GetCurSpace;
 	}
-
-	::LeaveCriticalSection(&m_aCOMProc.csLock);
-	return ret;
+	return CCOMProc::SPACE_INVALID;
 }
 
 const DWORD CBonTuner::_GetCurSpace(void)
@@ -745,27 +682,12 @@ const DWORD CBonTuner::_GetCurSpace(void)
 
 const DWORD CBonTuner::GetCurChannel(void)
 {
-	if (m_aCOMProc.hThread == NULL)
-		return CBonTuner::CHANNEL_INVALID;
-
-	DWORD dw;
-	DWORD ret = CBonTuner::CHANNEL_INVALID;
-
-	::EnterCriticalSection(&m_aCOMProc.csLock);
-
-	m_aCOMProc.nRequest = enumCOMRequest::eCOMReqGetCurChannel;
-	::SetEvent(m_aCOMProc.hReqEvent);
-	HANDLE h[2] = {
-		m_aCOMProc.hEndEvent,
-		m_aCOMProc.hThread
-	};
-	dw = ::WaitForMultipleObjects(2, h, FALSE, INFINITE);
-	if (dw == WAIT_OBJECT_0) {
-		ret = m_aCOMProc.uRetVal.GetCurChannel;
+	CCOMProc::COMReqArgs arg;
+	arg.nRequest = CCOMProc::enumCOMRequest::eCOMReqGetCurChannel;
+	if (m_pCOMProc->RequestCOMReq(&arg)) {
+		return arg.uRetVal.GetCurChannel;
 	}
-
-	::LeaveCriticalSection(&m_aCOMProc.csLock);
-	return ret;
+	return CCOMProc::CHANNEL_INVALID;
 }
 
 const DWORD CBonTuner::_GetCurChannel(void)
@@ -787,7 +709,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 {
 	BOOL terminate = FALSE;
 	CBonTuner* pSys = (CBonTuner*) lpParameter;
-	COMProc* pCOMProc = &pSys->m_aCOMProc;
+	CCOMProc* pCOMProc = pSys->m_pCOMProc;
 	HRESULT hr;
 
 	OutputDebug(L"COMProcThread: Thread created.\n");
@@ -798,38 +720,37 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 	// ロードすべきチューナ・キャプチャのリスト作成
 	pSys->m_TunerComboList.BuildComboDB();
 
-	HANDLE h[2] = {
-		pCOMProc->hTerminateRequest,
-		pCOMProc->hReqEvent
-	};
+	// スレッド起動完了を通知
+	pCOMProc->NotifyThreadStarted();
 
+	CCOMProc::COMReqArgs arg;
 	while (!terminate) {
-		DWORD ret = WaitForMultipleObjectsWithMessageLoop(2, h, FALSE, 1000);
+		CCOMProc::enumCOMWaitStatus ret = pCOMProc->WaitRequest(1000, &arg.nRequest, &arg.uParam);
 		switch (ret)
 		{
-		case WAIT_OBJECT_0:
+		case CCOMProc::enumCOMWaitStatus::eCOMWaitTerminateRequest:
 			terminate = TRUE;
 			break;
 
-		case WAIT_OBJECT_0 + 1:
-			switch (pCOMProc->nRequest)
+		case CCOMProc::enumCOMWaitStatus::eCOMWaitRequestEvent:
+			switch (arg.nRequest)
 			{
 
-			case eCOMReqOpenTuner:
-				pCOMProc->uRetVal.OpenTuner = pSys->_OpenTuner();
-				::SetEvent(pCOMProc->hEndEvent);
+			case CCOMProc::enumCOMRequest::eCOMReqOpenTuner:
+				arg.uRetVal.OpenTuner = pSys->_OpenTuner();
+				pCOMProc->NotifyComplete(arg.uRetVal);
 				break;
 
-			case eCOMReqCloseTuner:
+			case CCOMProc::enumCOMRequest::eCOMReqCloseTuner:
 				// OpenTuner・LockChannelの再試行中なら中止
 				pCOMProc->ResetReOpenTuner();
 				pCOMProc->ResetReLockChannel();
 
 				pSys->_CloseTuner(FALSE);
-				::SetEvent(pCOMProc->hEndEvent);
+				pCOMProc->NotifyComplete(arg.uRetVal);
 				break;
 
-			case eCOMReqSetChannel:
+			case CCOMProc::enumCOMRequest::eCOMReqSetChannel:
 				// 異常検知監視タイマー初期化
 				pCOMProc->ResetWatchDog();
 
@@ -837,58 +758,58 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 				pCOMProc->ResetReLockChannel();
 
 				// OpenTunerの再試行中ならFALSEを返す
-				if (pCOMProc->bDoReOpenTuner) {
+				if (pCOMProc->NeedReOpenTuner()) {
 					pCOMProc->ClearReOpenChannel();
-					pCOMProc->uRetVal.SetChannel = FALSE;
+					arg.uRetVal.SetChannel = FALSE;
 				}
 				else {
-					pCOMProc->uRetVal.SetChannel = pSys->_SetChannel(pCOMProc->uParam.SetChannel.dwSpace, pCOMProc->uParam.SetChannel.dwChannel);
+					arg.uRetVal.SetChannel = pSys->_SetChannel(arg.uParam.SetChannel.dwSpace, arg.uParam.SetChannel.dwChannel);
 				}
-				::SetEvent(pCOMProc->hEndEvent);
+				pCOMProc->NotifyComplete(arg.uRetVal);
 				break;
 
-			case eCOMReqGetSignalLevel:
+			case CCOMProc::enumCOMRequest::eCOMReqGetSignalLevel:
 				// OpenTunerの再試行中なら0を返す
-				if (pCOMProc->bDoReOpenTuner) {
-					pCOMProc->uRetVal.GetSignalLevel = 0.0F;
+				if (pCOMProc->NeedReOpenTuner()) {
+					arg.uRetVal.GetSignalLevel = 0.0F;
 				}
 				else {
-					pCOMProc->uRetVal.GetSignalLevel = pSys->_GetSignalLevel();
+					arg.uRetVal.GetSignalLevel = pSys->_GetSignalLevel();
 				}
-				::SetEvent(pCOMProc->hEndEvent);
+				pCOMProc->NotifyComplete(arg.uRetVal);
 				break;
 
-			case eCOMReqIsTunerOpening:
+			case CCOMProc::enumCOMRequest::eCOMReqIsTunerOpening:
 				// OpenTunerの再試行中ならTRUEを返す
-				if (pCOMProc->bDoReOpenTuner) {
-					pCOMProc->uRetVal.IsTunerOpening = TRUE;
+				if (pCOMProc->NeedReOpenTuner()) {
+					arg.uRetVal.IsTunerOpening = TRUE;
 				}
 				else {
-					pCOMProc->uRetVal.IsTunerOpening = pSys->_IsTunerOpening();
+					arg.uRetVal.IsTunerOpening = pSys->_IsTunerOpening();
 				}
-				::SetEvent(pCOMProc->hEndEvent);
+				pCOMProc->NotifyComplete(arg.uRetVal);
 				break;
 
-			case eCOMReqGetCurSpace:
+			case CCOMProc::enumCOMRequest::eCOMReqGetCurSpace:
 				// OpenTunerの再試行中なら退避値を返す
-				if (pCOMProc->bDoReOpenTuner) {
-					pCOMProc->uRetVal.GetCurSpace = pCOMProc->dwReOpenSpace;
+				if (pCOMProc->NeedReOpenTuner()) {
+					arg.uRetVal.GetCurSpace = pCOMProc->GetReOpenSpace();
 				}
 				else {
-					pCOMProc->uRetVal.GetCurSpace = pSys->_GetCurSpace();
+					arg.uRetVal.GetCurSpace = pSys->_GetCurSpace();
 				}
-				::SetEvent(pCOMProc->hEndEvent);
+				pCOMProc->NotifyComplete(arg.uRetVal);
 				break;
 
-			case eCOMReqGetCurChannel:
+			case CCOMProc::enumCOMRequest::eCOMReqGetCurChannel:
 				// OpenTunerの再試行中なら退避値を返す
-				if (pCOMProc->bDoReOpenTuner) {
-					pCOMProc->uRetVal.GetCurChannel = pCOMProc->dwReOpenChannel;
+				if (pCOMProc->NeedReOpenTuner()) {
+					arg.uRetVal.GetCurChannel = pCOMProc->GetReOpenChannel();
 				}
 				else {
-					pCOMProc->uRetVal.GetCurChannel = pSys->_GetCurChannel();
+					arg.uRetVal.GetCurChannel = pSys->_GetCurChannel();
 				}
-				::SetEvent(pCOMProc->hEndEvent);
+				pCOMProc->NotifyComplete(arg.uRetVal);
 				break;
 
 			default:
@@ -896,10 +817,10 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			}
 			break;
 
-		case WAIT_TIMEOUT:
+		case CCOMProc::enumCOMWaitStatus::eCOMWaitTimeout:
 			break;
 
-		case WAIT_FAILED:
+		case CCOMProc::enumCOMWaitStatus::eCOMWaitFailed:
 		default:
 			DWORD err = ::GetLastError();
 			OutputDebug(L"COMProcThread: Unknown error (ret=%d, LastError=0x%08x).\n", ret, err);
@@ -931,7 +852,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			}
 
 			// 異常検知
-			if (!pCOMProc->bDoReLockChannel && !pCOMProc->bDoReOpenTuner && pSys->m_dwCurChannel != CBonTuner::CHANNEL_INVALID) {
+			if (!pCOMProc->NeedReLockChannel() && !pCOMProc->NeedReOpenTuner() && pSys->m_dwCurChannel != CBonTuner::CHANNEL_INVALID) {
 
 				// SignalLockの状態確認
 				if (pSys->m_nWatchDogSignalLocked != 0) {
@@ -945,8 +866,8 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 				} // SignalLockの状態確認
 
 				// BitRate確認
-				if (pSys->m_nWatchDogBitRate != 0) {
-					if (pCOMProc->CheckBitRateErr((pSys->m_BitRate.GetRate() > 0.0), pSys->m_nWatchDogBitRate * 1000)) {
+				if (pSys->m_nWatchDogBitRate != 0 && pSys->m_pBitRate) {
+					if (pCOMProc->CheckBitRateErr((pSys->m_pBitRate->GetRate() > 0.0), pSys->m_nWatchDogBitRate * 1000)) {
 						// チャンネルロック再実行
 						OutputDebug(L"COMProcThread: WatchDogBitRate time is up.\n");
 						pCOMProc->SetReLockChannel();
@@ -955,10 +876,10 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			} // 異常検知
 
 			// CH切替動作試行後のOpenTuner再実行
-			if (pCOMProc->bDoReOpenTuner) {
+			if (pCOMProc->NeedReOpenTuner()) {
 				// OpenTuner再実行
 				pSys->_CloseTuner(pSys->m_bTryAnotherTuner);
-				if (pSys->_OpenTuner() && (!pCOMProc->CheckReOpenChannel() || pSys->_SetChannel(pCOMProc->dwReOpenSpace, pCOMProc->dwReOpenChannel))) {
+				if (pSys->_OpenTuner() && (!pCOMProc->CheckReOpenChannel() || pSys->_SetChannel(pCOMProc->GetReOpenSpace(), pCOMProc->GetReOpenChannel()))) {
 					// OpenTunerに成功し、SetChannnelに成功もしくは必要ない
 					OutputDebug(L"COMProcThread: Re-OpenTuner SUCCESS.\n");
 					pCOMProc->ResetReOpenTuner();
@@ -970,7 +891,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			} // CH切替動作試行後のOpenTuner再実行
 
 			// 異常検知後チャンネルロック再実行
-			if (!pCOMProc->bDoReOpenTuner && pCOMProc->bDoReLockChannel) {
+			if (!pCOMProc->NeedReOpenTuner() && pCOMProc->NeedReLockChannel()) {
 				// チャンネルロック再実行
 				if (pSys->LockChannel(&pSys->m_LastTuningParam, FALSE)) {
 					// LockChannelに成功した
@@ -1007,6 +928,7 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 {
 	BOOL terminate = FALSE;
 	CBonTuner* pSys = (CBonTuner*)lpParameter;
+	CDecodeProc* pDecodeProc = pSys->m_pDecodeProc;
 
 	BOOL bNeedDecode = FALSE;
 
@@ -1025,54 +947,51 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 	}
 	OutputDebug(L"DecodeProcThread: Detected IBdaSpecials decoding=%d.\n", bNeedDecode);
 
-	HANDLE h[2] = {
-		pSys->m_aDecodeProc.hTerminateRequest,
-		pSys->m_hOnStreamEvent
-	};
+	// スレッド起動完了を通知
+	pDecodeProc->NotifyThreadStarted();
 
 	while (!terminate) {
-		DWORD remain = pSys->m_BitRate.CheckRate();
-		DWORD ret = WaitForMultipleObjectsWithMessageLoop(2, h, FALSE, remain);
+		DWORD remain = (pSys->m_pBitRate) ? pSys->m_pBitRate->CheckRate() : INFINITE;
+		CDecodeProc::enumDecodeWaitStatus ret = pDecodeProc->WaitRequest(remain, pSys->m_hOnStreamEvent);
 		switch (ret)
 		{
-		case WAIT_OBJECT_0:
+		case CDecodeProc::enumDecodeWaitStatus::eDecodeWaitTerminateRequest:
 			terminate = TRUE;
 			break;
-		case WAIT_OBJECT_0 + 1:
-			{
+		case CDecodeProc::enumDecodeWaitStatus::eDecodeWaitRecvEvent:
+			if (pSys->m_pTsBuff) {
 				// TSバッファからのデータ取得
-				while (TS_DATA *pBuff = pSys->m_TsBuff.Get()) {
+				while (TS_DATA* pBuff = pSys->m_pTsBuff->Get()) {
 					// 必要ならばIBdaSpecialsによるデコード処理を行う
-					if (bNeedDecode) {
+					if (bNeedDecode && pSys->m_pIBdaSpecials2) {
 						pSys->m_pIBdaSpecials2->Decode(pBuff->pbyBuff, (DWORD)pBuff->Size);
 					}
 
 					// 取得したバッファをデコード済みバッファに追加
-					if (pSys->m_bIsEnabledTSMF) {
+					if (pSys->m_pTSMFParser && pSys->m_pTSMFParser->IsEnabled()) {
 						// TSMFの処理を行う
-						BYTE * newBuf = NULL;
+						BYTE* newBuf = NULL;
 						size_t newBufSize = 0;
-						pSys->m_TSMFParser.ParseTsBuffer(pBuff->pbyBuff, pBuff->Size, &newBuf, &newBufSize);
+						pSys->m_pTSMFParser->ParseTsBuffer(pBuff->pbyBuff, pBuff->Size, &newBuf, &newBufSize);
 						if (newBuf) {
-							TS_DATA * pNewTS = new TS_DATA(newBuf, (DWORD)newBufSize, FALSE);
-							pSys->m_DecodedTsBuff.Add(pNewTS);
+							TS_DATA* pNewTS = new TS_DATA(newBuf, (DWORD)newBufSize, FALSE);
+							pSys->m_pDecodedTsBuff->Add(pNewTS);
 						}
 						SAFE_DELETE(pBuff);
 					}
 					else {
 						// TSMFの処理を行わない場合はそのまま追加
-						pSys->m_DecodedTsBuff.Add(pBuff);
+						pSys->m_pDecodedTsBuff->Add(pBuff);
 					}
 
 					// 受信イベントセット
-					if (pSys->m_DecodedTsBuff.Size() >= pSys->m_nWaitTsCount)
-						::SetEvent(pSys->m_hOnDecodeEvent);
+					::SetEvent(pSys->m_hOnDecodeEvent);
 				}
 			}
 			break;
-		case WAIT_TIMEOUT:
+		case CDecodeProc::enumDecodeWaitStatus::eDecodeWaitTimeout:
 			break;
-		case WAIT_FAILED:
+		case CDecodeProc::enumDecodeWaitStatus::eDecodeWaitFailed:
 		default:
 			DWORD err = ::GetLastError();
 			OutputDebug(L"DecodeProcThread: Unknown error (ret=%d, LastError=0x%08x).\n", ret, err);
@@ -1091,15 +1010,18 @@ int CALLBACK CBonTuner::RecvProc(void* pParam, BYTE* pbData, size_t size)
 {
 	CBonTuner* pSys = (CBonTuner*)pParam;
 
+	// ストリームスレッドのハンドルを複製
 	if (pSys->m_hStreamThread == NULL) {
 		::DuplicateHandle(pSys->m_hProcess, GetCurrentThread(), GetCurrentProcess(), &(pSys->m_hStreamThread), 0, FALSE, 2);
 		pSys->m_bIsSetStreamThread = TRUE;
 	}
 
-	pSys->m_BitRate.AddRate((DWORD)size);
+	if (pSys->m_pBitRate) {
+		pSys->m_pBitRate->AddRate((DWORD)size);
+	}
 
-	if (pSys->m_bRecvStarted) {
-		if (pSys->m_TsBuff.AddData(pbData, size)) {
+	if (pSys->m_bRecvStarted && pSys->m_pTsBuff) {
+		if (pSys->m_pTsBuff->AddData(pbData, size)) {
 			::SetEvent(pSys->m_hOnStreamEvent);
 		}
 	}
@@ -1417,6 +1339,10 @@ void CBonTuner::ReadIniFile(void)
 
 	// BitRateの異常検知時間(秒)
 	m_nWatchDogBitRate = IniFileAccess.ReadKeyISectionData(L"WatchDogBitRate", 0);
+	if (m_nWatchDogBitRate > 0) {
+		m_bNeedBitRate = TRUE;
+		m_bNeedDecodeProc = TRUE;
+	}
 
 	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
 	m_nReOpenWhenGiveUpReLock = IniFileAccess.ReadKeyISectionData(L"ReOpenWhenGiveUpReLock", 0);
@@ -1438,8 +1364,11 @@ void CBonTuner::ReadIniFile(void)
 		m_bSignalLevelGetTypeTuner = TRUE;
 	else if (m_nSignalLevelCalcType >= eSignalLevelCalcTypeDemodSSMin && m_nSignalLevelCalcType <= eSignalLevelCalcTypeDemodSSMax)
 		m_bSignalLevelGetTypeDemodSS = TRUE;
-	else if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR)
+	else if (m_nSignalLevelCalcType == eSignalLevelCalcTypeBR) {
 		m_bSignalLevelGetTypeBR = TRUE;
+		m_bNeedBitRate = TRUE;
+		m_bNeedDecodeProc = TRUE;
+	}
 
 	if (m_nSignalLevelCalcType == eSignalLevelCalcTypeSSStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeTunerStrength || m_nSignalLevelCalcType == eSignalLevelCalcTypeDemodSSStrength) {
 		m_bSignalLevelNeedStrength = TRUE;
@@ -2636,6 +2565,10 @@ void CBonTuner::ReadIniFile(void)
 
 		// TSMFの処理モード
 		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, &mapTSMFMode);
+		if (itSpace->second.TSMFMode != 0) {
+			m_bNeedTSMFParser = TRUE;
+			m_bNeedDecodeProc = TRUE;
+		}
 
 		// CH設定
 		//    チャンネル番号 = 衛星番号,周波数,偏波,変調方式[,チャンネル名[,SID/MinorChannel[,TSID/Channel[,ONID/PhysicalChannel[,MajorChannel[,SourceID]]]]]]

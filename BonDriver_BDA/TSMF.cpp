@@ -12,7 +12,9 @@ CTSMFParser::CTSMFParser(void)
 	PacketSize(0),
 	prevBuf(NULL),
 	prevBufSize(0),
-	prevBufPos(0)
+	prevBufPos(0),
+	TSMFData({}),
+	enabled(FALSE)
 {
 }
 
@@ -27,11 +29,13 @@ void CTSMFParser::SetTSID(WORD onid, WORD tsid, BOOL relative)
 	TSID = tsid;
 	IsRelative = relative;
 	slot_counter = -1;
+	enabled = TRUE;
 }
 
 void CTSMFParser::Disable(void)
 {
 	Clear();
+	enabled = FALSE;
 }
 
 void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen)
@@ -105,6 +109,11 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 	}
 
 	return;
+}
+
+BOOL CTSMFParser::IsEnabled(void)
+{
+	return enabled;
 }
 
 void CTSMFParser::Clear(void)

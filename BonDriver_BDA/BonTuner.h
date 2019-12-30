@@ -11,12 +11,12 @@
 #include <list>
 #include <vector>
 #include <map>
+#include <atlbase.h>		// CComPtr
+#include <strmif.h>
+#include <tuner.h>
 
-#include "TS_BUFF.h"
-#include "IBdaSpecials2.h"
 #include "IBonDriver2.h"
 #include "LockChannel.h"
-#include "DSFilterEnum.h"
 #include "TunerComboList.h"
 #include "TSMF.h"
 
@@ -27,6 +27,16 @@
 
 #pragma comment(lib, "muparser.lib")
 
+class TS_DATA;
+class TS_BUFF;
+class CTSMFParser;
+class CBitRate;
+class CCOMProc;
+class CDecodeProc;
+class IBdaSpecials;
+class IBdaSpecials2b5;
+
+struct IMediaControl;
 struct ITsWriter;
 
 // CBonTuner class
@@ -201,217 +211,12 @@ protected:
 	// メンバ変数
 	////////////////////////////////////////
 
-	////////////////////////////////////////
 	// COM処理専用スレッド用
-	////////////////////////////////////////
+	CCOMProc* m_pCOMProc = NULL;
 
-	enum enumCOMRequest {
-		eCOMReqOpenTuner = 1,
-		eCOMReqCloseTuner,
-		eCOMReqSetChannel,
-		eCOMReqGetSignalLevel,
-		eCOMReqIsTunerOpening,
-		eCOMReqGetCurSpace,
-		eCOMReqGetCurChannel,
-	};
-
-	struct COMReqParamSetChannel {
-		DWORD dwSpace;
-		DWORD dwChannel;
-	};
-
-	union COMReqParm {
-		COMReqParamSetChannel SetChannel;
-	};
-
-	union COMReqRetVal {
-		BOOL OpenTuner;
-		BOOL SetChannel;
-		float GetSignalLevel;
-		BOOL IsTunerOpening;
-		DWORD GetCurSpace;
-		DWORD GetCurChannel;
-	};
-
-	struct COMProc {
-		HANDLE hThread;					// スレッドハンドル
-		HANDLE hReqEvent;				// COMProcスレッドへのコマンド実行要求
-		HANDLE hEndEvent;				// COMProcスレッドからのコマンド完了通知
-		CRITICAL_SECTION csLock;		// 排他用
-		enumCOMRequest nRequest;		// リクエスト
-		COMReqParm uParam;				// パラメータ
-		COMReqRetVal uRetVal;			// 戻り値
-		DWORD dwTick;					// 現在のTickCount
-		DWORD dwTickLastCheck;			// 最後に異常監視の確認を行ったTickCount
-		DWORD dwTickSignalLockErr;		// SignalLockの異常発生TickCount
-		DWORD dwTickBitRateErr;			// BitRateの異常発生TckCount
-		BOOL bSignalLockErr;			// SignalLockの異常発生中Flag
-		BOOL bBitRateErr;				// BitRateの異常発生中Flag
-		BOOL bDoReLockChannel;			// チャンネルロック再実行中
-		BOOL bDoReOpenTuner;			// チューナー再オープン中
-		unsigned int nReLockFailCount;	// Re-LockChannel失敗回数
-		DWORD dwReOpenSpace;			// チューナー再オープン時のカレントチューニングスペース番号退避
-		DWORD dwReOpenChannel;			// チューナー再オープン時のカレントチャンネル番号退避
-		HANDLE hTerminateRequest;		// スレッド終了要求
-		
-		COMProc(void)
-			: hThread(NULL),
-			  hReqEvent(NULL),
-			  hEndEvent(NULL),
-			  hTerminateRequest(NULL),
-			  dwTick(0),
-			  dwTickLastCheck(0),
-			  dwTickSignalLockErr(0),
-			  dwTickBitRateErr(0),
-			  bSignalLockErr(FALSE),
-			  bBitRateErr(FALSE),
-			  bDoReLockChannel(FALSE),
-			  bDoReOpenTuner(FALSE),
-			  dwReOpenSpace(CBonTuner::SPACE_INVALID),
-			  dwReOpenChannel(CBonTuner::CHANNEL_INVALID),
-			  nReLockFailCount(0)
-		{
-			hReqEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
-			hEndEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
-			hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
-			::InitializeCriticalSection(&csLock);
-		}
-		
-		~COMProc(void)
-		{
-			SAFE_CLOSE_HANDLE(hReqEvent);
-			SAFE_CLOSE_HANDLE(hEndEvent);
-			SAFE_CLOSE_HANDLE(hTerminateRequest);
-			::DeleteCriticalSection(&csLock);
-		}
-		
-		inline BOOL CheckTick(void)
-		{
-			dwTick = ::GetTickCount();
-			if (dwTick - dwTickLastCheck > 1000) {
-				dwTickLastCheck = dwTick;
-				return TRUE;
-			}
-			return FALSE;
-		}
-		
-		inline void ResetWatchDog(void)
-		{
-			bSignalLockErr = FALSE;
-			bBitRateErr = FALSE;
-		}
-
-		inline BOOL CheckSignalLockErr(BOOL state, DWORD threshold)
-		{
-			if (state) {
-				//正常
-				bSignalLockErr = FALSE;
-			} else {
-				// 異常
-				if (!bSignalLockErr) {
-					// 今回発生
-					bSignalLockErr = TRUE;
-					dwTickSignalLockErr = dwTick;
-				}
-				else {
-					// 前回以前に発生していた
-					if ((dwTick - dwTickSignalLockErr) > threshold) {
-						// 設定時間以上経過している
-						ResetWatchDog();
-						return TRUE;
-					}
-				}
-			}
-			return FALSE;
-		}
-		
-		inline BOOL CheckBitRateErr(BOOL state, DWORD threshold)
-		{
-			if (state) {
-				//正常
-				bSignalLockErr = FALSE;
-			}
-			else {
-				// 異常
-				if (!bBitRateErr) {
-					// 今回発生
-					bBitRateErr = TRUE;
-					dwTickBitRateErr = dwTick;
-				}
-				else {
-					// 前回以前に発生していた
-					if ((dwTick - dwTickBitRateErr) > threshold) {
-						// 設定時間以上経過している
-						ResetWatchDog();
-						return TRUE;
-					}
-				}
-			}
-			return FALSE;
-		}
-
-		inline void SetReLockChannel(void)
-		{
-			bDoReLockChannel = TRUE;
-			nReLockFailCount = 0;
-		}
-		
-		inline void ResetReLockChannel(void)
-		{
-			bDoReLockChannel = FALSE;
-			nReLockFailCount = 0;
-		}
-		
-		inline BOOL CheckReLockFailCount(unsigned int threshold)
-		{
-			return (++nReLockFailCount >= threshold);
-		}
-		
-		inline void SetReOpenTuner(DWORD space, DWORD channel)
-		{
-			bDoReOpenTuner = TRUE;
-			dwReOpenSpace = space;
-			dwReOpenChannel = channel;
-		}
-		
-		inline void ClearReOpenChannel(void)
-		{
-			dwReOpenSpace = CBonTuner::SPACE_INVALID;
-			dwReOpenChannel = CBonTuner::CHANNEL_INVALID;
-		}
-		
-		inline BOOL CheckReOpenChannel(void)
-		{
-			return (dwReOpenSpace != CBonTuner::SPACE_INVALID && dwReOpenChannel != CBonTuner::CHANNEL_INVALID);
-		}
-
-		inline void ResetReOpenTuner(void)
-		{
-			bDoReOpenTuner = FALSE;
-			ClearReOpenChannel();
-		}
-	};
-	COMProc m_aCOMProc;
-
-	////////////////////////////////////////
 	// Decode処理専用スレッド用
-	////////////////////////////////////////
-
-	struct DecodeProc {
-		HANDLE hThread;					// スレッドハンドル
-		HANDLE hTerminateRequest;		// スレッド終了要求
-		DecodeProc(void)
-			: hThread(NULL),
-			hTerminateRequest(NULL)
-		{
-			hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
-		}
-		~DecodeProc(void)
-		{
-			SAFE_CLOSE_HANDLE(hTerminateRequest);
-		}
-	};
-	DecodeProc m_aDecodeProc;
+	CDecodeProc* m_pDecodeProc = NULL;
+	BOOL m_bNeedDecodeProc = FALSE;
 
 	////////////////////////////////////////
 	// チューナパラメータ関係
@@ -691,19 +496,25 @@ protected:
 	std::wstring m_sIniFilePath;
 
 	// 受信イベント
-	HANDLE m_hOnStreamEvent;
+	HANDLE m_hOnStreamEvent = NULL;
 
-	// デコードイベント
-	HANDLE m_hOnDecodeEvent;
+	// デコード完了イベント
+	HANDLE m_hOnDecodeEvent = NULL;
+
+	// WaitTsStreamで使用するイベントのポインタ
+	HANDLE* m_phOnWaitTsEvent = NULL;
 
 	// 受信TSデータバッファ
-	TS_BUFF m_TsBuff;
+	TS_BUFF* m_pTsBuff = NULL;
 
 	// Decode処理の終わったTSデータバッファ
-	TS_BUFF m_DecodedTsBuff;
+	TS_BUFF* m_pDecodedTsBuff = NULL;
+
+	// GetTsStreamで使用するデータバッファのポインタ
+	TS_BUFF** m_ppGetTsBuff = NULL;
 
 	// GetTsStreamで参照されるバッファ
-	TS_DATA* m_LastBuff;
+	TS_DATA* m_LastBuff = NULL;
 
 	// データ受信中
 	BOOL m_bRecvStarted;
@@ -718,91 +529,12 @@ protected:
 	BOOL m_bIsSetStreamThread;
 
 	// ビットレート計算用
-	class BitRate {
-	private:
-		DWORD Rate1sec;					// 1秒間のレート加算用 (bytes/sec)
-		DWORD RateLast[5];				// 直近5秒間のレート (bytes/sec)
-		DWORD DataCount;				// 直近5秒間のデータ個数 (0～5)
-		double Rate;					// 平均ビットレート (Mibps)
-		DWORD LastTick;					// 前回のTickCount値
-		CRITICAL_SECTION csRate1Sec;	// nRate1sec 排他用
-		CRITICAL_SECTION csRateLast;	// nRateLast 排他用
+	CBitRate* m_pBitRate;
+	BOOL m_bNeedBitRate;
 
-	public:
-		BitRate(void)
-			: Rate1sec(0),
-			  RateLast(),
-			  DataCount(0),
-			  Rate(0.0)
-		{
-			::InitializeCriticalSection(&csRate1Sec);
-			::InitializeCriticalSection(&csRateLast);
-			LastTick = ::GetTickCount();
-		};
-
-		~BitRate(void)
-		{
-			::DeleteCriticalSection(&csRateLast);
-			::DeleteCriticalSection(&csRate1Sec);
-		}
-
-		inline void AddRate(DWORD Count)
-		{
-			::EnterCriticalSection(&csRate1Sec);
-			Rate1sec += Count;
-			::LeaveCriticalSection(&csRate1Sec);
-		}
-
-		inline DWORD CheckRate(void)
-		{
-			DWORD total = 0;
-			DWORD Tick = ::GetTickCount();
-			if (Tick - LastTick > 1000) {
-				::EnterCriticalSection(&csRateLast);
-				for (unsigned int i = (sizeof(RateLast) / sizeof(RateLast[0])) - 1; i > 0; i--) {
-					RateLast[i] = RateLast[i - 1];
-					total += RateLast[i];
-				}
-				::EnterCriticalSection(&csRate1Sec);
-				RateLast[0] = Rate1sec;
-				Rate1sec = 0;
-				::LeaveCriticalSection(&csRate1Sec);
-				total += RateLast[0];
-				if (DataCount < 5)
-					DataCount++;
-				if (DataCount)
-					Rate = ((double)total / (double)DataCount) / 131072.0;
-				LastTick = Tick;
-				::LeaveCriticalSection(&csRateLast);
-			}
-			DWORD remain = 1000 - (Tick - LastTick);
-			return (remain > 1000) ? 1000 : remain;
-		}
-
-		inline void Clear(void)
-		{
-			::EnterCriticalSection(&csRateLast);
-			::EnterCriticalSection(&csRate1Sec);
-			Rate1sec = 0;
-			for (unsigned int i = 0; i < sizeof(RateLast) / sizeof(RateLast[0]); i++) {
-				RateLast[i] = 0;
-			}
-			DataCount = 0;
-			Rate = 0.0;
-			LastTick = ::GetTickCount();
-			::LeaveCriticalSection(&csRate1Sec);
-			::LeaveCriticalSection(&csRateLast);
-		}
-
-		inline double GetRate(void)
-		{
-			return Rate;
-		}
-	};
-	BitRate m_BitRate;
-
-	// TSNF処理用
-	CTSMFParser m_TSMFParser;
+	// TSMF処理用
+	CTSMFParser* m_pTSMFParser = NULL;
+	BOOL m_bNeedTSMFParser = FALSE;
 
 	////////////////////////////////////////
 	// チューナ関連
@@ -915,10 +647,6 @@ protected:
 			  nIAnalogTVTuningSpaceInputType(eTunerInputTypeAuto)
 		{
 		}
-		~DVBSystemTypeData(void)
-		{
-			pITuningSpace.Release();
-		}
 	};
 
 	// TuningSpaceの種類データベース
@@ -1001,9 +729,6 @@ protected:
 
 	// トーン切替状態不明
 	static constexpr long TONE_UNKNOWN = -1L;
-
-	// TSMF処理が必要
-	BOOL m_bIsEnabledTSMF;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;

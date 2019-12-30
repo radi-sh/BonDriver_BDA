@@ -33,6 +33,12 @@ TS_BUFF::TS_BUFF(void)
 	::InitializeCriticalSection(&cs);
 }
 
+TS_BUFF::TS_BUFF(size_t buffSize, size_t maxCount)
+{
+	TS_BUFF();
+	SetSize(buffSize, maxCount);
+}
+
 TS_BUFF::~TS_BUFF(void)
 {
 	Purge();
