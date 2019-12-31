@@ -3,14 +3,14 @@
 #include "WaitWithMsg.h"
 
 CDecodeProc::CDecodeProc(void)
-	: hThread(NULL),
-	hTerminateRequest(NULL)
 {
+	hThreadInitComp = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 	hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 }
 CDecodeProc::~CDecodeProc(void)
 {
 	TerminateThread();
+	SAFE_CLOSE_HANDLE(hThreadInitComp);
 	SAFE_CLOSE_HANDLE(hTerminateRequest);
 }
 

@@ -19,7 +19,7 @@ public:
 	void NotifyThreadStarted(void);
 	enumDecodeWaitStatus WaitRequest(DWORD msec, HANDLE hRecvEvent);
 private:
-	HANDLE hThread;					// スレッドハンドル
-	HANDLE hThreadInitComp;			// スレッド初期化完了通知
-	HANDLE hTerminateRequest;		// スレッド終了要求
+	HANDLE hThread	= NULL;				// スレッドハンドル
+	HANDLE hThreadInitComp = NULL;		// スレッド初期化完了通知
+	HANDLE hTerminateRequest = NULL;	// スレッド終了要求
 };

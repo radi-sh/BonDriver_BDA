@@ -6,10 +6,9 @@
 // TSデータバッファ
 class TS_DATA {
 public:
-	BYTE* pbyBuff;
-	size_t Size;
+	BYTE* pbyBuff = NULL;
+	size_t Size = 0;
 public:
-	TS_DATA(void);
 	TS_DATA(BYTE* data, size_t size, BOOL copy = FALSE);
 	~TS_DATA(void);
 };
@@ -18,11 +17,11 @@ public:
 class TS_BUFF {
 private:
 	std::queue<TS_DATA *> List;
-	BYTE *TempBuff;
-	size_t TempOffset;
-	size_t BuffSize;
-	size_t MaxCount;
-	CRITICAL_SECTION cs;
+	BYTE* TempBuff = NULL;
+	size_t TempOffset = 0;
+	size_t BuffSize = 0;
+	size_t MaxCount = 0;
+	CRITICAL_SECTION cs = {};
 
 public:
 	TS_BUFF(void);
@@ -32,7 +31,7 @@ public:
 	void Purge(void);
 	void Add(TS_DATA *pItem);
 	BOOL AddData(BYTE *pbyData, size_t size);
-	TS_DATA * Get(void);
+	TS_DATA* Get(void);
 	size_t Size(void);
 };
 

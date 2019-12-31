@@ -10,15 +10,6 @@
 static constexpr CLSID KSCATEGORY_BDA_NETWORK_TUNER =		{ 0x71985f48, 0x1ca1, 0x11d3, 0x9c, 0xc8, 0x00, 0xc0, 0x4f, 0x79, 0x71, 0xe0 };
 static constexpr CLSID KSCATEGORY_BDA_RECEIVER_COMPONENT =	{ 0xfd0a5af4, 0xb41d, 0x11d2, 0x9c, 0x95, 0x00, 0xc0, 0x4f, 0x79, 0x71, 0xe0 };
 
-CTunerComboList::CTunerComboList()
-	: bNotExistCaptureDevice(FALSE),
-	pDSFilterEnumTuner(NULL),
-	pDSFilterEnumCapture(NULL),
-	bCheckDeviceInstancePath(TRUE),
-	CurrentGroup(0),
-	LastConnecttedGroup(NO_MEMORY)
-{}
-
 void CTunerComboList::ClearSearchData(void)
 {
 	TunerSearchDB.clear();

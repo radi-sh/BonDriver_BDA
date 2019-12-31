@@ -4,24 +4,6 @@
 
 #include "TSMF.h"
 
-CTSMFParser::CTSMFParser(void)
-	: slot_counter(-1),
-	TSID(0xffff),
-	ONID(0xffff),
-	IsRelative(FALSE),
-	PacketSize(0),
-	prevBuf(NULL),
-	prevBufSize(0),
-	prevBufPos(0),
-	TSMFData({}),
-	enabled(FALSE)
-{
-}
-
-CTSMFParser::~CTSMFParser(void)
-{
-}
-
 void CTSMFParser::SetTSID(WORD onid, WORD tsid, BOOL relative)
 {
 	Clear();

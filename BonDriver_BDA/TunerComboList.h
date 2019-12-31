@@ -12,9 +12,6 @@ class CDSFilterEnum;
 class CTunerComboList
 {
 public:
-	// コンストラクタ
-	CTunerComboList(void);
-
 	// 検索データのクリア
 	void ClearSearchData(void);
 
@@ -62,10 +59,10 @@ private:
 
 public:
 	// TunerデバイスのみでCaptureデバイスが存在しない場合TRUE
-	BOOL bNotExistCaptureDevice;
+	BOOL bNotExistCaptureDevice = FALSE;
 
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-	BOOL bCheckDeviceInstancePath;
+	BOOL bCheckDeviceInstancePath = TRUE;
 
 private:
 	// チューナ・キャプチャ検索に使用するGUID文字列とFriendlyName文字列の組合せ
@@ -87,8 +84,8 @@ private:
 	std::map<unsigned int, TunerMap> TunerSearchDB;
 
 	// DSフィルター列挙 CDSFilterEnum
-	CDSFilterEnum* pDSFilterEnumTuner;
-	CDSFilterEnum* pDSFilterEnumCapture;
+	CDSFilterEnum* pDSFilterEnumTuner = NULL;
+	CDSFilterEnum* pDSFilterEnumCapture = NULL;
 
 	// Tuner / Capture 単体のDSフィルター情報
 	struct DSListData {
@@ -133,14 +130,14 @@ private:
 	std::vector<DSListData>::iterator itCapture;
 
 	// カレントTunerGroup番号
-	unsigned int CurrentGroup;
+	unsigned int CurrentGroup = 0;
 
 	// Connect成功した組合せ記憶用
 	TunerCaptureList::iterator LastConnecttedTuner;
 	
-	// Connect成功したTunerGroup番号記憶用
-	unsigned int LastConnecttedGroup;
-
 	// Connect成功した記憶が無い時のLastConnecttedGroup値
 	static constexpr unsigned int NO_MEMORY = (unsigned int)-1;
+
+	// Connect成功したTunerGroup番号記憶用
+	unsigned int LastConnecttedGroup = NO_MEMORY;
 };

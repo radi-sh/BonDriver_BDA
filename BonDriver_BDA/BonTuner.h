@@ -241,37 +241,37 @@ protected:
 	std::wstring m_sDLLBaseName;
 
 	// Tone信号切替時のWait時間
-	unsigned int m_nToneWait;
+	unsigned int m_nToneWait = 100;
 
 	// CH切替後のLock確認時間
-	unsigned int m_nLockWait;
+	unsigned int m_nLockWait = 2000;
 
 	// CH切替後のLock確認Delay時間
-	unsigned int m_nLockWaitDelay;
+	unsigned int m_nLockWaitDelay = 0;
 
 	// CH切替後のLock確認Retry回数
-	unsigned int m_nLockWaitRetry;
+	unsigned int m_nLockWaitRetry = 0;
 
 	// CH切替動作を強制的に2度行うかどうか
-	BOOL m_bLockTwice;
+	BOOL m_bLockTwice = FALSE;
 
 	// CH切替動作を強制的に2度行う場合のDelay時間(msec)
-	unsigned int m_nLockTwiceDelay;
+	unsigned int m_nLockTwiceDelay = 100;
 
 	// SignalLockedの監視時間(msec) 0で監視しない
-	unsigned int m_nWatchDogSignalLocked;
+	unsigned int m_nWatchDogSignalLocked = 0;
 
 	// BitRateの監視時間(msec) 0で監視しない
-	unsigned int m_nWatchDogBitRate;
+	unsigned int m_nWatchDogBitRate = 0;
 
 	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
-	unsigned int m_nReOpenWhenGiveUpReLock;
+	unsigned int m_nReOpenWhenGiveUpReLock = 0;
 
 	// チューナの再オープンを試みる場合に別のチューナを優先して検索するかどうか
-	BOOL m_bTryAnotherTuner;
+	BOOL m_bTryAnotherTuner = FALSE;
 
 	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
-	BOOL m_bBackgroundChannelLock;
+	BOOL m_bBackgroundChannelLock = FALSE;
 
 	// SignalLevel 算出方法
 	EnumSettingValue::SignalLevelCalcType m_nSignalLevelCalcType = EnumSettingValue::SignalLevelCalcType::SSStrength;
@@ -283,24 +283,24 @@ protected:
 	BOOL m_bSignalLevelNeedQuality = FALSE;			// SignalLevel 算出に SignalQuality 値を使用する
 
 	// Strength 値補正係数
-	double m_fStrengthCoefficient;
+	double m_fStrengthCoefficient = 1.0;
 
 	// Quality 値補正係数
-	double m_fQualityCoefficient;
+	double m_fQualityCoefficient = 1.0;
 
 	// Strength 値補正バイアス
-	double m_fStrengthBias;
+	double m_fStrengthBias = 0.0;
 
 	// Quality 値補正バイアス
-	double m_fQualityBias;
+	double m_fQualityBias = 0.0;
 
 	// SignalLevel算出用ユーザー定義数式
 	std::wstring m_sSignalLevelCalcFormula;
 
 	// SignalLevel算出用
-	mu::Parser m_muParser;	// muparser
-	double m_fStrength;		// muparser用Strength値参照変数
-	double m_fQuality;		// muparser用Quality値参照変数
+	mu::Parser m_muParser;			// muparser
+	double m_fStrength = 0.0;		// muparser用Strength値参照変数
+	double m_fQuality = 0.0;		// muparser用Quality値参照変数
 
 	// チューニング状態の判断方法
 	EnumSettingValue::SignalLockedJudgeType m_nSignalLockedJudgeType = EnumSettingValue::SignalLockedJudgeType::SS;
@@ -313,31 +313,31 @@ protected:
 	////////////////////////////////////////
 
 	// バッファ1個あたりのサイズ
-	size_t m_nBuffSize;
+	size_t m_nBuffSize = 188 * 1024;
 
 	// 最大バッファ数
-	size_t m_nMaxBuffCount;
+	size_t m_nMaxBuffCount = 512;
 
 	// m_hOnDecodeEventをセットするデータバッファ個数
-	unsigned int m_nWaitTsCount;
+	unsigned int m_nWaitTsCount = 1;
 
 	// WaitTsStreamで最低限待機する時間
-	unsigned int m_nWaitTsSleep;
+	unsigned int m_nWaitTsSleep = 100;
 
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
-	BOOL m_bAlwaysAnswerLocked;
+	BOOL m_bAlwaysAnswerLocked = FALSE;
 
 	// COMProcThreadのスレッドプライオリティ
-	int m_nThreadPriorityCOM;
+	int m_nThreadPriorityCOM = THREAD_PRIORITY_ERROR_RETURN;
 
 	// DecodeProcThreadのスレッドプライオリティ
-	int m_nThreadPriorityDecode;
+	int m_nThreadPriorityDecode = THREAD_PRIORITY_ERROR_RETURN;
 
 	// ストリームスレッドプライオリティ
-	int m_nThreadPriorityStream;
+	int m_nThreadPriorityStream = THREAD_PRIORITY_ERROR_RETURN;
 
 	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
-	unsigned int m_nPeriodicTimer;
+	unsigned int m_nPeriodicTimer = 0;
 
 	////////////////////////////////////////
 	// チャンネルパラメータ
@@ -346,38 +346,25 @@ protected:
 	// チャンネルデータ
 	struct ChData {
 		std::basic_string<TCHAR> sServiceName;	// EnumChannelNameで返すチャンネル名
-		unsigned int Satellite;			// 衛星受信設定番号
-		unsigned int Polarisation;		// 偏波種類番号 (0 .. 未指定, 1 .. H, 2 .. V, 3 .. L, 4 .. R)
-		unsigned int ModulationType;	// 変調方式設定番号
-		long Frequency;					// 周波数(KHz)
+		unsigned int Satellite = 0;			// 衛星受信設定番号
+		unsigned int Polarisation = 0;		// 偏波種類番号 (0 .. 未指定, 1 .. H, 2 .. V, 3 .. L, 4 .. R)
+		unsigned int ModulationType = 0;	// 変調方式設定番号
+		long Frequency = 0;					// 周波数(KHz)
 		union {
-			long SID;					// サービスID
-			long PhysicalChannel;		// ATSC / Digital Cable用
-		};
-		union {
-			long TSID;					// トランスポートストリームID
-			long Channel;				// ATSC / Digital Cable用
+			long SID = -1;					// サービスID
+			long PhysicalChannel;			// ATSC / Digital Cable用
 		};
 		union {
-			long ONID;					// オリジナルネットワークID
-			long MinorChannel;			// ATSC / Digital Cable用
+			long TSID = -1;					// トランスポートストリームID
+			long Channel;					// ATSC / Digital Cable用
 		};
-		long MajorChannel;				// Digital Cable用
-		long SourceID;					// Digital Cable用
-		BOOL LockTwiceTarget;			// CH切替動作を強制的に2度行う対象
-		ChData(void)
-			: Satellite(0),
-			  Polarisation(0),
-			  ModulationType(0),
-			  Frequency(0),
-			  SID(-1),
-			  TSID(-1),
-			  ONID(-1),
-			  MajorChannel(-1),
-			  SourceID(-1),
-			  LockTwiceTarget(FALSE)
-		{
+		union {
+			long ONID = -1;					// オリジナルネットワークID
+			long MinorChannel;				// ATSC / Digital Cable用
 		};
+		long MajorChannel = -1;				// Digital Cable用
+		long SourceID = -1;					// Digital Cable用
+		BOOL LockTwiceTarget = FALSE;		// CH切替動作を強制的に2度行う対象
 	};
 
 	// チューニング空間データ
@@ -392,16 +379,8 @@ protected:
 
 	// チューニングスペース一覧
 	struct TuningData {
-		std::map<unsigned int, TuningSpaceData> Spaces;		// チューニングスペース番号とデータ
-		DWORD dwNumSpace;									// チューニングスペース数
-		TuningData(void)
-			: dwNumSpace(0)
-		{
-		};
-		~TuningData(void)
-		{
-			Spaces.clear();
-		};
+		std::map<unsigned int, TuningSpaceData> Spaces;	// チューニングスペース番号とデータ
+		DWORD dwNumSpace = 0;							// チューニングスペース数
 	};
 	TuningData m_TuningData;
 
@@ -484,20 +463,20 @@ protected:
 	TS_DATA* m_LastBuff = NULL;
 
 	// データ受信中
-	BOOL m_bRecvStarted;
+	BOOL m_bRecvStarted = FALSE;
 
 	// プロセスハンドル
-	HANDLE m_hProcess;
+	HANDLE m_hProcess = NULL;
 
 	// ストリームスレッドのハンドル
-	HANDLE m_hStreamThread;
+	HANDLE m_hStreamThread = NULL;
 
 	// ストリームスレッドハンドル通知フラグ
-	BOOL m_bIsSetStreamThread;
+	BOOL m_bIsSetStreamThread = FALSE;
 
 	// ビットレート計算用
-	CBitRate* m_pBitRate;
-	BOOL m_bNeedBitRate;
+	CBitRate* m_pBitRate = NULL;
+	BOOL m_bNeedBitRate = FALSE;
 
 	// TSMF処理用
 	CTSMFParser* m_pTSMFParser = NULL;
@@ -508,7 +487,7 @@ protected:
 	////////////////////////////////////////
 
 	// チューナデバイス排他処理用
-	HANDLE m_hSemaphore;
+	HANDLE m_hSemaphore = NULL;
 
 	// Graph
 	CComPtr<IGraphBuilder> m_pIGraphBuilder;	// Filter Graph Manager の IGraphBuilder interface
@@ -542,15 +521,7 @@ protected:
 	// TuningSpaceの種類データベース
 	struct DVBSystemTypeDB {
 		std::map<unsigned int, DVBSystemTypeData> SystemType;	// TuningSpaceの種類番号とTuningSpaceの種類データ
-		unsigned int nNumType;									// TuningSpaceの種類数
-		DVBSystemTypeDB(void)
-			: nNumType(0)
-		{
-		}
-		~DVBSystemTypeDB(void)
-		{
-			SystemType.clear();
-		}
+		unsigned int nNumType = 0;								// TuningSpaceの種類数
 		BOOL IsExist(unsigned int number)
 		{
 			auto it = SystemType.find(number);
@@ -574,41 +545,41 @@ protected:
 	EnumSettingValue::DefaultNetwork m_nDefaultNetwork = EnumSettingValue::DefaultNetwork::SPHD;
 
 	// Tuner is opened
-	BOOL m_bOpened;
-
-	// SetChannel()を試みたチューニングスペース番号
-	DWORD m_dwTargetSpace;
-
-	// カレントチューニングスペース番号
-	DWORD m_dwCurSpace;
+	BOOL m_bOpened = FALSE;
 
 	// チューニングスペース番号不明
 	static constexpr DWORD SPACE_INVALID = 0xFFFFFFFFUL;
 
-	// SetChannel()を試みたチャンネル番号
-	DWORD m_dwTargetChannel;
+	// SetChannel()を試みたチューニングスペース番号
+	DWORD m_dwTargetSpace = SPACE_INVALID;
 
-	// カレントチャンネル番号
-	DWORD m_dwCurChannel;
+	// カレントチューニングスペース番号
+	DWORD m_dwCurSpace = SPACE_INVALID;
 
 	// チャンネル番号不明
 	static constexpr DWORD CHANNEL_INVALID = 0xFFFFFFFFUL;
 
-	// 現在のトーン切替状態
-	long m_nCurTone; // current tone signal state
+	// SetChannel()を試みたチャンネル番号
+	DWORD m_dwTargetChannel = CHANNEL_INVALID;
+
+	// カレントチャンネル番号
+	DWORD m_dwCurChannel = CHANNEL_INVALID;
 
 	// トーン切替状態不明
 	static constexpr long TONE_UNKNOWN = -1L;
+
+	// 現在のトーン切替状態
+	long m_nCurTone = TONE_UNKNOWN;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;
 
 	// TunerSpecial DLL module handle
-	HMODULE m_hModuleTunerSpecials;
+	HMODULE m_hModuleTunerSpecials = NULL;
 
 	// チューナ固有関数 IBdaSpecials
-	IBdaSpecials *m_pIBdaSpecials;
-	IBdaSpecials2b5 *m_pIBdaSpecials2;
+	IBdaSpecials* m_pIBdaSpecials = NULL;
+	IBdaSpecials2b5* m_pIBdaSpecials2 = NULL;
 
 	// チューナ固有の関数が必要かどうかを自動判別するDB
 	// GUID をキーに DLL 名を得る

@@ -84,24 +84,24 @@ public:
 	static constexpr DWORD CHANNEL_INVALID = 0xFFFFFFFFUL;
 
 private:
-	HANDLE hThread;					// スレッドハンドル
-	HANDLE hThreadInitComp;			// スレッド初期化完了通知
-	HANDLE hReqEvent;				// COMProcスレッドへのコマンド実行要求
-	HANDLE hEndEvent;				// COMProcスレッドからのコマンド完了通知
-	CRITICAL_SECTION csLock;		// 排他用
-	enumCOMRequest nRequest;		// リクエスト
-	COMReqParm uParam;				// パラメータ
-	COMReqRetVal uRetVal;			// 戻り値
-	DWORD dwTick;					// 現在のTickCount
-	DWORD dwTickLastCheck;			// 最後に異常監視の確認を行ったTickCount
-	DWORD dwTickSignalLockErr;		// SignalLockの異常発生TickCount
-	DWORD dwTickBitRateErr;			// BitRateの異常発生TckCount
-	BOOL bSignalLockErr;			// SignalLockの異常発生中Flag
-	BOOL bBitRateErr;				// BitRateの異常発生中Flag
-	BOOL bDoReLockChannel;			// チャンネルロック再実行中
-	BOOL bDoReOpenTuner;			// チューナー再オープン中
-	unsigned int nReLockFailCount;	// Re-LockChannel失敗回数
-	DWORD dwReOpenSpace;			// チューナー再オープン時のカレントチューニングスペース番号退避
-	DWORD dwReOpenChannel;			// チューナー再オープン時のカレントチャンネル番号退避
-	HANDLE hTerminateRequest;		// スレッド終了要求
+	HANDLE hThread = NULL;									// スレッドハンドル
+	HANDLE hThreadInitComp = NULL;							// スレッド初期化完了通知
+	HANDLE hReqEvent = NULL;								// COMProcスレッドへのコマンド実行要求
+	HANDLE hEndEvent = NULL;								// COMProcスレッドからのコマンド完了通知
+	HANDLE hTerminateRequest = NULL;						// スレッド終了要求
+	CRITICAL_SECTION csLock = {};							// 排他用
+	enumCOMRequest nRequest = enumCOMRequest::eCOMReqNone;	// リクエスト
+	COMReqParm uParam = {};									// パラメータ
+	COMReqRetVal uRetVal = {};								// 戻り値
+	DWORD dwTick = 0;										// 現在のTickCount
+	DWORD dwTickLastCheck = 0;								// 最後に異常監視の確認を行ったTickCount
+	DWORD dwTickSignalLockErr = 0;							// SignalLockの異常発生TickCount
+	DWORD dwTickBitRateErr = 0;								// BitRateの異常発生TckCount
+	BOOL bSignalLockErr = FALSE;							// SignalLockの異常発生中Flag
+	BOOL bBitRateErr = FALSE;								// BitRateの異常発生中Flag
+	BOOL bDoReLockChannel = FALSE;							// チャンネルロック再実行中
+	BOOL bDoReOpenTuner = FALSE;							// チューナー再オープン中
+	unsigned int nReLockFailCount = 0;						// Re-LockChannel失敗回数
+	DWORD dwReOpenSpace = SPACE_INVALID;					// チューナー再オープン時のカレントチューニングスペース番号退避
+	DWORD dwReOpenChannel = CHANNEL_INVALID;				// チューナー再オープン時のカレントチャンネル番号退避
 };

@@ -3,22 +3,8 @@
 #include "WaitWithMsg.h"
 
 CCOMProc::CCOMProc(void)
-	: hThread(NULL),
-	nRequest(enumCOMRequest::eCOMReqNone),
-	uParam(),
-	uRetVal(),
-	dwTick(0),
-	dwTickLastCheck(0),
-	dwTickSignalLockErr(0),
-	dwTickBitRateErr(0),
-	bSignalLockErr(FALSE),
-	bBitRateErr(FALSE),
-	bDoReLockChannel(FALSE),
-	bDoReOpenTuner(FALSE),
-	nReLockFailCount(0),
-	dwReOpenSpace(CCOMProc::SPACE_INVALID),
-	dwReOpenChannel(CCOMProc::CHANNEL_INVALID)
 {
+	hThreadInitComp = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 	hReqEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 	hEndEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 	hTerminateRequest = ::CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -28,6 +14,7 @@ CCOMProc::CCOMProc(void)
 CCOMProc::~CCOMProc(void)
 {
 	TerminateThread();
+	SAFE_CLOSE_HANDLE(hThreadInitComp);
 	SAFE_CLOSE_HANDLE(hReqEvent);
 	SAFE_CLOSE_HANDLE(hEndEvent);
 	SAFE_CLOSE_HANDLE(hTerminateRequest);

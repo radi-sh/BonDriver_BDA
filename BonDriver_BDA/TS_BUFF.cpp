@@ -2,12 +2,6 @@
 
 #include "TS_BUFF.h"
 
-TS_DATA::TS_DATA(void)
-	: pbyBuff(NULL),
-	Size(0)
-{
-}
-
 TS_DATA::TS_DATA(BYTE* data, size_t size, BOOL copy)
 {
 	if (copy) {
@@ -25,10 +19,6 @@ TS_DATA::~TS_DATA(void) {
 }
 
 TS_BUFF::TS_BUFF(void)
-	: TempBuff(NULL),
-	TempOffset(0),
-	BuffSize(0),
-	MaxCount(0)
 {
 	::InitializeCriticalSection(&cs);
 }
@@ -123,7 +113,7 @@ BOOL TS_BUFF::AddData(BYTE *pbyData, size_t size)
 	return ret;
 }
 
-TS_DATA * TS_BUFF::Get(void)
+TS_DATA* TS_BUFF::Get(void)
 {
 	TS_DATA *ts = NULL;
 	::EnterCriticalSection(&cs);

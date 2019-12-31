@@ -5,14 +5,14 @@
 class CTSMFParser
 {
 private:
-	int slot_counter;										// TSMF多重フレームスロット番号
-	WORD TSID;												// 抽出するストリームのTSIDまたは相対TS番号
-	WORD ONID;												// 抽出するストリームのONID
-	BOOL IsRelative;										// 相対TS番号で指定するかどうか FALSE..ONID/TSIDで指定, TRUE..相対TS番号で指定
-	size_t PacketSize;										// TSパケットサイズ
-	BYTE * prevBuf;											// 前回処理したTSパケットバッファ(未処理半端分保存用)
-	size_t prevBufSize;										// 前回処理したTSパケットバッファのサイズ
-	size_t prevBufPos;										// 前回処理したTSパケットバッファの処理開始位置
+	int slot_counter = -1;									// TSMF多重フレームスロット番号
+	WORD TSID = 0xffff;										// 抽出するストリームのTSIDまたは相対TS番号
+	WORD ONID = 0xffff;										// 抽出するストリームのONID
+	BOOL IsRelative = FALSE;								// 相対TS番号で指定するかどうか FALSE..ONID/TSIDで指定, TRUE..相対TS番号で指定
+	size_t PacketSize = 0;									// TSパケットサイズ
+	BYTE* prevBuf = NULL;									// 前回処理したTSパケットバッファ(未処理半端分保存用)
+	size_t prevBufSize = 0;									// 前回処理したTSパケットバッファのサイズ
+	size_t prevBufPos = 0;									// 前回処理したTSパケットバッファの処理開始位置
 	struct {
 		BYTE continuity_counter;							// 連続性指標
 		BYTE version_number;								// 変更指示
@@ -26,15 +26,11 @@ private:
 		} stream_info[15];									// 相対ストリーム番号毎の情報
 		BYTE emergency_indicator;							// 緊急警報指示
 		BYTE relative_stream_number[52];					// 相対ストリーム番号対スロット対応情報
-	} TSMFData;												// TSMF多重フレームヘッダ情報
-	BOOL enabled;											// TSMF処理有効
+	} TSMFData = {};										// TSMF多重フレームヘッダ情報
+	BOOL enabled = FALSE;											// TSMF処理有効
 	static constexpr BYTE TS_PACKET_SYNC_BYTE = 0x47;		// TSパケットヘッダ同期バイトコード
 
 public:
-	// コンストラクタ
-	CTSMFParser(void);
-	// デストラクタ
-	~CTSMFParser(void);
 	// ストリーム識別子をセット
 	void SetTSID(WORD onid, WORD tsid, BOOL relative);
 	// TSMF処理を無効にする
