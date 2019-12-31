@@ -153,17 +153,19 @@ protected:
 	HRESULT RunGraph(void);
 	void StopGraph(void);
 
+	struct DVBSystemTypeData;
+
 	// TuningSpace
-	HRESULT CreateTuningSpace(void);
+	HRESULT CreateTuningSpace(DVBSystemTypeData* pDVBSystemTypeData);
 	void UnloadTuningSpace(void);
 	HRESULT InitTuningSpace(void);
 
 	// NetworkProvider
-	HRESULT LoadNetworkProvider(void);
+	HRESULT LoadNetworkProvider(DVBSystemTypeData* pDVBSystemTypeData);
 	void UnloadNetworkProvider(void);
 
 	// チューナ・キャプチャデバイスを含めてすべてのフィルタグラフをロードしてRunを試みる
-	HRESULT LoadAndConnectDevice(void);
+	HRESULT LoadAndConnectDevice(unsigned int tunerGroup);
 
 	// TunerDevice
 	void UnloadTunerDevice(void);
@@ -223,6 +225,9 @@ protected:
 	// チューナパラメータ関係
 	////////////////////////////////////////
 
+	// INI ファイルで指定できるTunerGroup最大数
+	static constexpr unsigned int MAX_TUNER_GROUP = 10U;
+
 	// INIファイルで指定できるGUID/FriendlyName最大数
 	static constexpr unsigned int MAX_GUID = 100U;
 
@@ -232,7 +237,7 @@ protected:
 	// GetTunerNameで返す名前
 	std::basic_string<TCHAR> m_sTunerName;
 
-	// 固有DLL
+	// 固有DLL名
 	std::wstring m_sDLLBaseName;
 
 	// Tone信号切替時のWait時間
@@ -377,21 +382,12 @@ protected:
 
 	// チューニング空間データ
 	struct TuningSpaceData {
-		std::basic_string<TCHAR> sTuningSpaceName;		// EnumTuningSpaceで返すTuning Space名
-		long FrequencyOffset;							// 周波数オフセット値
-		unsigned int DVBSystemTypeNumber;				// TuningSpaceの種類番号
-		unsigned int TSMFMode;							// TSMFの処理モード
-		std::map<unsigned int, ChData> Channels;		// チャンネル番号とチャンネルデータ
-		DWORD dwNumChannel;								// チャンネル数
-		TuningSpaceData(void)
-			: FrequencyOffset(0),
-			  dwNumChannel(0)
-		{
-		};
-		~TuningSpaceData(void)
-		{
-			Channels.clear();
-		};
+		std::basic_string<TCHAR> sTuningSpaceName;								// EnumTuningSpaceで返すTuning Space名
+		long FrequencyOffset = 0;												// 周波数オフセット値
+		unsigned int DVBSystemTypeNumber = 0;									// TuningSpaceの種類番号
+		EnumSettingValue::TSMFMode TSMFMode = EnumSettingValue::TSMFMode::Off;	// TSMFの処理モード
+		std::map<unsigned int, ChData> Channels;								// チャンネル番号とチャンネルデータ
+		DWORD dwNumChannel = 0;													// チャンネル数
 	};
 
 	// チューニングスペース一覧
@@ -519,6 +515,7 @@ protected:
 	CComPtr<IMediaControl> m_pIMediaControl;	// Filter Graph Manager の IMediaControl interface
 	CComPtr<IBaseFilter> m_pNetworkProvider;	// NetworkProvider の IBaseFilter interface
 	CComPtr<ITuner> m_pITuner;					// NetworkProvider の ITuner interface
+	CComPtr<ITuningSpace> m_pITuningSpace;		// NetworkProvider が使用する TuningSpace の ITuningSpace interface
 	CComPtr<IBaseFilter> m_pTunerDevice;		// Tuner Device の IBaseFilter interface
 	CComPtr<IBaseFilter> m_pCaptureDevice;		// Capture Device の IBaseFilter interface
 	CComPtr<IBaseFilter> m_pTsWriter;			// CTsWriter の IBaseFilter interface
@@ -538,7 +535,8 @@ protected:
 		EnumSettingValue::NetworkType nITuningSpaceNetworkType = EnumSettingValue::NetworkType::Auto;				// ITuningSpaceに設定するNetworkType
 		EnumSettingValue::DVBSystemType nIDVBTuningSpaceSystemType = EnumSettingValue::DVBSystemType::Auto;			// IDVBTuningSpaceに設定するSystemType
 		EnumSettingValue::TunerInputType nIAnalogTVTuningSpaceInputType = EnumSettingValue::TunerInputType::Auto;	// IAnalogTVTuningSpaceに設定するInputType
-		CComPtr<ITuningSpace> pITuningSpace;																		// Tuning Space の ITuningSpace interface
+		EnumSettingValue::NetworkProvider nNetworkProvider = EnumSettingValue::NetworkProvider::Auto;				// チューナーに使用するNetworkProvider
+		unsigned int nTunerGroup = 0;																				// 使用するTunerGroup番号
 	};
 
 	// TuningSpaceの種類データベース
@@ -558,24 +556,19 @@ protected:
 			auto it = SystemType.find(number);
 			if (it == SystemType.end())
 				return FALSE;
-			if (!it->second.pITuningSpace)
-				return FALSE;
 			return TRUE;
-		}
-		void ReleaseAll(void)
-		{
-			for (auto it = SystemType.begin(); it != SystemType.end(); it++) {
-				it->second.pITuningSpace.Release();
-			}
 		}
 	};
 	DVBSystemTypeDB m_DVBSystemTypeDB;
 
+	// 変更を試みるTuningSpaceの種類番号
+	long m_nTargetDvbSystemTypeNum = 0;
+
+	// カレントTuningSpaceの種類番号
+	long m_nCurrentDvbSystemTypeNum = -1;
+
 	// iniファイルで定義できる最大TuningSpaceの種類データ数
 	static constexpr unsigned int MAX_DVB_SYSTEM_TYPE = 10U;
-
-	// チューナーに使用するNetworkProvider 
-	EnumSettingValue::NetworkProvider m_nNetworkProvider = EnumSettingValue::NetworkProvider::Auto;
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	EnumSettingValue::DefaultNetwork m_nDefaultNetwork = EnumSettingValue::DefaultNetwork::SPHD;

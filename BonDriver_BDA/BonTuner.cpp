@@ -220,16 +220,23 @@ BOOL CBonTuner::_OpenTuner(void)
 	HRESULT hr;
 
 	do {
+		auto it = m_DVBSystemTypeDB.SystemType.find(m_nTargetDvbSystemTypeNum);
+		if (it == m_DVBSystemTypeDB.SystemType.end()) {
+			OutputDebug(L"Can not find DVBSystemType%ld.\n", m_nTargetDvbSystemTypeNum);
+			return E_FAIL;
+		}
+		OutputDebug(L"Building DVBSystemType%ld\n", m_nTargetDvbSystemTypeNum);
+
 		// フィルタグラフの作成
 		if (FAILED(hr = InitializeGraphBuilder()))
 			break;
 
 		// チューニングスペースの読込
-		if (FAILED(hr = CreateTuningSpace()))
+		if (FAILED(hr = CreateTuningSpace(&it->second)))
 			break;
 
 		// ネットワークプロバイダ
-		if (FAILED(hr = LoadNetworkProvider()))
+		if (FAILED(hr = LoadNetworkProvider(&it->second)))
 			break;
 
 		// チューニングスペース初期化
@@ -237,7 +244,7 @@ BOOL CBonTuner::_OpenTuner(void)
 			break;
 
 		// チューナ・キャプチャ以後の構築と実行
-		if (FAILED(hr = LoadAndConnectDevice()))
+		if (FAILED(hr = LoadAndConnectDevice(it->second.nTunerGroup)))
 			break;
 
 		OutputDebug(L"Build graph Successfully.\n");
@@ -278,6 +285,7 @@ BOOL CBonTuner::_OpenTuner(void)
 		// コールバック関数セット
 		StartRecv();
 
+		m_nCurrentDvbSystemTypeNum = m_nTargetDvbSystemTypeNum;
 		m_bOpened = TRUE;
 
 		return TRUE;
@@ -591,6 +599,17 @@ BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	PurgeTsStream();
 	TuningSpaceData * TuningSpace = &itSpace->second;
 	ChData * Ch = &itCh->second;
+
+	// TuningSpaceの種類番号
+	m_nTargetDvbSystemTypeNum = TuningSpace->DVBSystemTypeNumber;
+	if (m_nTargetDvbSystemTypeNum != m_nCurrentDvbSystemTypeNum) {
+		// TuningSpaceの種類番号が異なるの場合は再構築
+		_CloseTuner(FALSE);
+		if (!_OpenTuner()) {
+			OutputDebug(L"    Failed to change DVBSystemTypeNumber.\n");
+			return FALSE;
+		}
+	}
 	m_LastTuningParam.Frequency = Ch->Frequency + TuningSpace->FrequencyOffset;					// 周波数(MHz)
 	m_LastTuningParam.Polarisation = PolarisationMapping[Ch->Polarisation];						// 信号の偏波
 	m_LastTuningParam.Antenna = m_aSatellite[Ch->Satellite].Polarisation[Ch->Polarisation];		// アンテナ設定データ
@@ -618,13 +637,13 @@ BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 
 	// TSMF処理設定
 	switch (itSpace->second.TSMFMode) {
-	case 0:		// OFF
+	case EnumSettingValue::TSMFMode::Off:
 		m_pTSMFParser->Disable();
 		break;
-	case 1:		// TSID
+	case EnumSettingValue::TSMFMode::TSID:
 		m_pTSMFParser->SetTSID((WORD)Ch->ONID, (WORD)Ch->TSID, FALSE);
 		break;
-	case 2:		// Relative
+	case EnumSettingValue::TSMFMode::Relarive:
 		m_pTSMFParser->SetTSID(0xffff, (WORD)Ch->TSID, TRUE);
 		break;
 	}
@@ -1054,30 +1073,59 @@ void CBonTuner::ReadIniFile(void)
 	// FriendlyName0 - FriendlyName99: TunerデバイスのFriendlyName ... 指定されなければ見つかった順に使う事を意味する。
 	// CaptureGUID0 - CaptureGUID99: CaptureデバイスのGUID ... 指定されなければ接続可能なデバイスを検索する。
 	// CaptureFriendlyName0 - CaptureFriendlyName99: CaptureデバイスのFriendlyName ... 指定されなければ接続可能なデバイスを検索する。
-	for (unsigned int i = 0; i < MAX_GUID; i++) {
-		std::wstring key;
-		key = L"GUID" + std::to_wstring(i);
-		std::wstring tunerGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
-		key = L"FriendlyName" + std::to_wstring(i);
-		std::wstring tunerFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
-		key = L"CaptureGUID" + std::to_wstring(i);
-		std::wstring captureGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
-		key = L"CaptureFriendlyName" + std::to_wstring(i);
-		std::wstring captureFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
-		if (tunerGuid.length() == 0 && tunerFriendlyName.length() == 0 && captureGuid.length() == 0 && captureFriendlyName.length() == 0) {
-			// どれも指定されていない
+	for (unsigned int i = 0; i < MAX_TUNER_GROUP; i++) {
+		size_t count = 0;
+		for (unsigned int j = 0; j < MAX_GUID; j++) {
+			std::wstring key;
+			std::wstring tunerGuid;
+			std::wstring tunerFriendlyName;
+			std::wstring captureGuid;
+			std::wstring captureFriendlyName;
 			if (i == 0) {
-				// 番号なしの型式で読込む
-				tunerGuid = IniFileAccess.ReadKeySSectionData(L"GUID", L"");
-				tunerFriendlyName = IniFileAccess.ReadKeySSectionData(L"FriendlyName", L"");
-				captureGuid = IniFileAccess.ReadKeySSectionData(L"CaptureGUID", L"");
-				captureFriendlyName = IniFileAccess.ReadKeySSectionData(L"CaptureFriendlyName", L"");
-				// どれも指定されていない場合でも登録
+				// TunerGroup 指定なし形式で読込む
+				key = L"GUID" + std::to_wstring(j);
+				tunerGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
+				key = L"FriendlyName" + std::to_wstring(j);
+				tunerFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
+				key = L"CaptureGUID" + std::to_wstring(j);
+				captureGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
+				key = L"CaptureFriendlyName" + std::to_wstring(j);
+				captureFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), L"");
 			}
-			else
-				break;
+			// TunerGroup0 ～ TunerGroup9 形式で読込む
+			std::wstring prefix = L"TunerGroup" + std::to_wstring(i);
+			key = prefix + L"GUID" + std::to_wstring(j);
+			tunerGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), tunerGuid.c_str());
+			key = prefix + L"FriendlyName" + std::to_wstring(j);
+			tunerFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), tunerFriendlyName.c_str());
+			key = prefix + L"CaptureGUID" + std::to_wstring(j);
+			captureGuid = IniFileAccess.ReadKeySSectionData(key.c_str(), captureGuid.c_str());
+			key = prefix + L"CaptureFriendlyName" + std::to_wstring(j);
+			captureFriendlyName = IniFileAccess.ReadKeySSectionData(key.c_str(), captureFriendlyName.c_str());
+
+			if (tunerGuid.length() == 0 && tunerFriendlyName.length() == 0 && captureGuid.length() == 0 && captureFriendlyName.length() == 0) {
+				// どれも指定されていない
+				if (i == 0 && j == 0) {
+					// 番号なしの型式で読込む
+					tunerGuid = IniFileAccess.ReadKeySSectionData(L"GUID", L"");
+					tunerFriendlyName = IniFileAccess.ReadKeySSectionData(L"FriendlyName", L"");
+					captureGuid = IniFileAccess.ReadKeySSectionData(L"CaptureGUID", L"");
+					captureFriendlyName = IniFileAccess.ReadKeySSectionData(L"CaptureFriendlyName", L"");
+					// GUID0 / FriendlyName0 はどれも指定されていない場合でも登録
+				}
+				else
+					// どれも指定がなくなった時点でループを終わる
+					break;
+			}
+
+			// 登録
+			m_TunerComboList.AddSearchData(i, j, tunerGuid, tunerFriendlyName, captureGuid, captureFriendlyName);
+			count++;
 		}
-		m_TunerComboList.AddSearchData(0, i, tunerGuid, tunerFriendlyName, captureGuid, captureFriendlyName);
+		if (count == 0) {
+			// TunerGroup に登録されるものがなくなった時点でループを終わる
+			break;
+		}
 	}
 
 	// TunerデバイスのみでCaptureデバイスが存在しない
@@ -1213,6 +1261,9 @@ void CBonTuner::ReadIniFile(void)
 	else if (m_nSignalLockedJudgeType == EnumSettingValue::SignalLockedJudgeType::DemodSS)
 		m_bSignalLockedJudgeTypeDemodSS = TRUE;
 
+	// チューナーに使用するNetworkProvider(デフォルト)
+	EnumSettingValue::NetworkProvider nNetworkProvider = (EnumSettingValue::NetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", (int)EnumSettingValue::NetworkProvider::Auto, &EnumSettingValue::mapNetworkProvider);
+
 	for (unsigned int i = 0; i < MAX_DVB_SYSTEM_TYPE; i++) {
 		std::wstring key, prefix[2];
 		DVBSystemTypeData typeData;
@@ -1248,6 +1299,14 @@ void CBonTuner::ReadIniFile(void)
 			// IAnalogTVTuningSpaceに設定するInputType
 			key = prefix[j] + L"IAnalogTVTuningSpaceInputType";
 			typeData.nIAnalogTVTuningSpaceInputType = (EnumSettingValue::TunerInputType)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)typeData.nIAnalogTVTuningSpaceInputType, &EnumSettingValue::mapSpecifyIAnalogTVTuningSpaceInputType);
+
+			// チューナーに使用するNetworkProvider
+			key = prefix[j] + L"NetworkProvider";
+			typeData.nNetworkProvider = (EnumSettingValue::NetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(key.c_str(), (int)nNetworkProvider, &EnumSettingValue::mapNetworkProvider);
+
+			// 使用するTunerGroup番号
+			key = prefix[j] + L"TunerGroup";
+			typeData.nTunerGroup = IniFileAccess.ReadKeyISectionData(key.c_str(), 0);
 		}
 
 		if (typeData.nDVBSystemType == EnumSettingValue::TunerType::None && (typeData.nTuningSpace == EnumSettingValue::TuningSpace::Auto || typeData.nLocator == EnumSettingValue::Locator::Auto)) {
@@ -1261,9 +1320,6 @@ void CBonTuner::ReadIniFile(void)
 			m_DVBSystemTypeDB.nNumType++;
 		}
 	}
-
-	// チューナーに使用するNetworkProvider
-	m_nNetworkProvider = (EnumSettingValue::NetworkProvider)IniFileAccess.ReadKeyIValueMapSectionData(L"NetworkProvider", (int)m_nNetworkProvider, &EnumSettingValue::mapNetworkProvider);
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	m_nDefaultNetwork = (EnumSettingValue::DefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", (int)m_nDefaultNetwork, &EnumSettingValue::mapDefaultNetwork);
@@ -2344,8 +2400,8 @@ void CBonTuner::ReadIniFile(void)
 		itSpace->second.DVBSystemTypeNumber = IniFileAccess.ReadKeyISectionData(L"DVBSystemTypeNumber", 0);
 
 		// TSMFの処理モード
-		itSpace->second.TSMFMode = IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", 0, &EnumSettingValue::mapTSMFMode);
-		if (itSpace->second.TSMFMode != 0) {
+		itSpace->second.TSMFMode = (EnumSettingValue::TSMFMode)IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", (int)itSpace->second.TSMFMode, &EnumSettingValue::mapTSMFMode);
+		if (itSpace->second.TSMFMode != EnumSettingValue::TSMFMode::Off) {
 			m_bNeedTSMFParser = TRUE;
 			m_bNeedDecodeProc = TRUE;
 		}
@@ -2754,26 +2810,15 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// 固有関数がないだけなので、何もせず
 	}
 
-	// TuningSpaceの種類番号
-	unsigned int systemTypeNumber = m_TuningData.Spaces[pTuningParam->IniSpaceID].DVBSystemTypeNumber;
-	if (!m_DVBSystemTypeDB.IsExist(systemTypeNumber))
-		systemTypeNumber = 0;
-
 	// ITuningSpace継承順：
 	//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
 	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
 	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
 	//                → IAuxInTuningSpace → IAuxInTuningSpace2
-	CComPtr<ITuningSpace> pITuningSpace(m_DVBSystemTypeDB.SystemType[systemTypeNumber].pITuningSpace);
-	if (!pITuningSpace) {
-		OutputDebug(L"  Fail to get ITuningSpace.\n");
-		return FALSE;
-	}
-
 	OutputDebug(L"    ITuningSpace\n");
 	// IDVBSTuningSpace特有
 	{
-		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(pITuningSpace);
+		CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(m_pITuningSpace);
 		if (pIDVBSTuningSpace) {
 			OutputDebug(L"    ->IDVBSTuningSpace\n");
 			// LNB 周波数を設定
@@ -2809,7 +2854,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
 	//            → IAnalogLocator
 	CComPtr<ILocator> pILocator;
-	if (FAILED(hr = pITuningSpace->get_DefaultLocator(&pILocator))) {
+	if (FAILED(hr = m_pITuningSpace->get_DefaultLocator(&pILocator))) {
 		OutputDebug(L"  Fail to get ILocator. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
@@ -2896,7 +2941,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	//                → IChannelIDTuneRequest
 	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
-	if (FAILED(hr = pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
+	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
 		OutputDebug(L"  Fail to create ITuneRequest. hr=0x%08lx\n", hr);
 		return FALSE;
 	}
@@ -3267,556 +3312,548 @@ void CBonTuner::StopGraph(void)
 	}
 }
 
-HRESULT CBonTuner::CreateTuningSpace(void)
+HRESULT CBonTuner::CreateTuningSpace(DVBSystemTypeData* pDVBSystemTypeData)
 {
-	for (auto it = m_DVBSystemTypeDB.SystemType.begin(); it != m_DVBSystemTypeDB.SystemType.end(); it++) {
-		OutputDebug(L"[CreateTuningSpace] Processing number %ld.\n", it->first);
+	m_pITuningSpace.Release();
 
-		// オブジェクト作成用変数
-		EnumSettingValue::TuningSpace specifyTuningSpace = EnumSettingValue::TuningSpace::Auto;				// 使用するTuningSpaceオブジェクト
-		CLSID clsidTuningSpace = CLSID_NULL;																// TuningSpaceオブジェクトのクラスid
-		EnumSettingValue::Locator specifyLocator = EnumSettingValue::Locator::Auto;							// 使用するLocatorオブジェクト
-		CLSID clsidLocator = CLSID_NULL;																	// Locatorオブジェクトのクラスid
+	// オブジェクト作成用変数
+	EnumSettingValue::TuningSpace specifyTuningSpace = EnumSettingValue::TuningSpace::Auto;				// 使用するTuningSpaceオブジェクト
+	CLSID clsidTuningSpace = CLSID_NULL;																// TuningSpaceオブジェクトのクラスid
+	EnumSettingValue::Locator specifyLocator = EnumSettingValue::Locator::Auto;							// 使用するLocatorオブジェクト
+	CLSID clsidLocator = CLSID_NULL;																	// Locatorオブジェクトのクラスid
 
-		// TuningSpace設定用変数
-		// ITuningSpace
-		_bstr_t bstrUniqueName;																				// ITuningSpaceに設定するUniqueName
-		_bstr_t bstrFriendlyName;																			// ITuningSpaceに設定するFriendlyName
-		EnumSettingValue::NetworkType specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::Auto;	// ITuningSpaceに設定するNetworkType
-		IID iidNetworkType = IID_NULL;																		// ITuningSpaceに設定するNetworkTypeのGUID
-		// IDVBTuningSpace
-		DVBSystemType dvbSystemType = DVB_Satellite;														// DVBのシステムタイプ
-		// IDVBTuningSpace2
-		long networkID = -1;																				// Network ID
-		// IDVBSTuningSpace
-		long highOscillator = -1;																			// High側Oscillator周波数
-		long lowOscillator = -1;																			// Low側Oscillator周波数
-		long lnbSwitch = -1;																				// LNBスイッチ周波数
-		SpectralInversion spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;								// スペクトル反転
-		// IAnalogTVTuningSpace
-		TunerInputType inputType = TunerInputCable;															// アンテナ・ケーブルの入力タイプ
-		long countryCode = 0;																				// 国・地域コード
-		long minChannel = 0;																				// Channel番号の最小値
-		long maxChannel = 0;																				// Channel番号の最大値
-		// IATSCTuningSpace
-		long minPhysicalChannel = 0;																		// Physical Channel番号の最小値
-		long maxPhysicalChannel = 0;																		// Physical Channel番号の最大値
-		long minMinorChannel = 0;																			// Minor Channel番号の最小値
-		long maxMinorChannel = 0;																			// Minor Channel番号の最大値
-		// IDigitalCableTuningSpace
-		long minMajorChannel = 0;																			// Major Channel番号の最小値
-		long maxMajorChannel = 0;																			// Major Channel番号の最大値
-		long minSourceID = 0;																				// Source IDの最小値
-		long maxSourceID = 0;																				// Source IDの最大値
+	// TuningSpace設定用変数
+	// ITuningSpace
+	_bstr_t bstrUniqueName;																				// ITuningSpaceに設定するUniqueName
+	_bstr_t bstrFriendlyName;																			// ITuningSpaceに設定するFriendlyName
+	EnumSettingValue::NetworkType specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::Auto;	// ITuningSpaceに設定するNetworkType
+	IID iidNetworkType = IID_NULL;																		// ITuningSpaceに設定するNetworkTypeのGUID
+	// IDVBTuningSpace
+	DVBSystemType dvbSystemType = DVB_Satellite;														// DVBのシステムタイプ
+	// IDVBTuningSpace2
+	long networkID = -1;																				// Network ID
+	// IDVBSTuningSpace
+	long highOscillator = -1;																			// High側Oscillator周波数
+	long lowOscillator = -1;																			// Low側Oscillator周波数
+	long lnbSwitch = -1;																				// LNBスイッチ周波数
+	SpectralInversion spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;								// スペクトル反転
+	// IAnalogTVTuningSpace
+	TunerInputType inputType = TunerInputCable;															// アンテナ・ケーブルの入力タイプ
+	long countryCode = 0;																				// 国・地域コード
+	long minChannel = 0;																				// Channel番号の最小値
+	long maxChannel = 0;																				// Channel番号の最大値
+	// IATSCTuningSpace
+	long minPhysicalChannel = 0;																		// Physical Channel番号の最小値
+	long maxPhysicalChannel = 0;																		// Physical Channel番号の最大値
+	long minMinorChannel = 0;																			// Minor Channel番号の最小値
+	long maxMinorChannel = 0;																			// Minor Channel番号の最大値
+	// IDigitalCableTuningSpace
+	long minMajorChannel = 0;																			// Major Channel番号の最小値
+	long maxMajorChannel = 0;																			// Major Channel番号の最大値
+	long minSourceID = 0;																				// Source IDの最小値
+	long maxSourceID = 0;																				// Source IDの最大値
 
-		// Default Locator設定用変数
-		// ILocator
-		long frequency = -1;																				// RF信号の周波数
-		long symbolRate = -1;																				// シンボルレート
-		FECMethod innerFECMethod = BDA_FEC_METHOD_NOT_SET;													// 内部前方誤り訂正タイプ
-		BinaryConvolutionCodeRate innerFECRate = BDA_BCC_RATE_NOT_SET;										// 内部FECレート
-		FECMethod outerFECMethod = BDA_FEC_METHOD_NOT_SET;													// 外部前方誤り訂正タイプ
-		BinaryConvolutionCodeRate outerFECRate = BDA_BCC_RATE_NOT_SET;										// 外部FECレート
-		ModulationType modulationType = BDA_MOD_NOT_SET;													// 変調タイプ
-		// IDVBSLocator
-		VARIANT_BOOL westPosition = VARIANT_TRUE;															// 衛星の経度を西経と東経のどちらで表現するか(Trueで西経)
-		long orbitalPosition = -1;																			// 衛星の経度(1/10°)
-		long elevation = -1;																				// 衛星の仰角(1/10°)
-		long azimuth = -1;																					// 衛星の方位角(1/10°)
-		Polarisation polarisation = BDA_POLARISATION_NOT_SET;												// 偏波値
-		// IDVBSLocator2
-		LNB_Source diseqLNBSource = BDA_LNB_SOURCE_NOT_SET;													// DiSeqC LNB入力ソース
-		Pilot pilot = BDA_PILOT_NOT_SET;																	// DVB-S2パイロットモード
-		RollOff rollOff = BDA_ROLL_OFF_NOT_SET;																// DVB-S2ロールオフ係数
-		// IDVBTLocator
-		long bandwidth = -1;																				// 帯域幅(MHz)
-		GuardInterval guardInterval = BDA_GUARD_NOT_SET;													// ガードインターバル
-		HierarchyAlpha hierarchyAlpha = BDA_HALPHA_NOT_SET;													// 階層状アルファ
-		FECMethod lpInnerFECMethod = BDA_FEC_METHOD_NOT_SET;												// LPストリームの内部前方誤り訂正タイプ
-		BinaryConvolutionCodeRate lpInnerFECRate = BDA_BCC_RATE_NOT_SET;									// LPストリームの内部FECレート
-		TransmissionMode transmissionMode = BDA_XMIT_MODE_NOT_SET;											// 伝送モード
-		VARIANT_BOOL otherFrequencyInUse = VARIANT_TRUE;													// 別のDVB-Tブロードキャスタで使われているかどうか
-		// IDVBTLocator2
-		long physicalLayerPipeId = -1;																		// PLP ID
-		// IATSCLocator
-		long physicalChannel = -1;																			// Physical Channel番号
-		long transportStreamID = -1;																		// TSID
-		// IATSCLocator2
-		long programNumber = -1;																			// Program Number
+	// Default Locator設定用変数
+	// ILocator
+	long frequency = -1;																				// RF信号の周波数
+	long symbolRate = -1;																				// シンボルレート
+	FECMethod innerFECMethod = BDA_FEC_METHOD_NOT_SET;													// 内部前方誤り訂正タイプ
+	BinaryConvolutionCodeRate innerFECRate = BDA_BCC_RATE_NOT_SET;										// 内部FECレート
+	FECMethod outerFECMethod = BDA_FEC_METHOD_NOT_SET;													// 外部前方誤り訂正タイプ
+	BinaryConvolutionCodeRate outerFECRate = BDA_BCC_RATE_NOT_SET;										// 外部FECレート
+	ModulationType modulationType = BDA_MOD_NOT_SET;													// 変調タイプ
+	// IDVBSLocator
+	VARIANT_BOOL westPosition = VARIANT_TRUE;															// 衛星の経度を西経と東経のどちらで表現するか(Trueで西経)
+	long orbitalPosition = -1;																			// 衛星の経度(1/10°)
+	long elevation = -1;																				// 衛星の仰角(1/10°)
+	long azimuth = -1;																					// 衛星の方位角(1/10°)
+	Polarisation polarisation = BDA_POLARISATION_NOT_SET;												// 偏波値
+	// IDVBSLocator2
+	LNB_Source diseqLNBSource = BDA_LNB_SOURCE_NOT_SET;													// DiSeqC LNB入力ソース
+	Pilot pilot = BDA_PILOT_NOT_SET;																	// DVB-S2パイロットモード
+	RollOff rollOff = BDA_ROLL_OFF_NOT_SET;																// DVB-S2ロールオフ係数
+	// IDVBTLocator
+	long bandwidth = -1;																				// 帯域幅(MHz)
+	GuardInterval guardInterval = BDA_GUARD_NOT_SET;													// ガードインターバル
+	HierarchyAlpha hierarchyAlpha = BDA_HALPHA_NOT_SET;													// 階層状アルファ
+	FECMethod lpInnerFECMethod = BDA_FEC_METHOD_NOT_SET;												// LPストリームの内部前方誤り訂正タイプ
+	BinaryConvolutionCodeRate lpInnerFECRate = BDA_BCC_RATE_NOT_SET;									// LPストリームの内部FECレート
+	TransmissionMode transmissionMode = BDA_XMIT_MODE_NOT_SET;											// 伝送モード
+	VARIANT_BOOL otherFrequencyInUse = VARIANT_TRUE;													// 別のDVB-Tブロードキャスタで使われているかどうか
+	// IDVBTLocator2
+	long physicalLayerPipeId = -1;																		// PLP ID
+	// IATSCLocator
+	long physicalChannel = -1;																			// Physical Channel番号
+	long transportStreamID = -1;																		// TSID
+	// IATSCLocator2
+	long programNumber = -1;																			// Program Number
 
-		switch (it->second.nDVBSystemType) {
-		case EnumSettingValue::TunerType::DVBT:
-		case EnumSettingValue::TunerType::DVBT2:
-			bstrUniqueName = L"DVB-T";
-			bstrFriendlyName = L"Local DVB-T Digital Antenna";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
-			if (it->second.nDVBSystemType == EnumSettingValue::TunerType::DVBT2) {
-				specifyLocator = EnumSettingValue::Locator::DVBT2;
-			}
-			else {
-				specifyLocator = EnumSettingValue::Locator::DVBT;
-			}
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBT;
-			dvbSystemType = DVB_Terrestrial;
-			networkID = 0;
-			break;
-
-		case EnumSettingValue::TunerType::DVBC:
-			bstrUniqueName = L"DVB-C";
-			bstrFriendlyName = L"Local DVB-C Digital Cable";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
-			specifyLocator = EnumSettingValue::Locator::DVBC;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBC;
-			dvbSystemType = DVB_Cable;
-			networkID = 0;
-			break;
-
-		case EnumSettingValue::TunerType::ISDBT:
-			bstrUniqueName = L"ISDB-T";
-			bstrFriendlyName = L"Local ISDB-T Digital Antenna";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
-			specifyLocator = EnumSettingValue::Locator::DVBT;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBT;
-			dvbSystemType = ISDB_Terrestrial;
-			networkID = -1;
-			break;
-
-		case EnumSettingValue::TunerType::ISDBC:
-			bstrUniqueName = L"ISDB-C";
-			bstrFriendlyName = L"Local ISDB-C Digital Cable";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
-			specifyLocator = EnumSettingValue::Locator::DVBC;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBC;
-			dvbSystemType = DVB_Cable;
-			networkID = -1;
-			break;
-
-		case EnumSettingValue::TunerType::ISDBS:
-			bstrUniqueName = L"ISDB-S";
-			bstrFriendlyName = L"Default Digital ISDB-S Tuning Space";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::DVBS;
-			specifyLocator = EnumSettingValue::Locator::ISDBS;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBS;
-			dvbSystemType = ISDB_Satellite;
-			networkID = -1;
-			highOscillator = -1;
-			lowOscillator = -1;
-			lnbSwitch = -1;
-			spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
-			break;
-
-		case EnumSettingValue::TunerType::ATSC_Antenna:
-			bstrUniqueName = L"ATSC";
-			bstrFriendlyName = L"Local ATSC Digital Antenna";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::ATSC;
-			specifyLocator = EnumSettingValue::Locator::ATSC;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ATSC;
-			inputType = TunerInputAntenna;
-			countryCode = 0;
-			minChannel = 1;
-			maxChannel = 99;
-			minPhysicalChannel = 2;
-			maxPhysicalChannel = 69;
-			minMinorChannel = 0;
-			maxMinorChannel = 999;
-			modulationType = BDA_MOD_128QAM;
-			break;
-
-		case EnumSettingValue::TunerType::ATSC_Cable:
-			bstrUniqueName = L"ATSCCable";
-			bstrFriendlyName = L"Local ATSC Digital Cable";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::ATSC;
-			specifyLocator = EnumSettingValue::Locator::ATSC;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ATSC;
-			inputType = TunerInputCable;
-			countryCode = 0;
-			minChannel = 1;
-			maxChannel = 99;
-			minPhysicalChannel = 1;
-			maxPhysicalChannel = 158;
-			minMinorChannel = 0;
-			maxMinorChannel = 999;
-			modulationType = BDA_MOD_128QAM;
-			break;
-
-		case EnumSettingValue::TunerType::DigitalCable:
-			bstrUniqueName = L"Digital Cable";
-			bstrFriendlyName = L"Local Digital Cable";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::DigitalCable;
-			specifyLocator = EnumSettingValue::Locator::DigitalCable;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DigitalCable;
-			inputType = TunerInputCable;
-			countryCode = 0;
-			minChannel = 2;
-			maxChannel = 9999;
-			minPhysicalChannel = 2;
-			maxPhysicalChannel = 158;
-			minMinorChannel = 0;
-			maxMinorChannel = 999;
-			minMajorChannel = 1;
-			maxMajorChannel = 99;
-			minSourceID = 0;
-			maxSourceID = 0x7fffffff;
-			break;
-
-		case EnumSettingValue::TunerType::DVBS:
-		default:
-			bstrUniqueName = L"DVB-S";
-			bstrFriendlyName = L"Default Digital DVB-S Tuning Space";
-			specifyTuningSpace = EnumSettingValue::TuningSpace::DVBS;
-			specifyLocator = EnumSettingValue::Locator::DVBS;
-			specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBS;
-			dvbSystemType = DVB_Satellite;
-			networkID = -1;
-			highOscillator = 10600000;
-			lowOscillator = 9750000;
-			lnbSwitch = 11700000;
-			spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
-			westPosition = VARIANT_FALSE;
-			break;
-		}
-
-		if (it->second.nTuningSpace != EnumSettingValue::TuningSpace::Auto) {
-			specifyTuningSpace = it->second.nTuningSpace;
-		}
-		switch (specifyTuningSpace) {
-		case EnumSettingValue::TuningSpace::DVB:
-			clsidTuningSpace = __uuidof(DVBTuningSpace);
-			break;
-		case EnumSettingValue::TuningSpace::DVBS:
-			clsidTuningSpace = __uuidof(DVBSTuningSpace);
-			break;
-		case EnumSettingValue::TuningSpace::AnalogTV:
-			clsidTuningSpace = __uuidof(AnalogTVTuningSpace);
-			break;
-		case EnumSettingValue::TuningSpace::ATSC:
-			clsidTuningSpace = __uuidof(ATSCTuningSpace);
-			break;
-		case EnumSettingValue::TuningSpace::DigitalCable:
-			clsidTuningSpace = __uuidof(DigitalCableTuningSpace);
-			break;
-		}
-
-		if (it->second.nLocator != EnumSettingValue::Locator::Auto) {
-			specifyLocator = it->second.nLocator;
-		}
-		switch (specifyLocator) {
-		case EnumSettingValue::Locator::DVBT:
-			clsidLocator = __uuidof(DVBTLocator);
-			break;
-		case EnumSettingValue::Locator::DVBT2:
-			clsidLocator = __uuidof(DVBTLocator2);
-			break;
-		case EnumSettingValue::Locator::DVBS:
-			clsidLocator = __uuidof(DVBSLocator);
-			break;
-		case EnumSettingValue::Locator::DVBC:
-			clsidLocator = __uuidof(DVBCLocator);
-			break;
-		case EnumSettingValue::Locator::ISDBS:
-			clsidLocator = __uuidof(ISDBSLocator);
-			break;
-		case EnumSettingValue::Locator::ATSC:
-			clsidLocator = __uuidof(ATSCLocator);
-			break;
-		case EnumSettingValue::Locator::DigitalCable:
-			clsidLocator = __uuidof(DigitalCableLocator);
-			break;
-		}
-
-		if (it->second.nITuningSpaceNetworkType != EnumSettingValue::NetworkType::Auto) {
-			specifyITuningSpaceNetworkType = it->second.nITuningSpaceNetworkType;
-		}
-		switch (specifyITuningSpaceNetworkType) {
-		case EnumSettingValue::NetworkType::DVBT:
-			iidNetworkType = { STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::DVBS:
-			iidNetworkType = { STATIC_DVB_SATELLITE_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::DVBC:
-			iidNetworkType = { STATIC_DVB_CABLE_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::ISDBT:
-			iidNetworkType = { STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::ISDBS:
-			iidNetworkType = { STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::ISDBC:
-			iidNetworkType = { STATIC_ISDB_CABLE_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::ATSC:
-			iidNetworkType = { STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::DigitalCable:
-			iidNetworkType = { STATIC_DIGITAL_CABLE_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::BSkyB:
-			iidNetworkType = { STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::DIRECTV:
-			iidNetworkType = { STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE };
-			break;
-		case EnumSettingValue::NetworkType::EchoStar:
-			iidNetworkType = { STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE };
-			break;
-		}
-
-		if (it->second.nIDVBTuningSpaceSystemType != EnumSettingValue::DVBSystemType::Auto) {
-			dvbSystemType = (DVBSystemType)it->second.nIDVBTuningSpaceSystemType;
-		}
-
-		if (it->second.nIAnalogTVTuningSpaceInputType != EnumSettingValue::TunerInputType::Auto) {
-			inputType = (tagTunerInputType)it->second.nIAnalogTVTuningSpaceInputType;
-		}
-
-		HRESULT hr;
-
-		CComPtr<ITuningSpace> pITuningSpace;
-		// ITuningSpaceを作成
-		//
-		// ITuningSpace継承順：
-		//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
-		//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
-		//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
-		//                → IAuxInTuningSpace → IAuxInTuningSpace2
-		if (FAILED(hr = pITuningSpace.CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER))) {
-			OutputDebug(L"[CreateTuningSpace] Fail to get ITuningSpace interface\n");
+	switch (pDVBSystemTypeData->nDVBSystemType) {
+	case EnumSettingValue::TunerType::DVBT:
+	case EnumSettingValue::TunerType::DVBT2:
+		bstrUniqueName = L"DVB-T";
+		bstrFriendlyName = L"Local DVB-T Digital Antenna";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+		if (pDVBSystemTypeData->nDVBSystemType == EnumSettingValue::TunerType::DVBT2) {
+			specifyLocator = EnumSettingValue::Locator::DVBT2;
 		}
 		else {
-			// ITuningSpace に NetworkType を設定
-			if (FAILED(hr = pITuningSpace->put__NetworkType(iidNetworkType))) {
-				OutputDebug(L"[CreateTuningSpace] put__NetworkType failed\n");
+			specifyLocator = EnumSettingValue::Locator::DVBT;
+		}
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBT;
+		dvbSystemType = DVB_Terrestrial;
+		networkID = 0;
+		break;
+
+	case EnumSettingValue::TunerType::DVBC:
+		bstrUniqueName = L"DVB-C";
+		bstrFriendlyName = L"Local DVB-C Digital Cable";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+		specifyLocator = EnumSettingValue::Locator::DVBC;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBC;
+		dvbSystemType = DVB_Cable;
+		networkID = 0;
+		break;
+
+	case EnumSettingValue::TunerType::ISDBT:
+		bstrUniqueName = L"ISDB-T";
+		bstrFriendlyName = L"Local ISDB-T Digital Antenna";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+		specifyLocator = EnumSettingValue::Locator::DVBT;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBT;
+		dvbSystemType = ISDB_Terrestrial;
+		networkID = -1;
+		break;
+
+	case EnumSettingValue::TunerType::ISDBC:
+		bstrUniqueName = L"ISDB-C";
+		bstrFriendlyName = L"Local ISDB-C Digital Cable";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::DVB;
+		specifyLocator = EnumSettingValue::Locator::DVBC;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBC;
+		dvbSystemType = DVB_Cable;
+		networkID = -1;
+		break;
+
+	case EnumSettingValue::TunerType::ISDBS:
+		bstrUniqueName = L"ISDB-S";
+		bstrFriendlyName = L"Default Digital ISDB-S Tuning Space";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::DVBS;
+		specifyLocator = EnumSettingValue::Locator::ISDBS;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ISDBS;
+		dvbSystemType = ISDB_Satellite;
+		networkID = -1;
+		highOscillator = -1;
+		lowOscillator = -1;
+		lnbSwitch = -1;
+		spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
+		break;
+
+	case EnumSettingValue::TunerType::ATSC_Antenna:
+		bstrUniqueName = L"ATSC";
+		bstrFriendlyName = L"Local ATSC Digital Antenna";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::ATSC;
+		specifyLocator = EnumSettingValue::Locator::ATSC;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ATSC;
+		inputType = TunerInputAntenna;
+		countryCode = 0;
+		minChannel = 1;
+		maxChannel = 99;
+		minPhysicalChannel = 2;
+		maxPhysicalChannel = 69;
+		minMinorChannel = 0;
+		maxMinorChannel = 999;
+		modulationType = BDA_MOD_128QAM;
+		break;
+
+	case EnumSettingValue::TunerType::ATSC_Cable:
+		bstrUniqueName = L"ATSCCable";
+		bstrFriendlyName = L"Local ATSC Digital Cable";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::ATSC;
+		specifyLocator = EnumSettingValue::Locator::ATSC;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::ATSC;
+		inputType = TunerInputCable;
+		countryCode = 0;
+		minChannel = 1;
+		maxChannel = 99;
+		minPhysicalChannel = 1;
+		maxPhysicalChannel = 158;
+		minMinorChannel = 0;
+		maxMinorChannel = 999;
+		modulationType = BDA_MOD_128QAM;
+		break;
+
+	case EnumSettingValue::TunerType::DigitalCable:
+		bstrUniqueName = L"Digital Cable";
+		bstrFriendlyName = L"Local Digital Cable";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::DigitalCable;
+		specifyLocator = EnumSettingValue::Locator::DigitalCable;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DigitalCable;
+		inputType = TunerInputCable;
+		countryCode = 0;
+		minChannel = 2;
+		maxChannel = 9999;
+		minPhysicalChannel = 2;
+		maxPhysicalChannel = 158;
+		minMinorChannel = 0;
+		maxMinorChannel = 999;
+		minMajorChannel = 1;
+		maxMajorChannel = 99;
+		minSourceID = 0;
+		maxSourceID = 0x7fffffff;
+		break;
+
+	case EnumSettingValue::TunerType::DVBS:
+	default:
+		bstrUniqueName = L"DVB-S";
+		bstrFriendlyName = L"Default Digital DVB-S Tuning Space";
+		specifyTuningSpace = EnumSettingValue::TuningSpace::DVBS;
+		specifyLocator = EnumSettingValue::Locator::DVBS;
+		specifyITuningSpaceNetworkType = EnumSettingValue::NetworkType::DVBS;
+		dvbSystemType = DVB_Satellite;
+		networkID = -1;
+		highOscillator = 10600000;
+		lowOscillator = 9750000;
+		lnbSwitch = 11700000;
+		spectralInversion = BDA_SPECTRAL_INVERSION_NOT_SET;
+		westPosition = VARIANT_FALSE;
+		break;
+	}
+
+	if (pDVBSystemTypeData->nTuningSpace != EnumSettingValue::TuningSpace::Auto) {
+		specifyTuningSpace = pDVBSystemTypeData->nTuningSpace;
+	}
+	switch (specifyTuningSpace) {
+	case EnumSettingValue::TuningSpace::DVB:
+		clsidTuningSpace = __uuidof(DVBTuningSpace);
+		break;
+	case EnumSettingValue::TuningSpace::DVBS:
+		clsidTuningSpace = __uuidof(DVBSTuningSpace);
+		break;
+	case EnumSettingValue::TuningSpace::AnalogTV:
+		clsidTuningSpace = __uuidof(AnalogTVTuningSpace);
+		break;
+	case EnumSettingValue::TuningSpace::ATSC:
+		clsidTuningSpace = __uuidof(ATSCTuningSpace);
+		break;
+	case EnumSettingValue::TuningSpace::DigitalCable:
+		clsidTuningSpace = __uuidof(DigitalCableTuningSpace);
+		break;
+	}
+
+	if (pDVBSystemTypeData->nLocator != EnumSettingValue::Locator::Auto) {
+		specifyLocator = pDVBSystemTypeData->nLocator;
+	}
+	switch (specifyLocator) {
+	case EnumSettingValue::Locator::DVBT:
+		clsidLocator = __uuidof(DVBTLocator);
+		break;
+	case EnumSettingValue::Locator::DVBT2:
+		clsidLocator = __uuidof(DVBTLocator2);
+		break;
+	case EnumSettingValue::Locator::DVBS:
+		clsidLocator = __uuidof(DVBSLocator);
+		break;
+	case EnumSettingValue::Locator::DVBC:
+		clsidLocator = __uuidof(DVBCLocator);
+		break;
+	case EnumSettingValue::Locator::ISDBS:
+		clsidLocator = __uuidof(ISDBSLocator);
+		break;
+	case EnumSettingValue::Locator::ATSC:
+		clsidLocator = __uuidof(ATSCLocator);
+		break;
+	case EnumSettingValue::Locator::DigitalCable:
+		clsidLocator = __uuidof(DigitalCableLocator);
+		break;
+	}
+
+	if (pDVBSystemTypeData->nITuningSpaceNetworkType != EnumSettingValue::NetworkType::Auto) {
+		specifyITuningSpaceNetworkType = pDVBSystemTypeData->nITuningSpaceNetworkType;
+	}
+	switch (specifyITuningSpaceNetworkType) {
+	case EnumSettingValue::NetworkType::DVBT:
+		iidNetworkType = { STATIC_DVB_TERRESTRIAL_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::DVBS:
+		iidNetworkType = { STATIC_DVB_SATELLITE_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::DVBC:
+		iidNetworkType = { STATIC_DVB_CABLE_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::ISDBT:
+		iidNetworkType = { STATIC_ISDB_TERRESTRIAL_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::ISDBS:
+		iidNetworkType = { STATIC_ISDB_SATELLITE_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::ISDBC:
+		iidNetworkType = { STATIC_ISDB_CABLE_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::ATSC:
+		iidNetworkType = { STATIC_ATSC_TERRESTRIAL_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::DigitalCable:
+		iidNetworkType = { STATIC_DIGITAL_CABLE_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::BSkyB:
+		iidNetworkType = { STATIC_BSKYB_TERRESTRIAL_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::DIRECTV:
+		iidNetworkType = { STATIC_DIRECT_TV_SATELLITE_TV_NETWORK_TYPE };
+		break;
+	case EnumSettingValue::NetworkType::EchoStar:
+		iidNetworkType = { STATIC_ECHOSTAR_SATELLITE_TV_NETWORK_TYPE };
+		break;
+	}
+
+	if (pDVBSystemTypeData->nIDVBTuningSpaceSystemType != EnumSettingValue::DVBSystemType::Auto) {
+		dvbSystemType = (DVBSystemType)pDVBSystemTypeData->nIDVBTuningSpaceSystemType;
+	}
+
+	if (pDVBSystemTypeData->nIAnalogTVTuningSpaceInputType != EnumSettingValue::TunerInputType::Auto) {
+		inputType = (tagTunerInputType)pDVBSystemTypeData->nIAnalogTVTuningSpaceInputType;
+	}
+
+	HRESULT hr;
+
+	CComPtr<ITuningSpace> pITuningSpace;
+	// ITuningSpaceを作成
+	//
+	// ITuningSpace継承順：
+	//   ITuningSpace → IDVBTuningSpace → IDVBTuningSpace2 → IDVBSTuningSpace
+	//                → IAnalogTVTuningSpace → IATSCTuningSpace → IDigitalCableTuningSpace
+	//                → IAnalogRadioTuningSpace → IAnalogRadioTuningSpace2
+	//                → IAuxInTuningSpace → IAuxInTuningSpace2
+	if (FAILED(hr = pITuningSpace.CoCreateInstance(clsidTuningSpace, NULL, CLSCTX_INPROC_SERVER))) {
+		OutputDebug(L"[CreateTuningSpace] Fail to get ITuningSpace interface\n");
+	}
+	else {
+		// ITuningSpace に NetworkType を設定
+		if (FAILED(hr = pITuningSpace->put__NetworkType(iidNetworkType))) {
+			OutputDebug(L"[CreateTuningSpace] put__NetworkType failed\n");
+		}
+		else {
+			OutputDebug(L"[CreateTuningSpace] %s is created.\n", (wchar_t*)bstrFriendlyName);
+
+			// ITuningSpace
+			pITuningSpace->put_FrequencyMapping(L"");
+			pITuningSpace->put_UniqueName(bstrUniqueName);
+			pITuningSpace->put_FriendlyName(bstrFriendlyName);
+			OutputDebug(L"  ITuningSpace is initialized.\n");
+
+			// IDVBTuningSpace特有
+			{
+				CComQIPtr<IDVBTuningSpace> pIDVBTuningSpace(pITuningSpace);
+				if (pIDVBTuningSpace) {
+					pIDVBTuningSpace->put_SystemType(dvbSystemType);
+					OutputDebug(L"  IDVBTuningSpace is initialized.\n");
+				}
+			}
+
+			// IDVBTuningSpace2特有
+			{
+				CComQIPtr<IDVBTuningSpace2> pIDVBTuningSpace2(pITuningSpace);
+				if (pIDVBTuningSpace2) {
+					pIDVBTuningSpace2->put_NetworkID(networkID);
+					OutputDebug(L"  IDVBTuningSpace2 is initialized.\n");
+				}
+			}
+
+			// IDVBSTuningSpace特有
+			{
+				CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(pITuningSpace);
+				if (pIDVBSTuningSpace) {
+					pIDVBSTuningSpace->put_HighOscillator(highOscillator);
+					pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
+					pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
+					pIDVBSTuningSpace->put_SpectralInversion(spectralInversion);
+					OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
+				}
+			}
+
+			// IAnalogTVTuningSpace特有
+			{
+				CComQIPtr<IAnalogTVTuningSpace> pIAnalogTVTuningSpace(pITuningSpace);
+				if (pIAnalogTVTuningSpace) {
+					pIAnalogTVTuningSpace->put_InputType(inputType);
+					pIAnalogTVTuningSpace->put_MinChannel(minChannel);
+					pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
+					pIAnalogTVTuningSpace->put_CountryCode(countryCode);
+					OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
+				}
+			}
+
+			// IATSCTuningSpace特有
+			{
+				CComQIPtr<IATSCTuningSpace> pIATSCTuningSpace(pITuningSpace);
+				if (pIATSCTuningSpace) {
+					pIATSCTuningSpace->put_MinPhysicalChannel(minPhysicalChannel);
+					pIATSCTuningSpace->put_MaxPhysicalChannel(maxPhysicalChannel);
+					pIATSCTuningSpace->put_MinMinorChannel(minMinorChannel);
+					pIATSCTuningSpace->put_MaxMinorChannel(maxMinorChannel);
+					OutputDebug(L"  IATSCTuningSpace is initialized.\n");
+				}
+			}
+
+			// IDigitalCableTuningSpace特有
+			{
+				CComQIPtr<IDigitalCableTuningSpace> pIDigitalCableTuningSpace(pITuningSpace);
+				if (pIDigitalCableTuningSpace) {
+					pIDigitalCableTuningSpace->put_MinMajorChannel(minMajorChannel);
+					pIDigitalCableTuningSpace->put_MaxMajorChannel(maxMajorChannel);
+					pIDigitalCableTuningSpace->put_MinSourceID(minSourceID);
+					pIDigitalCableTuningSpace->put_MaxSourceID(maxSourceID);
+					OutputDebug(L"  IDigitalCableTuningSpace is initialized.\n");
+				}
+			}
+
+			// pILocatorを作成
+			//
+			// ILocator継承順：
+			//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
+			//                               → IDVBSLocator → IDVBSLocator2
+			//                                               → IISDBSLocator
+			//                               → IDVBCLocator
+			//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
+			//            → IAnalogLocator
+			CComPtr<ILocator> pILocator;
+			if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator))) {
+				OutputDebug(L"[CreateTuningSpace] Failed to get ILocator interface.\n");
 			}
 			else {
-				OutputDebug(L"[CreateTuningSpace] %s is created.\n", (wchar_t *)bstrFriendlyName);
+				// Default Locatorの値を作成 
+				// ILocator
+				pILocator->put_CarrierFrequency(frequency);
+				pILocator->put_SymbolRate(symbolRate);
+				pILocator->put_InnerFEC(innerFECMethod);
+				pILocator->put_InnerFECRate(innerFECRate);
+				pILocator->put_OuterFEC(outerFECMethod);
+				pILocator->put_OuterFECRate(outerFECRate);
+				pILocator->put_Modulation(modulationType);
+				OutputDebug(L"  ILocator is initialized.\n");
 
-				// ITuningSpace
-				pITuningSpace->put_FrequencyMapping(L"");
-				pITuningSpace->put_UniqueName(bstrUniqueName);
-				pITuningSpace->put_FriendlyName(bstrFriendlyName);
-				OutputDebug(L"  ITuningSpace is initialized.\n");
-
-				// IDVBTuningSpace特有
+				// IDigitalLocator特有プロパティは無いけどLogに残す
 				{
-					CComQIPtr<IDVBTuningSpace> pIDVBTuningSpace(pITuningSpace);
-					if (pIDVBTuningSpace) {
-						pIDVBTuningSpace->put_SystemType(dvbSystemType);
-						OutputDebug(L"  IDVBTuningSpace is initialized.\n");
+					CComQIPtr<IDigitalLocator> pIDigitalLocator(pILocator);
+					if (pIDigitalLocator) {
+						OutputDebug(L"  IDigitalLocator is initialized.\n");
 					}
 				}
 
-				// IDVBTuningSpace2特有
+				// IDVBSLocator特有
 				{
-					CComQIPtr<IDVBTuningSpace2> pIDVBTuningSpace2(pITuningSpace);
-					if (pIDVBTuningSpace2) {
-						pIDVBTuningSpace2->put_NetworkID(networkID);
-						OutputDebug(L"  IDVBTuningSpace2 is initialized.\n");
+					CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
+					if (pIDVBSLocator) {
+						pIDVBSLocator->put_WestPosition(westPosition);
+						pIDVBSLocator->put_OrbitalPosition(orbitalPosition);
+						pIDVBSLocator->put_Elevation(elevation);
+						pIDVBSLocator->put_Azimuth(azimuth);
+						pIDVBSLocator->put_SignalPolarisation(polarisation);
+						OutputDebug(L"  IDVBSLocator is initialized.\n");
 					}
 				}
 
-				// IDVBSTuningSpace特有
+				// IDVBSLocator2特有
 				{
-					CComQIPtr<IDVBSTuningSpace> pIDVBSTuningSpace(pITuningSpace);
-					if (pIDVBSTuningSpace) {
-						pIDVBSTuningSpace->put_HighOscillator(highOscillator);
-						pIDVBSTuningSpace->put_LowOscillator(lowOscillator);
-						pIDVBSTuningSpace->put_LNBSwitch(lnbSwitch);
-						pIDVBSTuningSpace->put_SpectralInversion(spectralInversion);
-						OutputDebug(L"  IDVBSTuningSpace is initialized.\n");
+					CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
+					if (pIDVBSLocator2) {
+						pIDVBSLocator2->put_LocalOscillatorOverrideHigh(-1);
+						pIDVBSLocator2->put_LocalOscillatorOverrideLow(-1);
+						pIDVBSLocator2->put_LocalLNBSwitchOverride(-1);
+						pIDVBSLocator2->put_LocalSpectralInversionOverride(BDA_SPECTRAL_INVERSION_NOT_SET);
+						pIDVBSLocator2->put_DiseqLNBSource(diseqLNBSource);
+						pIDVBSLocator2->put_SignalPilot(pilot);
+						pIDVBSLocator2->put_SignalRollOff(rollOff);
+						OutputDebug(L"  IDVBSLocator2 is initialized.\n");
 					}
 				}
 
-				// IAnalogTVTuningSpace特有
+				// IISDBSLocator特有プロパティは無いけどLogに残す
 				{
-					CComQIPtr<IAnalogTVTuningSpace> pIAnalogTVTuningSpace(pITuningSpace);
-					if (pIAnalogTVTuningSpace) {
-						pIAnalogTVTuningSpace->put_InputType(inputType);
-						pIAnalogTVTuningSpace->put_MinChannel(minChannel);
-						pIAnalogTVTuningSpace->put_MaxChannel(maxChannel);
-						pIAnalogTVTuningSpace->put_CountryCode(countryCode);
-						OutputDebug(L"  IAnalogTVTuningSpace is initialized.\n");
+					CComQIPtr<IISDBSLocator> pIISDBSLocator(pILocator);
+					if (pIISDBSLocator) {
+						OutputDebug(L"  IISDBSLocator is initialized.\n");
 					}
 				}
 
-				// IATSCTuningSpace特有
+				// IDVBTLocator特有
 				{
-					CComQIPtr<IATSCTuningSpace> pIATSCTuningSpace(pITuningSpace);
-					if (pIATSCTuningSpace) {
-						pIATSCTuningSpace->put_MinPhysicalChannel(minPhysicalChannel);
-						pIATSCTuningSpace->put_MaxPhysicalChannel(maxPhysicalChannel);
-						pIATSCTuningSpace->put_MinMinorChannel(minMinorChannel);
-						pIATSCTuningSpace->put_MaxMinorChannel(maxMinorChannel);
-						OutputDebug(L"  IATSCTuningSpace is initialized.\n");
+					CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
+					if (pIDVBTLocator) {
+						pIDVBTLocator->put_Bandwidth(bandwidth);
+						pIDVBTLocator->put_Guard(guardInterval);
+						pIDVBTLocator->put_HAlpha(hierarchyAlpha);
+						pIDVBTLocator->put_LPInnerFEC(lpInnerFECMethod);
+						pIDVBTLocator->put_LPInnerFECRate(lpInnerFECRate);
+						pIDVBTLocator->put_Mode(transmissionMode);
+						pIDVBTLocator->put_OtherFrequencyInUse(otherFrequencyInUse);
+						OutputDebug(L"  IDVBTLocator is initialized.\n");
 					}
 				}
 
-				// IDigitalCableTuningSpace特有
+				// IDVBTLocator2特有
 				{
-					CComQIPtr<IDigitalCableTuningSpace> pIDigitalCableTuningSpace(pITuningSpace);
-					if (pIDigitalCableTuningSpace) {
-						pIDigitalCableTuningSpace->put_MinMajorChannel(minMajorChannel);
-						pIDigitalCableTuningSpace->put_MaxMajorChannel(maxMajorChannel);
-						pIDigitalCableTuningSpace->put_MinSourceID(minSourceID);
-						pIDigitalCableTuningSpace->put_MaxSourceID(maxSourceID);
-						OutputDebug(L"  IDigitalCableTuningSpace is initialized.\n");
+					CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
+					if (pIDVBTLocator2) {
+						pIDVBTLocator2->put_PhysicalLayerPipeId(physicalLayerPipeId);
+						OutputDebug(L"  IDVBTLocator2 is initialized.\n");
 					}
 				}
 
-				// pILocatorを作成
-				//
-				// ILocator継承順：
-				//   ILocator → IDigitalLocator → IDVBTLocator → IDVBTLocator2
-				//                               → IDVBSLocator → IDVBSLocator2
-				//                                               → IISDBSLocator
-				//                               → IDVBCLocator
-				//                               → IATSCLocator → IATSCLocator2 → IDigitalCableLocator
-				//            → IAnalogLocator
-				CComPtr<ILocator> pILocator;
-				if (FAILED(hr = pILocator.CoCreateInstance(clsidLocator))) {
-					OutputDebug(L"[CreateTuningSpace] Failed to get ILocator interface.\n");
+				// IDVBCLocator特有プロパティは無いけどLogに残す
+				{
+					CComQIPtr<IDVBCLocator> pIDVBCLocator(pILocator);
+					if (pIDVBCLocator) {
+						OutputDebug(L"  IDVBCLocator is initialized.\n");
+					}
 				}
-				else {
-					// Default Locatorの値を作成 
-					// ILocator
-					pILocator->put_CarrierFrequency(frequency);
-					pILocator->put_SymbolRate(symbolRate);
-					pILocator->put_InnerFEC(innerFECMethod);
-					pILocator->put_InnerFECRate(innerFECRate);
-					pILocator->put_OuterFEC(outerFECMethod);
-					pILocator->put_OuterFECRate(outerFECRate);
-					pILocator->put_Modulation(modulationType);
-					OutputDebug(L"  ILocator is initialized.\n");
 
-					// IDigitalLocator特有プロパティは無いけどLogに残す
-					{
-						CComQIPtr<IDigitalLocator> pIDigitalLocator(pILocator);
-						if (pIDigitalLocator) {
-							OutputDebug(L"  IDigitalLocator is initialized.\n");
-						}
+				// IATSCLocator特有
+				{
+					CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
+					if (pIATSCLocator) {
+						pIATSCLocator->put_PhysicalChannel(physicalChannel);
+						pIATSCLocator->put_TSID(transportStreamID);
+						OutputDebug(L"  IATSCLocator is initialized.\n");
 					}
-
-					// IDVBSLocator特有
-					{
-						CComQIPtr<IDVBSLocator> pIDVBSLocator(pILocator);
-						if (pIDVBSLocator) {
-							pIDVBSLocator->put_WestPosition(westPosition);
-							pIDVBSLocator->put_OrbitalPosition(orbitalPosition);
-							pIDVBSLocator->put_Elevation(elevation);
-							pIDVBSLocator->put_Azimuth(azimuth);
-							pIDVBSLocator->put_SignalPolarisation(polarisation);
-							OutputDebug(L"  IDVBSLocator is initialized.\n");
-						}
-					}
-
-					// IDVBSLocator2特有
-					{
-						CComQIPtr<IDVBSLocator2> pIDVBSLocator2(pILocator);
-						if (pIDVBSLocator2) {
-							pIDVBSLocator2->put_LocalOscillatorOverrideHigh(-1);
-							pIDVBSLocator2->put_LocalOscillatorOverrideLow(-1);
-							pIDVBSLocator2->put_LocalLNBSwitchOverride(-1);
-							pIDVBSLocator2->put_LocalSpectralInversionOverride(BDA_SPECTRAL_INVERSION_NOT_SET);
-							pIDVBSLocator2->put_DiseqLNBSource(diseqLNBSource);
-							pIDVBSLocator2->put_SignalPilot(pilot);
-							pIDVBSLocator2->put_SignalRollOff(rollOff);
-							OutputDebug(L"  IDVBSLocator2 is initialized.\n");
-						}
-					}
-
-					// IISDBSLocator特有プロパティは無いけどLogに残す
-					{
-						CComQIPtr<IISDBSLocator> pIISDBSLocator(pILocator);
-						if (pIISDBSLocator) {
-							OutputDebug(L"  IISDBSLocator is initialized.\n");
-						}
-					}
-
-					// IDVBTLocator特有
-					{
-						CComQIPtr<IDVBTLocator> pIDVBTLocator(pILocator);
-						if (pIDVBTLocator) {
-							pIDVBTLocator->put_Bandwidth(bandwidth);
-							pIDVBTLocator->put_Guard(guardInterval);
-							pIDVBTLocator->put_HAlpha(hierarchyAlpha);
-							pIDVBTLocator->put_LPInnerFEC(lpInnerFECMethod);
-							pIDVBTLocator->put_LPInnerFECRate(lpInnerFECRate);
-							pIDVBTLocator->put_Mode(transmissionMode);
-							pIDVBTLocator->put_OtherFrequencyInUse(otherFrequencyInUse);
-							OutputDebug(L"  IDVBTLocator is initialized.\n");
-						}
-					}
-
-					// IDVBTLocator2特有
-					{
-						CComQIPtr<IDVBTLocator2> pIDVBTLocator2(pILocator);
-						if (pIDVBTLocator2) {
-							pIDVBTLocator2->put_PhysicalLayerPipeId(physicalLayerPipeId);
-							OutputDebug(L"  IDVBTLocator2 is initialized.\n");
-						}
-					}
-
-					// IDVBCLocator特有プロパティは無いけどLogに残す
-					{
-						CComQIPtr<IDVBCLocator> pIDVBCLocator(pILocator);
-						if (pIDVBCLocator) {
-							OutputDebug(L"  IDVBCLocator is initialized.\n");
-						}
-					}
-
-					// IATSCLocator特有
-					{
-						CComQIPtr<IATSCLocator> pIATSCLocator(pILocator);
-						if (pIATSCLocator) {
-							pIATSCLocator->put_PhysicalChannel(physicalChannel);
-							pIATSCLocator->put_TSID(transportStreamID);
-							OutputDebug(L"  IATSCLocator is initialized.\n");
-						}
-					}
-
-					// IATSCLocator2特有
-					{
-						CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
-						if (pIATSCLocator2) {
-							pIATSCLocator2->put_ProgramNumber(programNumber);
-							OutputDebug(L"  IATSCLocator2 is initialized.\n");
-						}
-					}
-
-					// IDigitalCableLocator特有プロパティは無いけどLogに残す
-					{
-						CComQIPtr<IDigitalCableLocator> pIDigitalCableLocator(pILocator);
-						if (pIDigitalCableLocator) {
-							OutputDebug(L"  IDigitalCableLocator is initialized.\n");
-						}
-					}
-
-					pITuningSpace->put_DefaultLocator(pILocator);
-
-					// 全て成功
-					it->second.pITuningSpace = pITuningSpace;
-					OutputDebug(L"[CreateTuningSpace] Process number %ld was successful.\n", it->first);
-					continue;
 				}
+
+				// IATSCLocator2特有
+				{
+					CComQIPtr<IATSCLocator2> pIATSCLocator2(pILocator);
+					if (pIATSCLocator2) {
+						pIATSCLocator2->put_ProgramNumber(programNumber);
+						OutputDebug(L"  IATSCLocator2 is initialized.\n");
+					}
+				}
+
+				// IDigitalCableLocator特有プロパティは無いけどLogに残す
+				{
+					CComQIPtr<IDigitalCableLocator> pIDigitalCableLocator(pILocator);
+					if (pIDigitalCableLocator) {
+						OutputDebug(L"  IDigitalCableLocator is initialized.\n");
+					}
+				}
+
+				pITuningSpace->put_DefaultLocator(pILocator);
+
+				// 全て成功
+				m_pITuningSpace = pITuningSpace;
+				OutputDebug(L"[CreateTuningSpace] Successfully created ITuningSpace.\n");
+				return S_OK;
 			}
 		}
-
-		// 失敗
-		OutputDebug(L"[CreateTuningSpace] Process number %ld failed.\n", it->first);
 	}
 
-	if (!m_DVBSystemTypeDB.IsExist(0) || !m_DVBSystemTypeDB.SystemType[0].pITuningSpace) {
-		OutputDebug(L"[CreateTuningSpace] Fail to create default ITuningSpace.\n");
-		return E_FAIL;
-	}
-
-	return S_OK;
+	// 失敗
+	OutputDebug(L"[CreateTuningSpace] ITuningSpace creation failed.\n");
+	return E_FAIL;
 }
 
 void CBonTuner::UnloadTuningSpace(void)
 {
-	m_DVBSystemTypeDB.ReleaseAll();
+	m_pITuningSpace.Release();
 }
 
 // Tuning Request を送って Tuning Space を初期化する
@@ -3844,7 +3881,7 @@ HRESULT CBonTuner::InitTuningSpace(void)
 	//                → IChannelIDTuneRequest
 	//                → IMPEG2TuneRequest
 	CComPtr<ITuneRequest> pITuneRequest;
-	if (FAILED(hr = m_DVBSystemTypeDB.SystemType[0].pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
+	if (FAILED(hr = m_pITuningSpace->CreateTuneRequest(&pITuneRequest))) {
 		OutputDebug(L"[InitTuningSpace] Fail to get ITuneRequest interface.\n");
 	}
 	else {
@@ -3883,7 +3920,7 @@ HRESULT CBonTuner::InitTuningSpace(void)
 			}
 		}
 
-		hr = m_pITuner->put_TuningSpace(m_DVBSystemTypeDB.SystemType[0].pITuningSpace);
+		hr = m_pITuner->put_TuningSpace(m_pITuningSpace);
 		hr = m_pITuner->put_TuneRequest(pITuneRequest);
 
 		// 全て成功
@@ -3894,11 +3931,13 @@ HRESULT CBonTuner::InitTuningSpace(void)
 	return hr;
 }
 
-HRESULT CBonTuner::LoadNetworkProvider(void)
+HRESULT CBonTuner::LoadNetworkProvider(DVBSystemTypeData* pDVBSystemTypeData)
 {
+	m_pNetworkProvider.Release();
+
 	CLSID clsidNetworkProvider = CLSID_NULL;
 
-	switch (m_nNetworkProvider) {
+	switch (pDVBSystemTypeData->nNetworkProvider) {
 	case EnumSettingValue::NetworkProvider::Generic:
 		clsidNetworkProvider = CLSID_NetworkProvider;
 		break;
@@ -3916,32 +3955,27 @@ HRESULT CBonTuner::LoadNetworkProvider(void)
 		break;
 	case EnumSettingValue::NetworkProvider::Auto:
 	default:
-		if (m_DVBSystemTypeDB.nNumType > 1) {
+		switch (pDVBSystemTypeData->nDVBSystemType) {
+		case EnumSettingValue::TunerType::DVBS:
+		case EnumSettingValue::TunerType::ISDBS:
+			clsidNetworkProvider = CLSID_DVBSNetworkProvider;
+			break;
+		case EnumSettingValue::TunerType::DVBT:
+		case EnumSettingValue::TunerType::DVBT2:
+		case EnumSettingValue::TunerType::ISDBT:
+			clsidNetworkProvider = CLSID_DVBTNetworkProvider;
+			break;
+		case EnumSettingValue::TunerType::DVBC:
+			clsidNetworkProvider = CLSID_DVBCNetworkProvider;
+			break;
+		case EnumSettingValue::TunerType::ATSC_Antenna:
+		case EnumSettingValue::TunerType::ATSC_Cable:
+		case EnumSettingValue::TunerType::DigitalCable:
+			clsidNetworkProvider = CLSID_ATSCNetworkProvider;
+			break;
+		default:
 			clsidNetworkProvider = CLSID_NetworkProvider;
-		}
-		else {
-			switch (m_DVBSystemTypeDB.SystemType[0].nDVBSystemType) {
-			case EnumSettingValue::TunerType::DVBS:
-			case EnumSettingValue::TunerType::ISDBS:
-				clsidNetworkProvider = CLSID_DVBSNetworkProvider;
-				break;
-			case EnumSettingValue::TunerType::DVBT:
-			case EnumSettingValue::TunerType::DVBT2:
-			case EnumSettingValue::TunerType::ISDBT:
-				clsidNetworkProvider = CLSID_DVBTNetworkProvider;
-				break;
-			case EnumSettingValue::TunerType::DVBC:
-				clsidNetworkProvider = CLSID_DVBCNetworkProvider;
-				break;
-			case EnumSettingValue::TunerType::ATSC_Antenna:
-			case EnumSettingValue::TunerType::ATSC_Cable:
-			case EnumSettingValue::TunerType::DigitalCable:
-				clsidNetworkProvider = CLSID_ATSCNetworkProvider;
-				break;
-			default:
-				clsidNetworkProvider = CLSID_NetworkProvider;
-				break;
-			}
+			break;
 		}
 		break;
 	}
@@ -3994,14 +4028,14 @@ void CBonTuner::UnloadNetworkProvider(void)
 }
 
 // チューナ・キャプチャの組合わせリストから動作するものを探す
-HRESULT CBonTuner::LoadAndConnectDevice(void)
+HRESULT CBonTuner::LoadAndConnectDevice(unsigned int tunerGroup)
 {
 	HRESULT hr;
 	if (!m_DVBSystemTypeDB.IsExist(0) || !m_pNetworkProvider) {
 		OutputDebug(L"[P->T] TuningSpace or NetworkProvider NOT SET.\n");
 		return E_POINTER;
 	}
-	for (BOOL bTuner = m_TunerComboList.ResetTuner(0); bTuner == TRUE; bTuner = m_TunerComboList.NextTuner()) {
+	for (BOOL bTuner = m_TunerComboList.ResetTuner(tunerGroup); bTuner == TRUE; bTuner = m_TunerComboList.NextTuner()) {
 		// チューナデバイスループ
 		const std::wstring* pTunerGUID = NULL;
 		const std::wstring* pTunerFriendlyName = NULL;
