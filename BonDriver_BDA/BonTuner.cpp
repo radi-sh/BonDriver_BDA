@@ -212,7 +212,7 @@ const BOOL CBonTuner::OpenTuner(void)
 	return FALSE;
 }
 
-const BOOL CBonTuner::_OpenTuner(void)
+BOOL CBonTuner::_OpenTuner(void)
 {
 	if (m_bOpened)
 		return TRUE;
@@ -367,7 +367,7 @@ const float CBonTuner::GetSignalLevel(void)
 	return 0.0F;
 }
 
-const float CBonTuner::_GetSignalLevel(void)
+float CBonTuner::_GetSignalLevel(void)
 {
 	if (!m_bOpened)
 		return -1.0F;
@@ -512,7 +512,7 @@ const BOOL CBonTuner::IsTunerOpening(void)
 	return FALSE;
 }
 
-const BOOL CBonTuner::_IsTunerOpening(void)
+BOOL CBonTuner::_IsTunerOpening(void)
 {
 	return m_bOpened;
 }
@@ -556,7 +556,7 @@ const BOOL CBonTuner::SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	return FALSE;
 }
 
-const BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
+BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 {
 	HRESULT hr;
 
@@ -659,7 +659,7 @@ const DWORD CBonTuner::GetCurSpace(void)
 	return CCOMProc::SPACE_INVALID;
 }
 
-const DWORD CBonTuner::_GetCurSpace(void)
+DWORD CBonTuner::_GetCurSpace(void)
 {
 	if (m_bAlwaysAnswerLocked)
 		return m_dwTargetSpace;
@@ -677,7 +677,7 @@ const DWORD CBonTuner::GetCurChannel(void)
 	return CCOMProc::CHANNEL_INVALID;
 }
 
-const DWORD CBonTuner::_GetCurChannel(void)
+DWORD CBonTuner::_GetCurChannel(void)
 {
 	if (m_bAlwaysAnswerLocked)
 		return m_dwTargetChannel;

@@ -198,13 +198,13 @@ protected:
 	void DisconnectAll(IBaseFilter* pFilter);
 
 	// CCOM処理専用スレッドから呼び出される関数
-	const BOOL _OpenTuner(void);
+	BOOL _OpenTuner(void);
 	void _CloseTuner(BOOL putoff);
-	const BOOL _SetChannel(const DWORD dwSpace, const DWORD dwChannel);
-	const float _GetSignalLevel(void);
-	const BOOL _IsTunerOpening(void);
-	const DWORD _GetCurSpace(void);
-	const DWORD _GetCurChannel(void);
+	BOOL _SetChannel(const DWORD dwSpace, const DWORD dwChannel);
+	float _GetSignalLevel(void);
+	BOOL _IsTunerOpening(void);
+	DWORD _GetCurSpace(void);
+	DWORD _GetCurChannel(void);
 
 
 protected:
