@@ -1,10 +1,6 @@
 #include "CBitRate.h"
 
 CBitRate::CBitRate(void)
-	: Rate1sec(0),
-	RateLast(),
-	DataCount(0),
-	Rate(0.0)
 {
 	::InitializeCriticalSection(&csRate1Sec);
 	::InitializeCriticalSection(&csRateLast);
