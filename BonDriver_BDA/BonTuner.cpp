@@ -218,7 +218,7 @@ BOOL CBonTuner::_OpenTuner(void)
 		}
 
 		// 受信TSデータバッファ初期化
-		m_pTsBuff = new TS_BUFF(m_nBuffSize, m_nMaxBuffCount);
+		m_pTsBuff = new TS_BUFF(188 * m_nBuffSize, m_nMaxBuffCount);
 
 		// TS受信イベント作成
 		m_hOnStreamEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -1089,57 +1089,57 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// TunerデバイスのみでCaptureデバイスが存在しない
-	m_TunerComboList.bNotExistCaptureDevice = IniFileAccess.ReadKeyBSectionData(L"NotExistCaptureDevice", FALSE);
+	m_TunerComboList.bNotExistCaptureDevice = IniFileAccess.ReadKeyBSectionData(L"NotExistCaptureDevice", m_TunerComboList.bNotExistCaptureDevice);
 
 	// TunerとCaptureのデバイスインスタンスパスが一致しているかの確認を行うかどうか
-	m_TunerComboList.bCheckDeviceInstancePath = IniFileAccess.ReadKeyBSectionData(L"CheckDeviceInstancePath", TRUE);
+	m_TunerComboList.bCheckDeviceInstancePath = IniFileAccess.ReadKeyBSectionData(L"CheckDeviceInstancePath", m_TunerComboList.bCheckDeviceInstancePath);
 
 	// Tuner名: GetTunerNameで返すチューナ名 ... 指定されなければデフォルト名が
 	//   使われる。この場合、複数チューナを名前で区別する事はできない
-	m_sTunerName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"Name", L"DVB-S2"));
+	m_sTunerName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"Name", m_sTunerName.c_str()));
 
 	// チューナ固有関数を使用するかどうか。
 	//   以下を INI ファイルで指定可能
 	//     "" ... 使用しない(default); "AUTO" ... AUTO
 	//     "DLLName" ... チューナ固有関数の入ったDLL名を直接指定
-	m_sDLLBaseName = IniFileAccess.ReadKeySSectionData(L"UseSpecial", L"");
+	m_sDLLBaseName = IniFileAccess.ReadKeySSectionData(L"UseSpecial", m_sDLLBaseName.c_str());
 
 	// Tone信号切替時のWait時間
-	m_nToneWait = IniFileAccess.ReadKeyISectionData(L"ToneSignalWait", 100);
+	m_nToneWait = IniFileAccess.ReadKeyISectionData(L"ToneSignalWait", m_nToneWait);
 
 	// CH切替後のLock確認時間
-	m_nLockWait = IniFileAccess.ReadKeyISectionData(L"ChannelLockWait", 2000);
+	m_nLockWait = IniFileAccess.ReadKeyISectionData(L"ChannelLockWait", m_nLockWait);
 
 	// CH切替後のLock確認Delay時間
-	m_nLockWaitDelay = IniFileAccess.ReadKeyISectionData(L"ChannelLockWaitDelay", 0);
+	m_nLockWaitDelay = IniFileAccess.ReadKeyISectionData(L"ChannelLockWaitDelay", m_nLockWaitDelay);
 
 	// CH切替後のLock確認Retry回数
-	m_nLockWaitRetry = IniFileAccess.ReadKeyISectionData(L"ChannelLockWaitRetry", 0);
+	m_nLockWaitRetry = IniFileAccess.ReadKeyISectionData(L"ChannelLockWaitRetry", m_nLockWaitRetry);
 
 	// CH切替動作を強制的に2度行うかどうか
-	m_bLockTwice = IniFileAccess.ReadKeyBSectionData(L"ChannelLockTwice", FALSE);
+	m_bLockTwice = IniFileAccess.ReadKeyBSectionData(L"ChannelLockTwice", m_bLockTwice);
 
 	// CH切替動作を強制的に2度行う場合のDelay時間
-	m_nLockTwiceDelay = IniFileAccess.ReadKeyISectionData(L"ChannelLockTwiceDelay", 100);
+	m_nLockTwiceDelay = IniFileAccess.ReadKeyISectionData(L"ChannelLockTwiceDelay", m_nLockTwiceDelay);
 
 	// SignalLockの異常検知時間(秒)
-	m_nWatchDogSignalLocked = IniFileAccess.ReadKeyISectionData(L"WatchDogSignalLocked", 0);
+	m_nWatchDogSignalLocked = IniFileAccess.ReadKeyISectionData(L"WatchDogSignalLocked", m_nWatchDogSignalLocked);
 
 	// BitRateの異常検知時間(秒)
-	m_nWatchDogBitRate = IniFileAccess.ReadKeyISectionData(L"WatchDogBitRate", 0);
+	m_nWatchDogBitRate = IniFileAccess.ReadKeyISectionData(L"WatchDogBitRate", m_nWatchDogBitRate);
 	if (m_nWatchDogBitRate > 0) {
 		m_bNeedBitRate = TRUE;
 		m_bNeedDecodeProc = TRUE;
 	}
 
 	// 異常検知時、チューナの再オープンを試みるまでのCH切替動作試行回数
-	m_nReOpenWhenGiveUpReLock = IniFileAccess.ReadKeyISectionData(L"ReOpenWhenGiveUpReLock", 0);
+	m_nReOpenWhenGiveUpReLock = IniFileAccess.ReadKeyISectionData(L"ReOpenWhenGiveUpReLock", m_nReOpenWhenGiveUpReLock);
 
 	// チューナの再オープンを試みる場合に別のチューナを優先して検索するかどうか
-	m_bTryAnotherTuner = IniFileAccess.ReadKeyBSectionData(L"TryAnotherTuner", FALSE);
+	m_bTryAnotherTuner = IniFileAccess.ReadKeyBSectionData(L"TryAnotherTuner", m_bTryAnotherTuner);
 
 	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
-	m_bBackgroundChannelLock = IniFileAccess.ReadKeyBSectionData(L"BackgroundChannelLock", FALSE);
+	m_bBackgroundChannelLock = IniFileAccess.ReadKeyBSectionData(L"BackgroundChannelLock", m_bBackgroundChannelLock);
 
 	// Tuning Space名（互換用）
 	std::wstring sTempTuningSpaceName = IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", L"スカパー");
@@ -1183,20 +1183,20 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// Strength 値補正係数
-	m_fStrengthCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthCoefficient", 1.0);
+	m_fStrengthCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthCoefficient", m_fStrengthCoefficient);
 	if (m_fStrengthCoefficient == 0.0)
 		m_fStrengthCoefficient = 1.0;
 
 	// Quality 値補正係数
-	m_fQualityCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"QualityCoefficient", 1.0);
+	m_fQualityCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"QualityCoefficient", m_fQualityCoefficient);
 	if (m_fQualityCoefficient == 0.0)
 		m_fQualityCoefficient = 1.0;
 
 	// Strength 値補正バイアス
-	m_fStrengthBias = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthBias", 0.0);
+	m_fStrengthBias = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthBias", m_fStrengthBias);
 
 	// Quality 値補正バイアス
-	m_fQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", 0.0);
+	m_fQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", m_fQualityBias);
 
 	// muparser初期化
 	try {
@@ -1266,7 +1266,7 @@ void CBonTuner::ReadIniFile(void)
 
 			// 使用するTunerGroup番号
 			key = prefix[j] + L"TunerGroup";
-			typeData.nTunerGroup = IniFileAccess.ReadKeyISectionData(key.c_str(), 0);
+			typeData.nTunerGroup = IniFileAccess.ReadKeyISectionData(key.c_str(), typeData.nTunerGroup);
 		}
 
 		if (typeData.nDVBSystemType == EnumSettingValue::TunerType::None && (typeData.nTuningSpace == EnumSettingValue::TuningSpace::Auto || typeData.nLocator == EnumSettingValue::Locator::Auto)) {
@@ -1292,35 +1292,35 @@ void CBonTuner::ReadIniFile(void)
 
 	// ストリームデータバッファ1個分のサイズ
 	// 188×設定数(bytes)
-	m_nBuffSize = 188 * (size_t)IniFileAccess.ReadKeyISectionData(L"BuffSize", 1024);
+	m_nBuffSize = (size_t)IniFileAccess.ReadKeyISectionData(L"BuffSize", (int)m_nBuffSize);
 
 	// ストリームデータバッファの最大個数
-	m_nMaxBuffCount = (size_t)IniFileAccess.ReadKeyISectionData(L"MaxBuffCount", 512);
+	m_nMaxBuffCount = (size_t)IniFileAccess.ReadKeyISectionData(L"MaxBuffCount", (int)m_nMaxBuffCount);
 
 	// WaitTsStream時、指定された個数分のストリームデータバッファが貯まるまで待機する
 	// チューナのCPU負荷が高いときは数値を大き目にすると効果がある場合もある
-	m_nWaitTsCount = IniFileAccess.ReadKeyISectionData(L"WaitTsCount", 1);
+	m_nWaitTsCount = IniFileAccess.ReadKeyISectionData(L"WaitTsCount", m_nWaitTsCount);
 	if (m_nWaitTsCount < 1)
 		m_nWaitTsCount = 1;
 
 	// WaitTsStream時ストリームデータバッファが貯まっていない場合に最低限待機する時間(msec)
 	// チューナのCPU負荷が高いときは100msec程度を指定すると効果がある場合もある
-	m_nWaitTsSleep = IniFileAccess.ReadKeyISectionData(L"WaitTsSleep", 100);
+	m_nWaitTsSleep = IniFileAccess.ReadKeyISectionData(L"WaitTsSleep", m_nWaitTsSleep);
 
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
-	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", FALSE);
+	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", m_bAlwaysAnswerLocked);
 
 	// COMProcThreadのスレッドプライオリティ
-	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", THREAD_PRIORITY_ERROR_RETURN, &EnumSettingValue::mapThreadPriority);
+	m_nThreadPriorityCOM = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityCOM", m_nThreadPriorityCOM, &EnumSettingValue::mapThreadPriority);
 
 	// DecodeProcThreadのスレッドプライオリティ
-	m_nThreadPriorityDecode = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityDecode", THREAD_PRIORITY_ERROR_RETURN, &EnumSettingValue::mapThreadPriority);
+	m_nThreadPriorityDecode = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityDecode", m_nThreadPriorityDecode, &EnumSettingValue::mapThreadPriority);
 
 	// ストリームスレッドプライオリティ
-	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", THREAD_PRIORITY_ERROR_RETURN, &EnumSettingValue::mapThreadPriority);
+	m_nThreadPriorityStream = IniFileAccess.ReadKeyIValueMapSectionData(L"ThreadPriorityStream", m_nThreadPriorityStream, &EnumSettingValue::mapThreadPriority);
 
 	// timeBeginPeriod()で設定するWindowsの最小タイマ分解能(msec)
-	m_nPeriodicTimer = IniFileAccess.ReadKeyISectionData(L"PeriodicTimer", 0);
+	m_nPeriodicTimer = IniFileAccess.ReadKeyISectionData(L"PeriodicTimer", m_nPeriodicTimer);
 
 	//
 	// Satellite セクション
@@ -2354,10 +2354,10 @@ void CBonTuner::ReadIniFile(void)
 		}
 
 		// 周波数オフセット値
-		itSpace->second.FrequencyOffset = (long)IniFileAccess.ReadKeyISectionData(L"FrequencyOffset", 0);
+		itSpace->second.FrequencyOffset = (long)IniFileAccess.ReadKeyISectionData(L"FrequencyOffset", itSpace->second.FrequencyOffset);
 
 		// TuningSpaceの種類番号
-		itSpace->second.DVBSystemTypeNumber = IniFileAccess.ReadKeyISectionData(L"DVBSystemTypeNumber", 0);
+		itSpace->second.DVBSystemTypeNumber = IniFileAccess.ReadKeyISectionData(L"DVBSystemTypeNumber", itSpace->second.DVBSystemTypeNumber);
 
 		// TSMFの処理モード
 		itSpace->second.TSMFMode = (EnumSettingValue::TSMFMode)IniFileAccess.ReadKeyIValueMapSectionData(L"TSMFMode", (int)itSpace->second.TSMFMode, &EnumSettingValue::mapTSMFMode);

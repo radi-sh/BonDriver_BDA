@@ -235,7 +235,7 @@ protected:
 	CTunerComboList m_TunerComboList;
 
 	// GetTunerNameで返す名前
-	std::basic_string<TCHAR> m_sTunerName;
+	std::basic_string<TCHAR> m_sTunerName = L"DVB-S2";
 
 	// 固有DLL名
 	std::wstring m_sDLLBaseName;
@@ -313,7 +313,7 @@ protected:
 	////////////////////////////////////////
 
 	// バッファ1個あたりのサイズ
-	size_t m_nBuffSize = 188 * 1024;
+	size_t m_nBuffSize = 1024;
 
 	// 最大バッファ数
 	size_t m_nMaxBuffCount = 512;
