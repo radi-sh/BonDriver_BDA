@@ -241,7 +241,7 @@ protected:
 	std::wstring m_sDLLBaseName;
 
 	// ToneM†Ø‘Ö‚ÌWaitŠÔ
-	unsigned int m_nToneWait = 100;
+	unsigned int m_nToneWait = 0;
 
 	// CHØ‘ÖŒã‚ÌLockŠm”FŠÔ
 	unsigned int m_nLockWait = 2000;
