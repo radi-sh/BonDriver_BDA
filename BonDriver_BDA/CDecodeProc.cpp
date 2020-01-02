@@ -19,12 +19,12 @@ HANDLE CDecodeProc::CreateThread(LPTHREAD_START_ROUTINE proc, LPVOID param, int 
 	// スレッド起動
 	HANDLE hThreadTemp = NULL;
 	hThreadTemp = ::CreateThread(NULL, 0, proc, param, 0, NULL);
-	if (hThreadTemp)
+	if (!hThreadTemp)
 		return hThreadTemp;
 
 	// スレッドプライオリティ
-	if (hThread != NULL && priority != THREAD_PRIORITY_ERROR_RETURN) {
-		::SetThreadPriority(hThread, priority);
+	if (priority != THREAD_PRIORITY_ERROR_RETURN) {
+		::SetThreadPriority(hThreadTemp, priority);
 	}
 
 	HANDLE h[2] = {
