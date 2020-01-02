@@ -159,6 +159,7 @@ void CTunerComboList::BuildComboDB(void)
 					OutputDebug(L"[CTunerComboList::BuildComboDB]   Adding tuner device only.\n");
 					OutputDebug(L"[CTunerComboList::BuildComboDB]     tuner=FriendlyName:%s,  GUID:%s\n", itTunerList->FriendlyName.c_str(), itTunerList->GUID.c_str());
 					TunerComboDB[groupNum].emplace_back(*itTunerList);
+					total++;
 				}
 			}
 		}
