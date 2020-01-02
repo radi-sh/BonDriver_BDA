@@ -608,16 +608,18 @@ BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	PurgeTsStream();
 
 	// TSMFˆ—Ý’è
-	switch (itSpace->second.TSMFMode) {
-	case EnumSettingValue::TSMFMode::Off:
-		m_pTSMFParser->Disable();
-		break;
-	case EnumSettingValue::TSMFMode::TSID:
-		m_pTSMFParser->SetTSID((WORD)Ch->ONID, (WORD)Ch->TSID, FALSE);
-		break;
-	case EnumSettingValue::TSMFMode::Relarive:
-		m_pTSMFParser->SetTSID(0xffff, (WORD)Ch->TSID, TRUE);
-		break;
+	if (m_pTSMFParser) {
+		switch (itSpace->second.TSMFMode) {
+		case EnumSettingValue::TSMFMode::Off:
+			m_pTSMFParser->Disable();
+			break;
+		case EnumSettingValue::TSMFMode::TSID:
+			m_pTSMFParser->SetTSID((WORD)Ch->ONID, (WORD)Ch->TSID, FALSE);
+			break;
+		case EnumSettingValue::TSMFMode::Relarive:
+			m_pTSMFParser->SetTSID(0xffff, (WORD)Ch->TSID, TRUE);
+			break;
+		}
 	}
 
 	m_bRecvStarted = TRUE;
