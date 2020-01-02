@@ -18,14 +18,13 @@ TS_DATA::~TS_DATA(void) {
 	SAFE_DELETE_ARRAY(pbyBuff);
 }
 
-TS_BUFF::TS_BUFF(void)
+TS_BUFF::TS_BUFF(void) : TS_BUFF(0, 0)
 {
-	::InitializeCriticalSection(&cs);
 }
 
 TS_BUFF::TS_BUFF(size_t buffSize, size_t maxCount)
 {
-	TS_BUFF();
+	::InitializeCriticalSection(&cs);
 	SetSize(buffSize, maxCount);
 }
 
