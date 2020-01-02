@@ -337,54 +337,66 @@ const float CBonTuner::GetSignalLevel(void)
 
 float CBonTuner::_GetSignalLevel(void)
 {
-	if (!m_bOpened)
-		return -1.0F;
-
 	HRESULT hr;
-	float f = 0.0F;
+	double db = 0.0;
 
-	// ビットレートを返す場合
-	if (m_bSignalLevelGetTypeBR) {
-		if (m_pBitRate) {
-			return (float)m_pBitRate->GetRate();
+	do {
+		if (!m_bOpened) {
+			db = -1.0;
+			break;
 		}
-		else {
-			return 0.0F;
-		}
-	}
 
-	// IBdaSpecials2固有関数があれば丸投げ
-	if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->GetSignalStrength(&f)) != E_NOINTERFACE) {
-		return f;
-	}
-
-	//   get_SignalQuality 信号の品質を示す 1 ～ 100 の値を取得する。
-	//   get_SignalStrength デシベル単位の信号の強度を示す値を取得する。 
-	int nStrength;
-	int nQuality;
-	int nLock;
-
-	if (m_dwTargetChannel == CBonTuner::CHANNEL_INVALID)
 		// SetChannel()が一度も呼ばれていない場合は0を返す
-		return 0.0F;
+		if (m_dwTargetChannel == CBonTuner::CHANNEL_INVALID) {
+			break;
+		}
 
-	GetSignalState(&nStrength, &nQuality, &nLock);
-	if (!nLock)
+		// ビットレートを返す場合
+		if (m_bSignalLevelGetTypeBR) {
+			if (m_pBitRate) {
+				db = m_pBitRate->GetRate();
+			}
+			else {
+				db = 0.0;
+			}
+			break;
+		}
+
+		// IBdaSpecials2固有関数があれば丸投げ
+		float f = 0.0F;
+		if (m_pIBdaSpecials2 && (hr = m_pIBdaSpecials2->GetSignalStrength(&f)) != E_NOINTERFACE) {
+			db = (double)f;
+			break;
+		}
+
+		// GetSignalState
+		//   strength : デシベル単位の信号の強度を示す値 
+		//   quality  : 信号の品質を示す 1 ～ 100 の値
+		//   lock     : 信号がLockできているか
+		//   present  : 信号が提供されているか
+		GetSignalState(&m_dbStrength, &m_dbQuality, &m_dbSignalLocked, &m_dbSignalPresent);
+
 		// Lock出来ていない場合は0を返す
-		return 0.0F;
-	if (nStrength < 0 && m_bSignalLevelNeedStrength)
-		// Strengthは-1を返す場合がある
-		return (float)nStrength;
+		if (!m_dbSignalLocked) {
+			db = 0.0;
+			break;
+		}
 
-	m_fStrength = (double)nStrength;
-	m_fQuality = (double)nQuality;
+		// Strengthは-1を返す場合がある → そのままの値を返す
+		if (m_dbStrength == -1.0) {
+			db = m_dbStrength;
+			break;
+		}
 
-	try {
-		f = (float)m_muParser.Eval();
-	}
-	catch (...) {
-	}
-	return f;
+		// 計算式の評価
+		try {
+			db = (double)m_muParser.Eval();
+		}
+		catch (...) {
+		}
+	} while (0);
+
+	return (float)db;
 }
 
 const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
@@ -686,6 +698,24 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 	// ロードすべきチューナ・キャプチャのリスト作成
 	pSys->m_TunerComboList.BuildComboDB();
 
+	// muparser初期化
+	try {
+		// 参照する変数を設定
+		pSys->m_muParser.DefineVar(_T("S"), &pSys->m_dbStrength);				// 現在のStrength値
+		pSys->m_muParser.DefineVar(_T("Q"), &pSys->m_dbQuality);				// 現在のQuality値
+		pSys->m_muParser.DefineVar(_T("L"), &pSys->m_dbSignalLocked);			// 現在のLock状態値
+		pSys->m_muParser.DefineVar(_T("P"), &pSys->m_dbSignalPresent);			// 現在の信号提供状態値
+		pSys->m_muParser.DefineVar(_T("SC"), &pSys->m_dbStrengthCoefficient);	// Strength 値補正係数
+		pSys->m_muParser.DefineVar(_T("SB"), &pSys->m_dbStrengthBias);			// Quality 値補正係数
+		pSys->m_muParser.DefineVar(_T("QC"), &pSys->m_dbQualityCoefficient);	// Strength 値補正バイアス
+		pSys->m_muParser.DefineVar(_T("QB"), &pSys->m_dbQualityBias);			// Quality 値補正バイアス
+		// 数式を設定
+		pSys->m_muParser.SetExpr(common::WStringToTString(pSys->m_sSignalLevelCalcFormula));
+	}
+	catch (...) {
+		OutputDebug(L"muParser exception. Wrong formula format?\n");
+	}
+
 	// スレッド起動完了を通知
 	pCOMProc->NotifyThreadStarted();
 
@@ -822,9 +852,9 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 
 				// SignalLockの状態確認
 				if (pSys->m_nWatchDogSignalLocked != 0) {
-					int lock = 0;
-					pSys->GetSignalState(NULL, NULL, &lock);
-					if (pCOMProc->CheckSignalLockErr(lock, pSys->m_nWatchDogSignalLocked * 1000)) {
+					double lock = 0.0;
+					pSys->GetSignalState(NULL, NULL, &lock, NULL);
+					if (pCOMProc->CheckSignalLockErr((BOOL)lock, pSys->m_nWatchDogSignalLocked * 1000)) {
 						// チャンネルロック再実行
 						OutputDebug(L"COMProcThread: WatchDogSignalLocked time is up.\n");
 						pCOMProc->SetReLockChannel();
@@ -1183,34 +1213,20 @@ void CBonTuner::ReadIniFile(void)
 	}
 
 	// Strength 値補正係数
-	m_fStrengthCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthCoefficient", m_fStrengthCoefficient);
-	if (m_fStrengthCoefficient == 0.0)
-		m_fStrengthCoefficient = 1.0;
+	m_dbStrengthCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthCoefficient", m_dbStrengthCoefficient);
+	if (m_dbStrengthCoefficient == 0.0)
+		m_dbStrengthCoefficient = 1.0;
 
 	// Quality 値補正係数
-	m_fQualityCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"QualityCoefficient", m_fQualityCoefficient);
-	if (m_fQualityCoefficient == 0.0)
-		m_fQualityCoefficient = 1.0;
+	m_dbQualityCoefficient = (double)IniFileAccess.ReadKeyFSectionData(L"QualityCoefficient", m_dbQualityCoefficient);
+	if (m_dbQualityCoefficient == 0.0)
+		m_dbQualityCoefficient = 1.0;
 
 	// Strength 値補正バイアス
-	m_fStrengthBias = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthBias", m_fStrengthBias);
+	m_dbStrengthBias = (double)IniFileAccess.ReadKeyFSectionData(L"StrengthBias", m_dbStrengthBias);
 
 	// Quality 値補正バイアス
-	m_fQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", m_fQualityBias);
-
-	// muparser初期化
-	try {
-		m_muParser.DefineVar(_T("S"), &m_fStrength);
-		m_muParser.DefineVar(_T("SC"), &m_fStrengthCoefficient);
-		m_muParser.DefineVar(_T("SB"), &m_fStrengthBias);
-		m_muParser.DefineVar(_T("Q"), &m_fQuality);
-		m_muParser.DefineVar(_T("QC"), &m_fQualityCoefficient);
-		m_muParser.DefineVar(_T("QB"), &m_fQualityBias);
-		m_muParser.SetExpr(common::WStringToTString(m_sSignalLevelCalcFormula));
-	}
-	catch (...) {
-		OutputDebug(L"muParser exception. Wrong formula format?\n");
-	}
+	m_dbQualityBias = (double)IniFileAccess.ReadKeyFSectionData(L"QualityBias", m_dbQualityBias);
 
 	// チューニング状態の判断方法
 	m_nSignalLockedJudgeType = (EnumSettingValue::SignalLockedJudgeType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLockedJudgeType", (int)m_nSignalLockedJudgeType, &EnumSettingValue::mapSignalLockedJudgeType);
@@ -2603,88 +2619,143 @@ void CBonTuner::ReadIniFile(void)
 	}
 }
 
-void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
+HRESULT CBonTuner::GetSignalState(double* pdbStrength, double* pdbQuality, double* pdbLocked, double* pdbPresent)
 {
-	if (pnStrength) *pnStrength = 0;
-	if (pnQuality) *pnQuality = 0;
-	if (pnLock) *pnLock = 1;
+	if (pdbStrength)
+		*pdbStrength = 0.0;
+	if (pdbQuality)
+		*pdbQuality = 0.0;
+	if (pdbLocked)
+		*pdbLocked = 1.0;
+	if (pdbPresent)
+		*pdbPresent = 1.0;
 
-	// チューナ固有 GetSignalState があれば、丸投げ
 	HRESULT hr;
-	if ((m_pIBdaSpecials) && (hr = m_pIBdaSpecials->GetSignalState(pnStrength, pnQuality, pnLock)) != E_NOINTERFACE) {
-		// E_NOINTERFACE でなければ、固有関数があったという事なので、
-		// このままリターン
-		return;
+	// チューナ固有 GetSignalState があれば、丸投げ
+	int nStrength = 0;
+	int nQuality = 0;
+	int nLock = 1;
+	if ((m_pIBdaSpecials) && (hr = m_pIBdaSpecials->GetSignalState(&nStrength, &nQuality, &nLock)) != E_NOINTERFACE) {
+		if (pdbStrength)
+			*pdbStrength = (double)nStrength;
+		if (pdbQuality)
+			*pdbQuality = (double)nQuality;
+		if (pdbLocked)
+			*pdbLocked = (double)nLock;
+		return S_OK;
 	}
 
 	if (m_pTunerDevice == NULL)
-		return;
+		return E_POINTER;
 
-	long longVal;
-	BYTE byteVal;
+	BOOL iTunerStrength = m_bSignalLevelGetTypeTuner && m_bSignalLevelNeedStrength && pdbStrength;
+	BOOL iTunerQuality = m_bSignalLevelGetTypeTuner && m_bSignalLevelNeedQuality && pdbQuality;
+	BOOL iTunerLocked = m_bSignalLockedJudgeTypeTuner && pdbLocked;
+	BOOL needITuner = iTunerStrength || iTunerQuality || iTunerLocked;
+	BOOL tunerSSStrength = m_bSignalLevelGetTypeSS && m_bSignalLevelNeedStrength && pdbStrength;
+	BOOL tunerSSQuality = m_bSignalLevelGetTypeSS && m_bSignalLevelNeedQuality && pdbQuality;
+	BOOL tunerSSLocked = m_bSignalLockedJudgeTypeSS && pdbLocked;
+	BOOL tunerSSPresent = m_bSignalLockedJudgeTypeSS && pdbPresent;
+	BOOL demodSSStrength = m_bSignalLevelGetTypeDemodSS && m_bSignalLevelNeedStrength && pdbStrength;
+	BOOL demodSSQuality = m_bSignalLevelGetTypeDemodSS && m_bSignalLevelNeedQuality && pdbQuality;
+	BOOL demodSSLocked = m_bSignalLockedJudgeTypeDemodSS && pdbLocked;
+	BOOL demodSSPresent = m_bSignalLockedJudgeTypeDemodSS && pdbPresent;
 
 	if (m_pITuner) {
-		if ((m_bSignalLevelGetTypeTuner && ((m_bSignalLevelNeedStrength && pnStrength) || (m_bSignalLevelNeedQuality && pnQuality))) ||
-				(m_bSignalLockedJudgeTypeTuner && pnLock)) {
-			longVal = 0;
-			if (SUCCEEDED(hr = m_pITuner->get_SignalStrength(&longVal))) {
-				__int16 strength = (__int16)(longVal & 0xffffL);
-				__int16 quality = (__int16)(longVal >> 16);
-				if (m_bSignalLevelNeedStrength && pnStrength)
-					*pnStrength = (int)(strength < 0xffffi16 ? 0xffffi16 - strength : strength);
-				if (m_bSignalLevelNeedQuality && pnQuality)
-					*pnQuality = min(max((int)quality, 0), 100);
-				if (m_bSignalLockedJudgeTypeTuner && pnLock)
-					*pnLock = strength != 0i16 ? 1 : 0;
+		if (needITuner) {
+			long val = 0;
+			if (SUCCEEDED(hr = m_pITuner->get_SignalStrength(&val))) {
+				// 下位16ビット(符号付)をSignal値として取り出す
+				short strength = (short)(val & 0xffffL);
+				// 上位16ビットをQuality値として取り出す
+				short quality = (short)(val >> 16);
+				if (iTunerStrength)
+					// 正の値/0/-1の場合はそのまま返す
+					// -1以下の場合はその値を2の補数として正の値に変換して返す
+					*pdbStrength = (double)(strength < -1i16 ? -1i16 - strength : strength);
+				if (iTunerQuality)
+					// 0～100の範囲内で返す
+					*pdbQuality = (double)min(max(quality, 0i16), 100i16);
+				if (iTunerLocked)
+					// Strength値が0以外ならば1.0(Lock状態)を返す
+					*pdbLocked = strength ? 1.0 : 0.0;
 			}
 		}
 	}
 
 	if (m_pIBDA_SignalStatisticsTunerNode) {
-		if (m_bSignalLevelGetTypeSS) {
-			if (m_bSignalLevelNeedStrength && pnStrength) {
-				longVal = 0;
-				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalStrength(&longVal)))
-					*pnStrength = (int)(longVal & 0xffff);
-			}
-
-			if (m_bSignalLevelNeedQuality && pnQuality) {
-				longVal = 0;
-				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalQuality(&longVal)))
-					*pnQuality = (int)(min(max(longVal & 0xffff, 0), 100));
+		if (tunerSSStrength) {
+			LONG val = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalStrength(&val))) {
+				// 符号付16ビット値として取り出す
+				short strength = (short)(val & 0xffffL);
+				// マイナス値の場合もそのまま返す
+				*pdbStrength = (double)strength;
 			}
 		}
 
-		if (m_bSignalLockedJudgeTypeSS && pnLock) {
-			byteVal = 0;
-			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalLocked(&byteVal)))
-				*pnLock = (int)byteVal;
+		if (tunerSSQuality) {
+			LONG val = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalQuality(&val))) {
+				// 符号付16ビット値として取り出す
+				short quality = (short)(val & 0xffffL);
+				// そのまま返す
+				*pdbQuality = (double)quality;
+			}
+		}
+
+		if (tunerSSLocked) {
+			BOOLEAN val = FALSE;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalLocked(&val))) {
+				*pdbLocked = (double)val;
+			}
+		}
+
+		if (tunerSSPresent) {
+			BOOLEAN val = FALSE;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsTunerNode->get_SignalPresent(&val))) {
+				*pdbLocked = (double)val;
+			}
 		}
 	}
 
 	if (m_pIBDA_SignalStatisticsDemodNode) {
-		if (m_bSignalLevelGetTypeDemodSS) {
-			if (m_bSignalLevelNeedStrength && pnStrength) {
-				longVal = 0;
-				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalStrength(&longVal)))
-					*pnStrength = (int)(longVal & 0xffff);
-			}
-
-			if (m_bSignalLevelNeedQuality && pnQuality) {
-				longVal = 0;
-				if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalQuality(&longVal)))
-					*pnQuality = (int)(min(max(longVal & 0xffff, 0), 100));
+		if (demodSSStrength) {
+			LONG val = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalStrength(&val))) {
+				// 符号付16ビット値として取り出す
+				short strength = (short)(val & 0xffffL);
+				// マイナス値の場合もそのまま返す
+				*pdbStrength = (double)strength;
 			}
 		}
 
-		if (m_bSignalLockedJudgeTypeDemodSS && pnLock) {
-			byteVal = 0;
-			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalLocked(&byteVal)))
-				*pnLock = (int)byteVal;
+		if (demodSSQuality) {
+			LONG val = 0;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalQuality(&val))) {
+				// 符号付16ビット値として取り出す
+				short quality = (short)(val & 0xffffL);
+				// そのまま返す
+				*pdbQuality = (double)quality;
+			}
+		}
+
+		if (demodSSLocked) {
+			BOOLEAN val = FALSE;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalLocked(&val))) {
+				*pdbLocked = (double)val;
+			}
+		}
+
+		if (demodSSPresent) {
+			BOOLEAN val = FALSE;
+			if (SUCCEEDED(hr = m_pIBDA_SignalStatisticsDemodNode->get_SignalPresent(&val))) {
+				*pdbLocked = (double)val;
+			}
 		}
 	}
 
-	return;
+	return S_OK;
 }
 
 BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
@@ -2995,7 +3066,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 
 	unsigned int nRetryRemain = m_nLockWaitRetry;
-	int nLock = 0;
+	double dbLock = 0;
 	do {
 		OutputDebug(L"  Requesting tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
@@ -3011,22 +3082,22 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		static constexpr int LockRetryTime = 50;
 		unsigned int nWaitRemain = m_nLockWait;
 		SleepWithMessageLoop(m_nLockWaitDelay);
-		GetSignalState(NULL, NULL, &nLock);
-		while (!nLock && nWaitRemain) {
+		GetSignalState(NULL, NULL, &dbLock, NULL);
+		while (!dbLock && nWaitRemain) {
 			DWORD dwSleepTime = (nWaitRemain > LockRetryTime) ? LockRetryTime : nWaitRemain;
 			OutputDebug(L"    Waiting lock status remaining %d msec.\n", nWaitRemain);
 			SleepWithMessageLoop(dwSleepTime);
 			nWaitRemain -= dwSleepTime;
-			GetSignalState(NULL, NULL, &nLock);
+			GetSignalState(NULL, NULL, &dbLock, NULL);
 		}
-	} while (!nLock && nRetryRemain--);
+	} while (!dbLock && nRetryRemain--);
 
-	if (nLock != 0)
+	if (dbLock)
 		OutputDebug(L"  LockChannel success.\n");
 	else
 		OutputDebug(L"  LockChannel failed.\n");
 
-	return nLock != 0;
+	return (BOOL)dbLock;
 }
 
 // チューナ固有Dllのロード

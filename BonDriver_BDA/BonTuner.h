@@ -130,7 +130,7 @@ protected:
 	void ReadIniFile(void);
 
 	// 信号状態を取得
-	void GetSignalState(int* pnStrength, int* pnQuality, int* pnLock);
+	HRESULT GetSignalState(double* pdbStrength, double* pdbQuality, double* pdbLocked, double* pdbPresent);
 
 	// チャンネル切替
 	BOOL LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice);
@@ -282,25 +282,35 @@ protected:
 	BOOL m_bSignalLevelNeedStrength = FALSE;		// SignalLevel 算出に SignalStrength 値を使用する
 	BOOL m_bSignalLevelNeedQuality = FALSE;			// SignalLevel 算出に SignalQuality 値を使用する
 
+	// SignalLevel算出用muparser
+	mu::Parser m_muParser;
+
+	// 現在のStrength値
+	double m_dbStrength = 0.0;
+
+	// 現在のQuality値
+	double m_dbQuality = 0.0;
+
+	// 現在のLock状態値
+	double m_dbSignalLocked = 0.0;
+
+	// 現在の信号提供状態値
+	double m_dbSignalPresent = 0.0;
+
 	// Strength 値補正係数
-	double m_fStrengthCoefficient = 1.0;
+	double m_dbStrengthCoefficient = 1.0;
 
 	// Quality 値補正係数
-	double m_fQualityCoefficient = 1.0;
+	double m_dbQualityCoefficient = 1.0;
 
 	// Strength 値補正バイアス
-	double m_fStrengthBias = 0.0;
+	double m_dbStrengthBias = 0.0;
 
 	// Quality 値補正バイアス
-	double m_fQualityBias = 0.0;
+	double m_dbQualityBias = 0.0;
 
 	// SignalLevel算出用ユーザー定義数式
 	std::wstring m_sSignalLevelCalcFormula;
-
-	// SignalLevel算出用
-	mu::Parser m_muParser;			// muparser
-	double m_fStrength = 0.0;		// muparser用Strength値参照変数
-	double m_fQuality = 0.0;		// muparser用Quality値参照変数
 
 	// チューニング状態の判断方法
 	EnumSettingValue::SignalLockedJudgeType m_nSignalLockedJudgeType = EnumSettingValue::SignalLockedJudgeType::SS;
