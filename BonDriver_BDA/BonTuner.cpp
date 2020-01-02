@@ -401,7 +401,7 @@ float CBonTuner::_GetSignalLevel(void)
 
 const DWORD CBonTuner::WaitTsStream(const DWORD dwTimeOut)
 {
-	if( m_hOnDecodeEvent == NULL ){
+	if(*m_phOnWaitTsEvent == NULL ){
 		return WAIT_ABANDONED;
 	}
 
