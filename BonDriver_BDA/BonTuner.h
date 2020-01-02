@@ -591,43 +591,6 @@ protected:
 	IBdaSpecials* m_pIBdaSpecials = NULL;
 	IBdaSpecials2b5* m_pIBdaSpecials2 = NULL;
 
-	// チューナ固有の関数が必要かどうかを自動判別するDB
-	// GUID をキーに DLL 名を得る
-	struct TUNER_SPECIAL_DLL {
-		const WCHAR * const sTunerGUID;
-		const WCHAR * const sDLLBaseName;
-	};
-	static constexpr TUNER_SPECIAL_DLL aTunerSpecialData[] = {
-		// ここはプログラマしかいじらないと思うので、プログラム中でGUID を小文字に正規化しないので、
-		// 追加する場合は、GUIDは小文字で書いてください
-
-		/* TBS6980A */
-		{ L"{e9ead02c-8b8c-4d9b-97a2-2ec0324360b1}", L"TBS" },
-
-		/* TBS6980B, Prof 8000 */
-		{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
-
-		/* Prof 7300, 7301, TBS 8920 */
-		{ L"{91b0cc87-9905-4d65-a0d1-5861c6f22cbf}", L"TBS" },	// 7301 は固有関数でなくてもOKだった
-
-		/* TBS 6920 */
-		{ L"{ed63ec0b-a040-4c59-bc9a-59b328a3f852}", L"TBS" },
-
-		/* Prof Prof 7500, Q-BOX II */
-		{ L"{b45b50ff-2d09-4bf2-a87c-ee4a7ef00857}", L"TBS" },
-
-		/* DVBWorld 2002, 2004, 2006 */
-		{ L"{4c807f36-2db7-44ce-9582-e1344782cb85}", L"DVBWorld" },
-
-		/* DVBWorld 210X, 2102X, 2104X */
-		{ L"{5a714cad-60f9-4124-b922-8a0557b8840e}", L"DVBWorld" },
-
-		/* DVBWorld 2005 */
-		{ L"{ede18552-45e6-469f-93b5-27e94296de38}", L"DVBWorld" }, // 2005 は固有関数は必要ないかも
-
-		{ L"", L"" }, // terminator
-	};
-
 	// チャンネル名自動生成 inline 関数
 	inline std::basic_string<TCHAR> MakeChannelName(const CBonTuner::ChData* const pChData)
 	{

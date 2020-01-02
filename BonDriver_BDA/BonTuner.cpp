@@ -3110,23 +3110,6 @@ HRESULT CBonTuner::CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::w
 		return S_OK;
 	}
 
-	if (common::WStringToUpperCase(m_sDLLBaseName) == L"AUTO") {
-		// INI ファイルで "AUTO" 指定の場合
-		BOOL found = FALSE;
-		for (unsigned int i = 0; i < sizeof aTunerSpecialData / sizeof TUNER_SPECIAL_DLL; i++) {
-			std::wstring dbGUID(aTunerSpecialData[i].sTunerGUID);
-			if ((dbGUID != L"") && (tunerGUID.find(dbGUID)) != std::wstring::npos) {
-				// この時のチューナ依存コードをチューナパラメータに変数にセットする
-				m_sDLLBaseName = aTunerSpecialData[i].sDLLBaseName;
-				break;
-			}
-		}
-		if (!found) {
-			// 見つからなかったのでチューナ固有関数は使わない
-			return S_OK;
-		}
-	}
-
 	// フォルダ名取得
 	std::wstring sPath;
 	common::GetModuleFilePath(st_hModule, &sPath, NULL, NULL);
