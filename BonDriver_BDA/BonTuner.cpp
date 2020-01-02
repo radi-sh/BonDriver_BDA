@@ -593,12 +593,14 @@ BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	m_LastTuningParam.SourceID = Ch->SourceID;													// SourceID (Digital Cable)
 	m_LastTuningParam.IniSpaceID = dwSpace;														// iniファイルで読込まれたチューニングスペース番号
 	m_LastTuningParam.IniChannelID = dwChannel;													// iniファイルで読込まれたチャンネル番号
+	m_LastTuningParam.LockTwice = m_bLockTwice && Ch->LockTwiceTarget;							// CH切替動作を強制的に2度行うかどうか
+	m_LastTuningParam.LockTwiceDelay = m_nLockTwiceDelay;										// CH切替動作を強制的に2度行う場合のDelay時間(msec)
 
 	// IBdaSpecialsで事前の処理が必要なら行う
 	if (m_pIBdaSpecials2)
 		hr = m_pIBdaSpecials2->PreLockChannel(&m_LastTuningParam);
 
-	BOOL bRet = LockChannel(&m_LastTuningParam, m_bLockTwice && Ch->LockTwiceTarget);
+	BOOL bRet = LockChannel(&m_LastTuningParam);
 
 	// IBdaSpecialsで追加の処理が必要なら行う
 	if (m_pIBdaSpecials2)
@@ -891,7 +893,7 @@ DWORD WINAPI CBonTuner::COMProcThread(LPVOID lpParameter)
 			// 異常検知後チャンネルロック再実行
 			if (!pCOMProc->NeedReOpenTuner() && pCOMProc->NeedReLockChannel()) {
 				// チャンネルロック再実行
-				if (pSys->LockChannel(&pSys->m_LastTuningParam, FALSE)) {
+				if (pSys->LockChannel(&pSys->m_LastTuningParam)) {
 					// LockChannelに成功した
 					OutputDebug(L"COMProcThread: Re-LockChannel SUCCESS.\n");
 					pCOMProc->ResetReLockChannel();
@@ -2760,7 +2762,7 @@ HRESULT CBonTuner::GetSignalState(double* pdbStrength, double* pdbQuality, doubl
 	return S_OK;
 }
 
-BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
+BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam)
 {
 	HRESULT hr;
 
@@ -2770,9 +2772,9 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
 		m_nCurTone = pTuningParam->Antenna.Tone;
-		if (SUCCEEDED(hr) && bLockTwice) {
+		if (SUCCEEDED(hr) && pTuningParam->LockTwice) {
 			OutputDebug(L"  TwiceLock 1st[Special2] SUCCESS.\n");
-			SleepWithMessageLoop(m_nLockTwiceDelay);
+			SleepWithMessageLoop(pTuningParam->LockTwiceDelay);
 			hr = m_pIBdaSpecials2->LockChannel(pTuningParam);
 		}
 		if (SUCCEEDED(hr)) {
@@ -2790,9 +2792,9 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 		// E_NOINTERFACE でなければ、固有関数があったという事なので、
 		// その中で選局処理が行なわれているはず。よってこのままリターン
 		m_nCurTone = pTuningParam->Antenna.Tone;
-		if (SUCCEEDED(hr) && bLockTwice) {
+		if (SUCCEEDED(hr) && pTuningParam->LockTwice) {
 			OutputDebug(L"  TwiceLock 1st[Special] SUCCESS.\n");
-			SleepWithMessageLoop(m_nLockTwiceDelay);
+			SleepWithMessageLoop(pTuningParam->LockTwiceDelay);
 			hr = m_pIBdaSpecials->LockChannel(pTuningParam->Antenna.Tone ? 1 : 0, (pTuningParam->Polarisation == BDA_POLARISATION_LINEAR_H) ? TRUE : FALSE, pTuningParam->Frequency / 1000,
 					(pTuningParam->Modulation.Modulation == BDA_MOD_NBC_8PSK || pTuningParam->Modulation.Modulation == BDA_MOD_8PSK) ? TRUE : FALSE);
 		}
@@ -3052,7 +3054,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 	}
 	m_nCurTone = pTuningParam->Antenna.Tone;
 
-	if (bLockTwice) {
+	if (pTuningParam->LockTwice) {
 		// TuneRequestを強制的に2度行う
 		OutputDebug(L"  Requesting 1st twice tune.\n");
 		if (FAILED(hr = m_pITuner->put_TuneRequest(pITuneRequest))) {
@@ -3064,7 +3066,7 @@ BOOL CBonTuner::LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice)
 			// m_pIBdaSpecialsでput_TuneRequestの後に何らかの処理が必要なら行う
 			hr = m_pIBdaSpecials2->PostTuneRequest(pTuningParam);
 		}
-		SleepWithMessageLoop(m_nLockTwiceDelay);
+		SleepWithMessageLoop(pTuningParam->LockTwiceDelay);
 	}
 
 	unsigned int nRetryRemain = m_nLockWaitRetry;

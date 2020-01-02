@@ -133,7 +133,7 @@ protected:
 	HRESULT GetSignalState(double* pdbStrength, double* pdbQuality, double* pdbLocked, double* pdbPresent);
 
 	// チャンネル切替
-	BOOL LockChannel(const TuningParam *pTuningParam, BOOL bLockTwice);
+	BOOL LockChannel(const TuningParam *pTuningParam);
 
 	// チューナ固有Dllのロード
 	HRESULT CheckAndInitTunerDependDll(IBaseFilter * pTunerDevice, std::wstring tunerGUID, std::wstring tunerFriendlyName);
