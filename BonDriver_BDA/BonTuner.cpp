@@ -4314,11 +4314,11 @@ HRESULT CBonTuner::LoadAndConnectTsWriter(IBaseFilter* pTunerDevice, IBaseFilter
 					// connect してみる
 					if (m_TunerComboList.bNotExistCaptureDevice) {
 						// Captureデバイスが存在しない場合はTunerと接続
-						hr = Connect(m_pTunerDevice, pTsWriter);
+						hr = Connect(pTunerDevice, pTsWriter);
 					}
 					else {
 						// Captureデバイスと接続
-						hr = Connect(m_pCaptureDevice, pTsWriter);
+						hr = Connect(pCaptureDevice, pTsWriter);
 					}
 					if (FAILED(hr)) {
 						OutputDebug(L"%s Failed to connect.\n", sDebugPrefix.c_str());
