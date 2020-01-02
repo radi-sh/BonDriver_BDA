@@ -183,7 +183,7 @@ BOOL CBonTuner::_OpenTuner(void)
 		auto it = m_DVBSystemTypeDB.SystemType.find(m_nTargetDvbSystemTypeNum);
 		if (it == m_DVBSystemTypeDB.SystemType.end()) {
 			OutputDebug(L"Can not find DVBSystemType%ld.\n", m_nTargetDvbSystemTypeNum);
-			return E_FAIL;
+			return FALSE;
 		}
 		OutputDebug(L"Building DVBSystemType%ld\n", m_nTargetDvbSystemTypeNum);
 
