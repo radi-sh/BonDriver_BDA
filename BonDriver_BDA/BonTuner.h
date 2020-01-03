@@ -110,17 +110,21 @@ public:
 
 protected:
 	////////////////////////////////////////
-	// 内部メンバ関数
+	// 静的メンバ関数
 	////////////////////////////////////////
 
-	// COM処理専用スレッド
+	// Tuner操作処理専用スレッド
 	static DWORD WINAPI COMProcThread(LPVOID lpParameter);
 
 	// Decode処理専用スレッド
 	static DWORD WINAPI DecodeProcThread(LPVOID lpParameter);
 
-	// TsWriter コールバック関数
+	// データ受信コールバック関数
 	static int CALLBACK RecvProc(void* pParam, BYTE* pbData, size_t size);
+
+	////////////////////////////////////////
+	// 内部メンバ関数
+	////////////////////////////////////////
 
 	// データ受信スタート・停止
 	void StartRecv(void);
@@ -202,7 +206,7 @@ protected:
 	// CCOM処理専用スレッドから呼び出される関数
 	BOOL _OpenTuner(void);
 	void _CloseTuner(BOOL putoff);
-	BOOL _SetChannel(const DWORD dwSpace, const DWORD dwChannel);
+	BOOL _SetChannel(DWORD dwSpace, DWORD dwChannel);
 	float _GetSignalLevel(void);
 	BOOL _IsTunerOpening(void);
 	DWORD _GetCurSpace(void);
@@ -235,7 +239,7 @@ protected:
 	CTunerComboList m_TunerComboList;
 
 	// GetTunerNameで返す名前
-	std::basic_string<TCHAR> m_sTunerName = L"DVB-S2";
+	std::basic_string<TCHAR> m_sTunerName = _T("DVB-S2");
 
 	// 固有DLL名
 	std::wstring m_sDLLBaseName;
@@ -328,7 +332,7 @@ protected:
 	// 最大バッファ数
 	size_t m_nMaxBuffCount = 512;
 
-	// m_hOnDecodeEventをセットするデータバッファ個数
+	// WaitTsStreamで最低限待機するデータバッファ個数
 	unsigned int m_nWaitTsCount = 1;
 
 	// WaitTsStreamで最低限待機する時間

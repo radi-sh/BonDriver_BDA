@@ -102,11 +102,13 @@ CBonTuner::CBonTuner()
 	st_InstanceList.push_back(this);
 	::LeaveCriticalSection(&st_LockInstanceList);
 
-	setlocale(LC_CTYPE, "ja_JP.SJIS");
+	std::setlocale(LC_CTYPE, "ja_JP.SJIS");
 
+	// プロセスハンドルを複製
 	HANDLE h = ::GetCurrentProcess();
 	::DuplicateHandle(h, h, h, &m_hProcess, 0, FALSE, DUPLICATE_SAME_ACCESS);
 
+	// iniファイル読込
 	ReadIniFile();
 
 	// TSMFパーサーのインスタンス作成
@@ -536,7 +538,7 @@ const BOOL CBonTuner::SetChannel(const DWORD dwSpace, const DWORD dwChannel)
 	return FALSE;
 }
 
-BOOL CBonTuner::_SetChannel(const DWORD dwSpace, const DWORD dwChannel)
+BOOL CBonTuner::_SetChannel(DWORD dwSpace, DWORD dwChannel)
 {
 	HRESULT hr;
 
