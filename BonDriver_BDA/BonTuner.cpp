@@ -9,6 +9,7 @@
 #include <Windows.h>
 #include <string>
 #include <regex>
+#include <clocale>
 
 #include <DShow.h>
 
