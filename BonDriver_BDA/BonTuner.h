@@ -239,7 +239,7 @@ protected:
 	CTunerComboList m_TunerComboList;
 
 	// GetTunerName‚Å•Ô‚·–¼‘O
-	std::basic_string<TCHAR> m_sTunerName = _T("DVB-S2");
+	std::basic_string<TCHAR> m_sTunerName = _T("UNKNOWN");
 
 	// ŒÅ—LDLL–¼
 	std::wstring m_sDLLBaseName;

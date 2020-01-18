@@ -1178,9 +1178,6 @@ void CBonTuner::ReadIniFile(void)
 	// CH切替に失敗した場合に、異常検知時同様バックグランドでCH切替動作を行うかどうか
 	m_bBackgroundChannelLock = IniFileAccess.ReadKeyBSectionData(L"BackgroundChannelLock", m_bBackgroundChannelLock);
 
-	// Tuning Space名（互換用）
-	std::wstring sTempTuningSpaceName = IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", L"スカパー");
-
 	// SignalLevel 算出方法
 	m_nSignalLevelCalcType = (EnumSettingValue::SignalLevelCalcType)IniFileAccess.ReadKeyIValueMapSectionData(L"SignalLevelCalcType", (int)m_nSignalLevelCalcType, &EnumSettingValue::mapSignalLevelCalcType);
 	if (m_nSignalLevelCalcType >= EnumSettingValue::SignalLevelCalcType::SSMin && m_nSignalLevelCalcType <= EnumSettingValue::SignalLevelCalcType::SSMax)
@@ -1666,20 +1663,19 @@ void CBonTuner::ReadIniFile(void)
 	//
 	// Channel セクション
 	//
-
 	// iniファイルからCH設定を読込む際に使用されていないCH番号があっても前詰せず確保しておくかどうか
 	// [Channel]セクションでの定義 ... 全てのチューニング空間に影響
 	BOOL bReserveUnusedChGlobal = IniFileAccess.ReadKeyB(L"CHANNEL", L"ReserveUnusedCh", FALSE);
 
+	//
+	// TuningSpace00 ～ TuningSpace99 セクション
+	//
 	// チューニング空間00～99の設定を読込
 	for (DWORD space = 0; space < 100; space++)	{
 		std::wstring section = common::WStringPrintf(L"TUNINGSPACE%02d", space);
 		if (IniFileAccess.ReadSection(section.c_str()) <= 0) {
 			// TuningSpaceXXのセクションが存在しない場合
-			if (space != 0)
-				continue;
-			// TuningSpace00の時はChannelセクションも見る
-			IniFileAccess.ReadSection(L"CHANNEL");
+			continue;
 		}
 		IniFileAccess.CreateSectionData();
 
@@ -1695,11 +1691,7 @@ void CBonTuner::ReadIniFile(void)
 		}
 
 		// Tuning Space名
-		std::wstring temp;
-		if (space == 0)
-			temp = sTempTuningSpaceName;
-		else
-			temp = L"NoName";
+		std::wstring temp = common::WStringPrintf(L"TuningSpace%02d", space);
 		
 		itSpace->second.sTuningSpaceName = common::WStringToTString(IniFileAccess.ReadKeySSectionData(L"TuningSpaceName", temp.c_str()));
 
@@ -2579,45 +2571,13 @@ void CBonTuner::ReadIniFile(void)
 	// チューニング空間番号0を探す
 	auto itSpace0 = m_TuningData.Spaces.find(0);
 	if (itSpace0 == m_TuningData.Spaces.end()) {
-		// ここには来ないはずだけど一応
 		// 空のTuningSpaceDataをチューニング空間番号0に挿入
 		itSpace0 = m_TuningData.Spaces.emplace(0, TuningSpaceData()).first;
-	}
-
-	if (!itSpace0->second.Channels.size()) {
-		// CH定義が一つもされていない
-		if (m_nDefaultNetwork == EnumSettingValue::DefaultNetwork::SPHD) {
-			// SPHDの場合のみ過去のバージョン互換動作
-			// 3つのTPをデフォルトでセットしておく
-			//   128.0E 12.658GHz V DVB-S *** 2015-10-10現在、NITには存在するけど停波中
-			auto itCh = itSpace0->second.Channels.emplace(0, ChData()).first;
-			itCh->second.Satellite = 1;
-			itCh->second.Polarisation = 2;
-			itCh->second.ModulationType = 0;
-			itCh->second.Frequency = 12658000;
-			itCh->second.sServiceName = MakeChannelName(&itCh->second);
-			//   124.0E 12.613GHz H DVB-S2
-			itCh = itSpace0->second.Channels.emplace(1, ChData()).first;
-			itCh->second.Satellite = 2;
-			itCh->second.Polarisation = 1;
-			itCh->second.ModulationType = 1;
-			itCh->second.Frequency = 12613000;
-			itCh->second.sServiceName = MakeChannelName(&itCh->second);
-			//   128.0E 12.733GHz H DVB-S2
-			itCh = itSpace0->second.Channels.emplace(2, ChData()).first;
-			itCh->second.Satellite = 1;
-			itCh->second.Polarisation = 1;
-			itCh->second.ModulationType = 1;
-			itCh->second.Frequency = 12733000;
-			itCh->second.sServiceName = MakeChannelName(&itCh->second);
-			itSpace0->second.dwNumChannel = 3;
-		}
 	}
 
 	// チューニング空間の数
 	auto itSpaceEnd = m_TuningData.Spaces.end();
 	if (itSpaceEnd == m_TuningData.Spaces.begin()) {
-		// こっちも一応
 		m_TuningData.dwNumSpace = 0;
 	}
 	else {
