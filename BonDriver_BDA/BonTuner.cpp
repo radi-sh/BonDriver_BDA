@@ -2398,7 +2398,7 @@ void CBonTuner::ReadIniFile(void)
 				Generate.NameOffset = 1UL;
 				Generate.NameStep = 2UL;
 				Generate.NameOffsetTS = 0UL;
-				relativeTS = 3UL;
+				relativeTS = 4UL;
 			}
 			else if (genSpace == L"ND2") {
 				Generate.Space = eChGenerateND2;
