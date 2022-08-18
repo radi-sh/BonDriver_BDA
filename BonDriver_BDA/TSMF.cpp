@@ -10,10 +10,7 @@ CTSMFParser::CTSMFParser(void)
 	ONID(0xffff),
 	IsRelative(FALSE),
 	IsClearCalled(FALSE),
-	PacketSize(0),
-	prevBuf(NULL),
-	prevBufSize(0),
-	prevBufPos(0)
+	PacketSize(0)
 {
 	::InitializeCriticalSection(&csClear);
 }
@@ -54,34 +51,22 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 		PacketSize = 0;
 
 		// 未処理TSパケットバッファをクリア
-		SAFE_DELETE_ARRAY(prevBuf);
-		prevBufSize = 0;
-		prevBufPos = 0;
+		readBuf.clear();
 	}
 
 	// 前回の残りデータと新規データを結合して新しいReadバッファを作成
-	size_t readBufSize = (prevBufSize - prevBufPos) + len;
+	readBuf.insert(readBuf.end(), buf, buf + len);
 	size_t readBufPos = 0;
-	BYTE * readBuf = new BYTE[readBufSize];
-	if (prevBuf) {
-		// 前回の残りデータをコピー
-		memcpy(readBuf, prevBuf + prevBufPos, prevBufSize - prevBufPos);
-		// 前回の残りデータを破棄
-		SAFE_DELETE_ARRAY(prevBuf);
-	}
-	// 新規データをコピー
-	memcpy(readBuf + (prevBufSize - prevBufPos), buf, len);
 
-	// Write用テンポラリバッファを作成
-	size_t tempBufPos = 0;
-	BYTE * tempBuf = new BYTE[readBufSize];
+	// Write用テンポラリバッファをクリア
+	tempBuf.clear();
 
 	// Readバッファを処理
-	while (readBufSize - readBufPos > PacketSize) {
+	while (readBuf.size() - readBufPos > PacketSize) {
 		if (PacketSize == 0) {
 			// TSパケットの同期
 			size_t truncate = 0;	// 切捨てサイズ
-			SyncPacket(readBuf + readBufPos, readBufSize - readBufPos, &truncate, &PacketSize);
+			SyncPacket(readBuf.data() + readBufPos, readBuf.size() - readBufPos, &truncate, &PacketSize);
 			// TSパケット先頭までのデータを切り捨てる
 			readBufPos += truncate;
 			if (truncate == 0)
@@ -91,45 +76,31 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 			continue;
 		}
 		// 同期できている
-		if (ParseOnePacket(readBuf + readBufPos, readBufSize - readBufPos, onid, tsid, relative)) {
+		if (ParseOnePacket(readBuf.data() + readBufPos, readBuf.size() - readBufPos, onid, tsid, relative)) {
 			// 必要なTSMFフレームをテンポラリバッファへ追加
-			memcpy(tempBuf + tempBufPos, readBuf + readBufPos, 188);
-			tempBufPos += 188;
+			tempBuf.insert(tempBuf.end(), readBuf.begin() + readBufPos, readBuf.begin() + readBufPos + 188);
 		}
 		// 次のRead位置へ
 		readBufPos += PacketSize;
 	}
 
 	// Write用テンポラリバッファが空でなければResult用バッファを作成
-	if (tempBufPos > 0) {
+	if (!tempBuf.empty()) {
 		::EnterCriticalSection(&csClear);
 		clearCalled = IsClearCalled;
 		::LeaveCriticalSection(&csClear);
 
 		// 途中でクリアされたら捨てる
 		if (!clearCalled) {
-			BYTE * resultBuf = new BYTE[tempBufPos];
-			memcpy(resultBuf, tempBuf, tempBufPos);
+			BYTE * resultBuf = new BYTE[tempBuf.size()];
+			memcpy(resultBuf, tempBuf.data(), tempBuf.size());
 			*newBuf = resultBuf;
-			*newBufLen = tempBufPos;
+			*newBufLen = tempBuf.size();
 		}
 	}
-	// Write用テンポラリバッファを破棄
-	SAFE_DELETE_ARRAY(tempBuf);
 
 	// 半端なTSデータが残っている場合は次回処理用に保存
-	if (readBuf && readBufSize - readBufPos > 0) {
-		// 残りのTSデータを保存
-		prevBuf = readBuf;
-		prevBufSize = readBufSize;
-		prevBufPos = readBufPos;
-	}
-	else {
-		// 全て使用済みのバッファは破棄
-		SAFE_DELETE_ARRAY(readBuf);
-		prevBufSize = 0;
-		prevBufPos = 0;
-	}
+	readBuf.erase(readBuf.begin(), readBuf.begin() + readBufPos);
 
 	return;
 }
@@ -222,9 +193,6 @@ BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len, WORD onid, WORD t
 	if (buf[0] != TS_PACKET_SYNC_BYTE) {
 		// TSパケットの同期外れ
 		PacketSize = 0;
-		SAFE_DELETE_ARRAY(prevBuf);
-		prevBufSize = 0;
-		prevBufPos = 0;
 		slot_counter = -1;
 		return FALSE;
 	}

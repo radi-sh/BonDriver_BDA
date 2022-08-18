@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <vector>
 
 class CTSMFParser
 {
@@ -12,9 +13,8 @@ private:
 	BOOL IsClearCalled;										// 解析処理のクリアが必要かどうか
 	CRITICAL_SECTION csClear;								// クリア処理を排他
 	size_t PacketSize;										// TSパケットサイズ
-	BYTE * prevBuf;											// 前回処理したTSパケットバッファ(未処理半端分保存用)
-	size_t prevBufSize;										// 前回処理したTSパケットバッファのサイズ
-	size_t prevBufPos;										// 前回処理したTSパケットバッファの処理開始位置
+	std::vector<BYTE> readBuf;								// 前回処理したTSパケットバッファ(未処理半端分保存用)およびRead用
+	std::vector<BYTE> tempBuf;								// Write用テンポラリバッファ
 	struct {
 		BYTE continuity_counter;							// 連続性指標
 		BYTE version_number;								// 変更指示
