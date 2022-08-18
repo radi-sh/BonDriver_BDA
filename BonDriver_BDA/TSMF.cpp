@@ -9,24 +9,23 @@ CTSMFParser::CTSMFParser(void)
 	TSID(0xffff),
 	ONID(0xffff),
 	IsRelative(FALSE),
+	IsClearCalled(FALSE),
 	PacketSize(0),
 	prevBuf(NULL),
 	prevBufSize(0),
 	prevBufPos(0)
 {
+	::InitializeCriticalSection(&csClear);
 }
 
 CTSMFParser::~CTSMFParser(void)
 {
+	::DeleteCriticalSection(&csClear);
 }
 
 void CTSMFParser::SetTSID(WORD onid, WORD tsid, BOOL relative)
 {
-	Clear();
-	ONID = onid;
-	TSID = tsid;
-	IsRelative = relative;
-	slot_counter = -1;
+	Clear(onid, tsid, relative);
 }
 
 void CTSMFParser::Disable(void)
@@ -38,6 +37,27 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 {
 	if (!buf || len <= 0)
 		return;
+
+	::EnterCriticalSection(&csClear);
+	WORD onid = ONID;
+	WORD tsid = TSID;
+	BOOL relative = IsRelative;
+	BOOL clearCalled = IsClearCalled;
+	IsClearCalled = FALSE;
+	::LeaveCriticalSection(&csClear);
+
+	if (clearCalled) {
+		// TSMF多重フレームの同期情報をクリア
+		slot_counter = -1;
+
+		// TSパケット同期情報をクリア
+		PacketSize = 0;
+
+		// 未処理TSパケットバッファをクリア
+		SAFE_DELETE_ARRAY(prevBuf);
+		prevBufSize = 0;
+		prevBufPos = 0;
+	}
 
 	// 前回の残りデータと新規データを結合して新しいReadバッファを作成
 	size_t readBufSize = (prevBufSize - prevBufPos) + len;
@@ -71,7 +91,7 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 			continue;
 		}
 		// 同期できている
-		if (ParseOnePacket(readBuf + readBufPos, readBufSize - readBufPos)) {
+		if (ParseOnePacket(readBuf + readBufPos, readBufSize - readBufPos, onid, tsid, relative)) {
 			// 必要なTSMFフレームをテンポラリバッファへ追加
 			memcpy(tempBuf + tempBufPos, readBuf + readBufPos, 188);
 			tempBufPos += 188;
@@ -82,10 +102,17 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 
 	// Write用テンポラリバッファが空でなければResult用バッファを作成
 	if (tempBufPos > 0) {
-		BYTE * resultBuf = new BYTE[tempBufPos];
-		memcpy(resultBuf, tempBuf, tempBufPos);
-		*newBuf = resultBuf;
-		*newBufLen = tempBufPos;
+		::EnterCriticalSection(&csClear);
+		clearCalled = IsClearCalled;
+		::LeaveCriticalSection(&csClear);
+
+		// 途中でクリアされたら捨てる
+		if (!clearCalled) {
+			BYTE * resultBuf = new BYTE[tempBufPos];
+			memcpy(resultBuf, tempBuf, tempBufPos);
+			*newBuf = resultBuf;
+			*newBufLen = tempBufPos;
+		}
 	}
 	// Write用テンポラリバッファを破棄
 	SAFE_DELETE_ARRAY(tempBuf);
@@ -107,23 +134,15 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 	return;
 }
 
-void CTSMFParser::Clear(void)
+void CTSMFParser::Clear(WORD onid, WORD tsid, BOOL relative)
 {
-	// ストリーム識別子を消去
-	ONID = 0xffff;
-	TSID = 0xffff;
-	IsRelative = FALSE;
-
-	// TSMF多重フレームの同期情報をクリア
-	slot_counter = -1;
-
-	// TSパケット同期情報をクリア
-	PacketSize = 0;
-
-	// 未処理TSパケットバッファをクリア
-	SAFE_DELETE_ARRAY(prevBuf);
-	prevBufSize = 0;
-	prevBufPos = 0;
+	// ストリーム識別子を消去または変更
+	::EnterCriticalSection(&csClear);
+	ONID = onid;
+	TSID = tsid;
+	IsRelative = relative;
+	IsClearCalled = TRUE;
+	::LeaveCriticalSection(&csClear);
 }
 
 BOOL CTSMFParser::ParseTSMFHeader(const BYTE * buf, size_t len)
@@ -198,7 +217,7 @@ BOOL CTSMFParser::ParseTSMFHeader(const BYTE * buf, size_t len)
 	return TRUE;
 }
 
-BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len)
+BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len, WORD onid, WORD tsid, BOOL relative)
 {
 	if (buf[0] != TS_PACKET_SYNC_BYTE) {
 		// TSパケットの同期外れ
@@ -210,7 +229,7 @@ BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len)
 		return FALSE;
 	}
 
-	if (TSID == 0xffff)
+	if (tsid == 0xffff)
 		// TSID指定が0xffffならば全てのスロットを返す
 		return TRUE;
 
@@ -227,14 +246,14 @@ BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len)
 	slot_counter++;
 
 	int ts_number = 0;
-	if (IsRelative) {
+	if (relative) {
 		// 相対TS番号を直接指定
-		ts_number = (int)TSID + 1;
+		ts_number = (int)tsid + 1;
 	}
 	else {
 		// ONIDとTSIDで指定
 		for (int i = 0; i < 15; i++) {
-			if (TSMFData.stream_info[i].stream_id == TSID && (ONID == 0xffff || TSMFData.stream_info[i].original_network_id == ONID)) {
+			if (TSMFData.stream_info[i].stream_id == tsid && (onid == 0xffff || TSMFData.stream_info[i].original_network_id == onid)) {
 				ts_number = i + 1;
 				break;
 			}

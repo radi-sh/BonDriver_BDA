@@ -9,6 +9,8 @@ private:
 	WORD TSID;												// 抽出するストリームのTSIDまたは相対TS番号
 	WORD ONID;												// 抽出するストリームのONID
 	BOOL IsRelative;										// 相対TS番号で指定するかどうか FALSE..ONID/TSIDで指定, TRUE..相対TS番号で指定
+	BOOL IsClearCalled;										// 解析処理のクリアが必要かどうか
+	CRITICAL_SECTION csClear;								// クリア処理を排他
 	size_t PacketSize;										// TSパケットサイズ
 	BYTE * prevBuf;											// 前回処理したTSパケットバッファ(未処理半端分保存用)
 	size_t prevBufSize;										// 前回処理したTSパケットバッファのサイズ
@@ -43,11 +45,11 @@ public:
 
 private:
 	// 全ての情報をクリア
-	void Clear(void);
+	void Clear(WORD onid = 0xffff, WORD tsid = 0xffff, BOOL relative = FALSE);
 	// TSMFヘッダの解析を行う
 	BOOL ParseTSMFHeader(const BYTE * buf, size_t len);
 	// 1パケット(1フレーム)の処理を行う
-	BOOL ParseOnePacket(const BYTE * buf, size_t len);
+	BOOL ParseOnePacket(const BYTE * buf, size_t len, WORD onid, WORD tsid, BOOL relative);
 	// TSパケットの同期を行う
 	BOOL SyncPacket(const BYTE * buf, size_t len, size_t * truncate, size_t * packetSize);
 };
