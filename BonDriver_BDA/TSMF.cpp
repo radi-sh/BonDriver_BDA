@@ -84,7 +84,7 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 			SyncPacket(readBuf + readBufPos, readBufSize - readBufPos, &truncate, &PacketSize);
 			// TSパケット先頭までのデータを切り捨てる
 			readBufPos += truncate;
-			if (PacketSize == 0)
+			if (truncate == 0)
 				// TSバッファのデータサイズが小さすぎて同期できない
 				break;
 
