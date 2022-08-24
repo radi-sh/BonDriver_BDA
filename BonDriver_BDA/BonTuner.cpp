@@ -136,10 +136,12 @@ CBonTuner::CBonTuner()
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
+	m_dwROTRegister(0),
 	m_pDSFilterEnumTuner(NULL),
 	m_pDSFilterEnumCapture(NULL),
 	m_nNetworkProvider(eNetworkProviderAuto),
 	m_nDefaultNetwork(eDefaultNetworkSPHD),
+	m_bRegisterGraphInROT(FALSE),
 	m_bOpened(FALSE),
 	m_dwTargetSpace(CBonTuner::SPACE_INVALID),
 	m_dwCurSpace(CBonTuner::SPACE_INVALID),
@@ -1622,6 +1624,9 @@ void CBonTuner::ReadIniFile(void)
 
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	m_nDefaultNetwork = (enumDefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", enumDefaultNetwork::eDefaultNetworkSPHD, mapDefaultNetwork);
+
+	// フィルタグラフをRunningObjectTableに登録するかどうか
+	m_bRegisterGraphInROT = IniFileAccess.ReadKeyBSectionData(L"RegisterGraphInROT", FALSE);
 
 	//
 	// BonDriver セクション
@@ -3546,6 +3551,24 @@ HRESULT CBonTuner::InitializeGraphBuilder(void)
 			hr = E_FAIL;
 		}
 		else {
+			if (m_bRegisterGraphInROT) {
+				std::wstring name = common::WStringPrintf(L"FilterGraph %p pid %08x", pIGraphBuilder.p, ::GetCurrentProcessId());
+				IRunningObjectTable * pROT;
+				if (SUCCEEDED(::GetRunningObjectTable(0, &pROT))) {
+					IMoniker * pMoniker;
+					if (SUCCEEDED(::CreateItemMoniker(L"!", name.c_str(), &pMoniker))) {
+						if (FAILED(pROT->Register(ROTFLAGS_REGISTRATIONKEEPSALIVE, pIGraphBuilder, pMoniker, &m_dwROTRegister)))
+							m_dwROTRegister = 0;
+						pMoniker->Release();
+					}
+					pROT->Release();
+				}
+				if (m_dwROTRegister == 0)
+					OutputDebug(L"ROT registration failed.\n");
+				else
+					OutputDebug(L"ROT registration success. entry=%u (%s).\n", m_dwROTRegister, name.c_str());
+			}
+
 			// 成功なのでこのまま終了
 			m_pIGraphBuilder = pIGraphBuilder;
 			m_pIMediaControl = pIMediaControl;
@@ -3577,6 +3600,15 @@ void CBonTuner::CleanupGraph(void)
 
 	UnloadNetworkProvider();
 	UnloadTuningSpace();
+
+	if (m_dwROTRegister != 0) {
+		IRunningObjectTable * pROT;
+		if (SUCCEEDED(::GetRunningObjectTable(0, &pROT))) {
+			pROT->Revoke(m_dwROTRegister);
+			pROT->Release();
+		}
+		m_dwROTRegister = 0;
+	}
 
 	m_pIMediaControl.Release();
 	m_pIGraphBuilder.Release();

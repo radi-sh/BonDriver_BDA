@@ -857,6 +857,9 @@ protected:
 	CComPtr<IBaseFilter> m_pDemux;				// MPEG2 Demultiplexer の IBaseFilter interface
 	CComPtr<IBaseFilter> m_pTif;				// MPEG2 Transport Information Filter の IBaseFilter interface
 
+	// RunningObjectTableの登録ID
+	DWORD m_dwROTRegister;
+
 	// チューナ信号状態取得用インターフェース
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsTunerNode;
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsDemodNode;
@@ -1040,6 +1043,9 @@ protected:
 		eDefaultNetworkDual = 4,		// Dual Mode (BS/CS110とUHF/CATV)
 	};
 	enumDefaultNetwork m_nDefaultNetwork;
+
+	// フィルタグラフをRunningObjectTableに登録するかどうか
+	BOOL m_bRegisterGraphInROT;
 
 	// Tuner is opened
 	BOOL m_bOpened;
