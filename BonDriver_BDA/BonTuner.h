@@ -574,6 +574,9 @@ protected:
 	// WaitTsStreamで最低限待機する時間
 	unsigned int m_nWaitTsSleep;
 
+	// ヌルパケットを削除するかどうか
+	BOOL m_bDeleteNullPackets;
+
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
 	BOOL m_bAlwaysAnswerLocked;
 
@@ -1067,6 +1070,15 @@ protected:
 
 	// TSMF処理が必要
 	BOOL m_bIsEnabledTSMF;
+
+	// ヌルパケット削除処理をリセット
+	LONG m_lResetFilter;
+
+	// TSパケットサイズ(ヌルパケット削除用)
+	size_t m_PacketSize;
+
+	// 前回処理したTSパケットバッファおよび作業用(ヌルパケット削除用)
+	std::vector<BYTE> m_FilterBuf;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;

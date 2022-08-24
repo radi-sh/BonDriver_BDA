@@ -5,6 +5,9 @@
 
 class CTSMFParser
 {
+public:
+	static constexpr BYTE TS_PACKET_SYNC_BYTE = 0x47;		// TSパケットヘッダ同期バイトコード
+
 private:
 	int slot_counter;										// TSMF多重フレームスロット番号
 	WORD TSID;												// 抽出するストリームのTSIDまたは相対TS番号
@@ -29,7 +32,6 @@ private:
 		BYTE emergency_indicator;							// 緊急警報指示
 		BYTE relative_stream_number[52];					// 相対ストリーム番号対スロット対応情報
 	} TSMFData;												// TSMF多重フレームヘッダ情報
-	static constexpr BYTE TS_PACKET_SYNC_BYTE = 0x47;		// TSパケットヘッダ同期バイトコード
 
 public:
 	// コンストラクタ
@@ -41,7 +43,9 @@ public:
 	// TSMF処理を無効にする
 	void Disable(void);
 	// TSバッファのTSMF処理を行う
-	void ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen);
+	void ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen, BOOL deleteNullPackets);
+	// TSパケットの同期を行う
+	static BOOL SyncPacket(const BYTE * buf, size_t len, size_t * truncate, size_t * packetSize);
 
 private:
 	// 全ての情報をクリア
@@ -50,6 +54,4 @@ private:
 	BOOL ParseTSMFHeader(const BYTE * buf, size_t len);
 	// 1パケット(1フレーム)の処理を行う
 	BOOL ParseOnePacket(const BYTE * buf, size_t len, WORD onid, WORD tsid, BOOL relative);
-	// TSパケットの同期を行う
-	BOOL SyncPacket(const BYTE * buf, size_t len, size_t * truncate, size_t * packetSize);
 };

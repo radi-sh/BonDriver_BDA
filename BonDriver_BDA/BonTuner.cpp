@@ -122,6 +122,7 @@ CBonTuner::CBonTuner()
 	m_nMaxBuffCount(512),
 	m_nWaitTsCount(1),
 	m_nWaitTsSleep(100),
+	m_bDeleteNullPackets(FALSE),
 	m_bAlwaysAnswerLocked(FALSE),
 	m_nThreadPriorityCOM(THREAD_PRIORITY_ERROR_RETURN),
 	m_nThreadPriorityDecode(THREAD_PRIORITY_ERROR_RETURN),
@@ -146,6 +147,8 @@ CBonTuner::CBonTuner()
 	m_dwCurChannel(CBonTuner::CHANNEL_INVALID),
 	m_nCurTone(CBonTuner::TONE_UNKNOWN),
 	m_bIsEnabledTSMF(FALSE),
+	m_lResetFilter(0),
+	m_PacketSize(0),
 	m_hModuleTunerSpecials(NULL),
 	m_pIBdaSpecials(NULL),
 	m_pIBdaSpecials2(NULL)
@@ -523,6 +526,9 @@ void CBonTuner::PurgeTsStream(void)
 
 	// デコード後TSバッファ
 	m_DecodedTsBuff.Purge();
+
+	// ヌルパケット削除処理をリセット
+	::InterlockedExchange(&m_lResetFilter, 1);
 
 	// ビットレート計算用クラス
 	m_BitRate.Clear();
@@ -1057,12 +1063,65 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 						// TSMFの処理を行う
 						BYTE * newBuf = NULL;
 						size_t newBufSize = 0;
-						pSys->m_TSMFParser.ParseTsBuffer(pBuff->pbyBuff, pBuff->Size, &newBuf, &newBufSize);
+						pSys->m_TSMFParser.ParseTsBuffer(pBuff->pbyBuff, pBuff->Size, &newBuf, &newBufSize, pSys->m_bDeleteNullPackets);
 						if (newBuf) {
 							TS_DATA * pNewTS = new TS_DATA(newBuf, (DWORD)newBufSize, FALSE);
 							pSys->m_DecodedTsBuff.Add(pNewTS);
 						}
 						SAFE_DELETE(pBuff);
+					}
+					else if (pSys->m_bDeleteNullPackets) {
+						if (::InterlockedExchange(&pSys->m_lResetFilter, 0)) {
+							// リセット
+							pSys->m_PacketSize = 0;
+							pSys->m_FilterBuf.clear();
+						}
+
+						// 基本的に取得データのメモリ領域を利用することでメモリ確保を省略するが
+						// 半端分が蓄積するときだけ領域を拡張して解消する
+						size_t sizeToExtend = pSys->m_FilterBuf.size() >= 188 * 16 ? pBuff->Size + 188 * 16 : 0;
+						pSys->m_FilterBuf.insert(pSys->m_FilterBuf.end(), pBuff->pbyBuff, pBuff->pbyBuff + pBuff->Size);
+						if (sizeToExtend > 0) {
+							// 拡張
+							SAFE_DELETE(pBuff);
+							pBuff = new TS_DATA(new BYTE[sizeToExtend], sizeToExtend, FALSE);
+						}
+
+						size_t rpos = 0;
+						size_t wpos = 0;
+						while (rpos + pSys->m_PacketSize <= pSys->m_FilterBuf.size() && wpos + 188 <= pBuff->Size) {
+							if (pSys->m_PacketSize == 0) {
+								// TSパケットの同期
+								size_t truncate = 0;
+								CTSMFParser::SyncPacket(pSys->m_FilterBuf.data() + rpos, pSys->m_FilterBuf.size() - rpos, &truncate, &pSys->m_PacketSize);
+								rpos += truncate;
+								if (truncate == 0)
+									// TSバッファのデータサイズが小さすぎて同期できない
+									break;
+							}
+							else if (pSys->m_FilterBuf[rpos] != CTSMFParser::TS_PACKET_SYNC_BYTE) {
+								// 同期外れ
+								pSys->m_PacketSize = 0;
+							}
+							else {
+								WORD pid = ((pSys->m_FilterBuf[rpos + 1] << 8) | pSys->m_FilterBuf[rpos + 2]) & 0x1fff;
+								if (pid != 0x1fff) {
+									// ヌルパケットでないので追加
+									memcpy(pBuff->pbyBuff + wpos, pSys->m_FilterBuf.data() + rpos, 188);
+									wpos += 188;
+								}
+								rpos += pSys->m_PacketSize;
+							}
+						}
+
+						pSys->m_FilterBuf.erase(pSys->m_FilterBuf.begin(), pSys->m_FilterBuf.begin() + rpos);
+						if (wpos > 0) {
+							pBuff->Size = wpos;
+							pSys->m_DecodedTsBuff.Add(pBuff);
+						}
+						else {
+							SAFE_DELETE(pBuff);
+						}
 					}
 					else {
 						// TSMFの処理を行わない場合はそのまま追加
@@ -1586,6 +1645,9 @@ void CBonTuner::ReadIniFile(void)
 	// WaitTsStream時ストリームデータバッファが貯まっていない場合に最低限待機する時間(msec)
 	// チューナのCPU負荷が高いときは100msec程度を指定すると効果がある場合もある
 	m_nWaitTsSleep = IniFileAccess.ReadKeyISectionData(L"WaitTsSleep", 100);
+
+	// ヌルパケットを削除するかどうか
+	m_bDeleteNullPackets = IniFileAccess.ReadKeyBSectionData(L"DeleteNullPackets", FALSE);
 
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
 	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", FALSE);

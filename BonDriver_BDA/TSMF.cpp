@@ -30,7 +30,7 @@ void CTSMFParser::Disable(void)
 	Clear();
 }
 
-void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen)
+void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen, BOOL deleteNullPackets)
 {
 	if (!buf || len <= 0)
 		return;
@@ -77,8 +77,10 @@ void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t *
 		}
 		// 同期できている
 		if (ParseOnePacket(readBuf.data() + readBufPos, readBuf.size() - readBufPos, onid, tsid, relative)) {
-			// 必要なTSMFフレームをテンポラリバッファへ追加
-			tempBuf.insert(tempBuf.end(), readBuf.begin() + readBufPos, readBuf.begin() + readBufPos + 188);
+			WORD pid = ((readBuf[readBufPos + 1] << 8) | readBuf[readBufPos + 2]) & 0x1fff;
+			if (!deleteNullPackets || pid != 0x1fff)
+				// 必要なTSMFフレームをテンポラリバッファへ追加
+				tempBuf.insert(tempBuf.end(), readBuf.begin() + readBufPos, readBuf.begin() + readBufPos + 188);
 		}
 		// 次のRead位置へ
 		readBufPos += PacketSize;
