@@ -10,6 +10,8 @@
 #include <string>
 #include <regex>
 
+#include <rpc.h>
+
 #include <DShow.h>
 
 #include "tswriter.h"
@@ -28,6 +30,8 @@
 
 #include "CIniFileAccess.h"
 #include "WaitWithMsg.h"
+
+#pragma comment(lib, "Rpcrt4.lib")
 
 #ifdef _DEBUG
 #pragma comment(lib, "strmbasd.lib")
@@ -136,6 +140,8 @@ CBonTuner::CBonTuner()
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
+	m_hPowerSetFlag(NULL),
+	m_hPowerSetLock(NULL),
 	m_dwROTRegister(0),
 	m_pDSFilterEnumTuner(NULL),
 	m_pDSFilterEnumCapture(NULL),
@@ -302,6 +308,8 @@ const BOOL CBonTuner::_OpenTuner(void)
 		// コールバック関数セット
 		StartRecv();
 
+		PowerSetOnOpened();
+
 		m_bOpened = TRUE;
 
 		return TRUE;
@@ -338,6 +346,8 @@ void CBonTuner::CloseTuner(void)
 void CBonTuner::_CloseTuner(void)
 {
 	m_bOpened = FALSE;
+
+	PowerSetOnClosing();
 
 	// グラフ停止
 	StopGraph();
@@ -1627,6 +1637,10 @@ void CBonTuner::ReadIniFile(void)
 
 	// フィルタグラフをRunningObjectTableに登録するかどうか
 	m_bRegisterGraphInROT = IniFileAccess.ReadKeyBSectionData(L"RegisterGraphInROT", FALSE);
+
+	// 電源プラン変更のGUID
+	m_sPowerSetOnOpenedGUID = IniFileAccess.ReadKeySSectionData(L"PowerSetOnOpenedGUID", L"");
+	m_sPowerSetOnClosingGUID = IniFileAccess.ReadKeySSectionData(L"PowerSetOnClosingGUID", L"");
 
 	//
 	// BonDriver セクション
@@ -2944,6 +2958,100 @@ void CBonTuner::ReadIniFile(void)
 		itSpaceEnd--;
 		m_TuningData.dwNumSpace = itSpaceEnd->first + 1;
 	}
+}
+
+void CBonTuner::PowerSetOnOpened(void)
+{
+	if (m_sPowerSetOnOpenedGUID.empty())
+		return;
+
+	// Null DACLのセキュリティ記述子 (TODO: Null DACLでなく必要なアクセス範囲に限るのが望ましい)
+	SECURITY_DESCRIPTOR sdNull = {};
+	if (!::InitializeSecurityDescriptor(&sdNull, SECURITY_DESCRIPTOR_REVISION) ||
+			!::SetSecurityDescriptorDacl(&sdNull, TRUE, NULL, FALSE)) {
+		OutputDebug(L"Security descriptor creation failed.\n");
+		return;
+	}
+	SECURITY_ATTRIBUTES saNull = {};
+	saNull.nLength = sizeof(saNull);
+	saNull.lpSecurityDescriptor = &sdNull;
+
+	// このAPIはVista以降
+	DWORD (WINAPI *funcPowerSetActiveScheme)(HKEY, const GUID *) = NULL;
+	HMODULE hModule = ::LoadLibraryW(L"powrprof.dll");
+	if (hModule)
+		funcPowerSetActiveScheme = (DWORD (WINAPI *)(HKEY, const GUID *))::GetProcAddress(hModule, "PowerSetActiveScheme");
+
+	if (!funcPowerSetActiveScheme) {
+		OutputDebug(L"PowerSetActiveScheme API not found.\n");
+		if (hModule)
+			::FreeLibrary(hModule);
+		return;
+	}
+
+	m_hPowerSetLock = ::CreateMutexW(&saNull, FALSE, POWER_SET_LOCK_NAME);
+	if (m_hPowerSetLock && ::WaitForSingleObject(m_hPowerSetLock, POWER_SET_WAIT_MSEC) == WAIT_OBJECT_0) {
+		BOOL bRet = FALSE;
+		// このオブジェクトは最後に閉じたかどうか知るための単なるフラグ
+		m_hPowerSetFlag = ::CreateMutexW(&saNull, FALSE, POWER_SET_FLAG_NAME);
+		if (m_hPowerSetFlag) {
+			// オブジェクトを生成したか既に生成済み
+			GUID guid;
+			bRet = ::UuidFromStringW((RPC_WSTR)m_sPowerSetOnOpenedGUID.c_str(), &guid) == RPC_S_OK &&
+				funcPowerSetActiveScheme(NULL, &guid) == 0;
+		}
+		::ReleaseMutex(m_hPowerSetLock);
+		OutputDebug(L"PowerSetActiveScheme(%s) %s.\n", m_sPowerSetOnOpenedGUID.c_str(), bRet ? L"success" : L"failed");
+	}
+	else {
+		OutputDebug(L"Cannot acquire %s.\n", POWER_SET_LOCK_NAME);
+	}
+
+	::FreeLibrary(hModule);
+}
+
+void CBonTuner::PowerSetOnClosing(void)
+{
+	if (!m_hPowerSetLock)
+		return;
+
+	// このAPIはVista以降
+	DWORD (WINAPI *funcPowerSetActiveScheme)(HKEY, const GUID *) = NULL;
+	HMODULE hModule = ::LoadLibraryW(L"powrprof.dll");
+	if (hModule)
+		funcPowerSetActiveScheme = (DWORD (WINAPI *)(HKEY, const GUID *))::GetProcAddress(hModule, "PowerSetActiveScheme");
+
+	if (m_hPowerSetFlag) {
+		if (::WaitForSingleObject(m_hPowerSetLock, POWER_SET_WAIT_MSEC) == WAIT_OBJECT_0) {
+			BOOL bRet = FALSE;
+			BOOL bLog = FALSE;
+			SAFE_CLOSE_HANDLE(m_hPowerSetFlag);
+			m_hPowerSetFlag = ::OpenMutexW(SYNCHRONIZE, FALSE, POWER_SET_FLAG_NAME);
+			if (!m_hPowerSetFlag) {
+				// オブジェクトを破棄した
+				if (!m_sPowerSetOnClosingGUID.empty()) {
+					GUID guid;
+					bRet = ::UuidFromStringW((RPC_WSTR)m_sPowerSetOnClosingGUID.c_str(), &guid) == RPC_S_OK &&
+						funcPowerSetActiveScheme &&
+						funcPowerSetActiveScheme(NULL, &guid) == 0;
+					bLog = TRUE;
+				}
+			}
+			SAFE_CLOSE_HANDLE(m_hPowerSetFlag);
+			::ReleaseMutex(m_hPowerSetLock);
+			if (bLog)
+				OutputDebug(L"PowerSetActiveScheme(%s) %s.\n", m_sPowerSetOnClosingGUID.c_str(), bRet ? L"success" : L"failed");
+		}
+		else {
+			OutputDebug(L"Cannot acquire %s.\n", POWER_SET_LOCK_NAME);
+			SAFE_CLOSE_HANDLE(m_hPowerSetFlag);
+		}
+	}
+
+	if (hModule)
+		::FreeLibrary(hModule);
+
+	SAFE_CLOSE_HANDLE(m_hPowerSetLock);
 }
 
 void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
