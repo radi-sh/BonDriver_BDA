@@ -10,6 +10,8 @@
 #include <string>
 #include <regex>
 
+#include <rpc.h>
+
 #include <DShow.h>
 
 #include "tswriter.h"
@@ -28,6 +30,8 @@
 
 #include "CIniFileAccess.h"
 #include "WaitWithMsg.h"
+
+#pragma comment(lib, "Rpcrt4.lib")
 
 #ifdef _DEBUG
 #pragma comment(lib, "strmbasd.lib")
@@ -122,6 +126,7 @@ CBonTuner::CBonTuner()
 	m_nMaxBuffCount(512),
 	m_nWaitTsCount(1),
 	m_nWaitTsSleep(100),
+	m_bDeleteNullPackets(FALSE),
 	m_bAlwaysAnswerLocked(FALSE),
 	m_nThreadPriorityCOM(THREAD_PRIORITY_ERROR_RETURN),
 	m_nThreadPriorityDecode(THREAD_PRIORITY_ERROR_RETURN),
@@ -135,10 +140,14 @@ CBonTuner::CBonTuner()
 	m_hStreamThread(NULL),
 	m_bIsSetStreamThread(FALSE),
 	m_hSemaphore(NULL),
+	m_hPowerSetFlag(NULL),
+	m_hPowerSetLock(NULL),
+	m_dwROTRegister(0),
 	m_pDSFilterEnumTuner(NULL),
 	m_pDSFilterEnumCapture(NULL),
 	m_nNetworkProvider(eNetworkProviderAuto),
 	m_nDefaultNetwork(eDefaultNetworkSPHD),
+	m_bRegisterGraphInROT(FALSE),
 	m_bOpened(FALSE),
 	m_dwTargetSpace(CBonTuner::SPACE_INVALID),
 	m_dwCurSpace(CBonTuner::SPACE_INVALID),
@@ -146,6 +155,8 @@ CBonTuner::CBonTuner()
 	m_dwCurChannel(CBonTuner::CHANNEL_INVALID),
 	m_nCurTone(CBonTuner::TONE_UNKNOWN),
 	m_bIsEnabledTSMF(FALSE),
+	m_lResetFilter(0),
+	m_PacketSize(0),
 	m_hModuleTunerSpecials(NULL),
 	m_pIBdaSpecials(NULL),
 	m_pIBdaSpecials2(NULL)
@@ -297,6 +308,8 @@ const BOOL CBonTuner::_OpenTuner(void)
 		// コールバック関数セット
 		StartRecv();
 
+		PowerSetOnOpened();
+
 		m_bOpened = TRUE;
 
 		return TRUE;
@@ -333,6 +346,8 @@ void CBonTuner::CloseTuner(void)
 void CBonTuner::_CloseTuner(void)
 {
 	m_bOpened = FALSE;
+
+	PowerSetOnClosing();
 
 	// グラフ停止
 	StopGraph();
@@ -523,6 +538,9 @@ void CBonTuner::PurgeTsStream(void)
 
 	// デコード後TSバッファ
 	m_DecodedTsBuff.Purge();
+
+	// ヌルパケット削除処理をリセット
+	::InterlockedExchange(&m_lResetFilter, 1);
 
 	// ビットレート計算用クラス
 	m_BitRate.Clear();
@@ -1057,12 +1075,65 @@ DWORD WINAPI CBonTuner::DecodeProcThread(LPVOID lpParameter)
 						// TSMFの処理を行う
 						BYTE * newBuf = NULL;
 						size_t newBufSize = 0;
-						pSys->m_TSMFParser.ParseTsBuffer(pBuff->pbyBuff, pBuff->Size, &newBuf, &newBufSize);
+						pSys->m_TSMFParser.ParseTsBuffer(pBuff->pbyBuff, pBuff->Size, &newBuf, &newBufSize, pSys->m_bDeleteNullPackets);
 						if (newBuf) {
 							TS_DATA * pNewTS = new TS_DATA(newBuf, (DWORD)newBufSize, FALSE);
 							pSys->m_DecodedTsBuff.Add(pNewTS);
 						}
 						SAFE_DELETE(pBuff);
+					}
+					else if (pSys->m_bDeleteNullPackets) {
+						if (::InterlockedExchange(&pSys->m_lResetFilter, 0)) {
+							// リセット
+							pSys->m_PacketSize = 0;
+							pSys->m_FilterBuf.clear();
+						}
+
+						// 基本的に取得データのメモリ領域を利用することでメモリ確保を省略するが
+						// 半端分が蓄積するときだけ領域を拡張して解消する
+						size_t sizeToExtend = pSys->m_FilterBuf.size() >= 188 * 16 ? pBuff->Size + 188 * 16 : 0;
+						pSys->m_FilterBuf.insert(pSys->m_FilterBuf.end(), pBuff->pbyBuff, pBuff->pbyBuff + pBuff->Size);
+						if (sizeToExtend > 0) {
+							// 拡張
+							SAFE_DELETE(pBuff);
+							pBuff = new TS_DATA(new BYTE[sizeToExtend], sizeToExtend, FALSE);
+						}
+
+						size_t rpos = 0;
+						size_t wpos = 0;
+						while (rpos + pSys->m_PacketSize <= pSys->m_FilterBuf.size() && wpos + 188 <= pBuff->Size) {
+							if (pSys->m_PacketSize == 0) {
+								// TSパケットの同期
+								size_t truncate = 0;
+								CTSMFParser::SyncPacket(pSys->m_FilterBuf.data() + rpos, pSys->m_FilterBuf.size() - rpos, &truncate, &pSys->m_PacketSize);
+								rpos += truncate;
+								if (truncate == 0)
+									// TSバッファのデータサイズが小さすぎて同期できない
+									break;
+							}
+							else if (pSys->m_FilterBuf[rpos] != CTSMFParser::TS_PACKET_SYNC_BYTE) {
+								// 同期外れ
+								pSys->m_PacketSize = 0;
+							}
+							else {
+								WORD pid = ((pSys->m_FilterBuf[rpos + 1] << 8) | pSys->m_FilterBuf[rpos + 2]) & 0x1fff;
+								if (pid != 0x1fff) {
+									// ヌルパケットでないので追加
+									memcpy(pBuff->pbyBuff + wpos, pSys->m_FilterBuf.data() + rpos, 188);
+									wpos += 188;
+								}
+								rpos += pSys->m_PacketSize;
+							}
+						}
+
+						pSys->m_FilterBuf.erase(pSys->m_FilterBuf.begin(), pSys->m_FilterBuf.begin() + rpos);
+						if (wpos > 0) {
+							pBuff->Size = wpos;
+							pSys->m_DecodedTsBuff.Add(pBuff);
+						}
+						else {
+							SAFE_DELETE(pBuff);
+						}
 					}
 					else {
 						// TSMFの処理を行わない場合はそのまま追加
@@ -1564,6 +1635,13 @@ void CBonTuner::ReadIniFile(void)
 	// 衛星受信パラメータ/変調方式パラメータのデフォルト値
 	m_nDefaultNetwork = (enumDefaultNetwork)IniFileAccess.ReadKeyIValueMapSectionData(L"DefaultNetwork", enumDefaultNetwork::eDefaultNetworkSPHD, mapDefaultNetwork);
 
+	// フィルタグラフをRunningObjectTableに登録するかどうか
+	m_bRegisterGraphInROT = IniFileAccess.ReadKeyBSectionData(L"RegisterGraphInROT", FALSE);
+
+	// 電源プラン変更のGUID
+	m_sPowerSetOnOpenedGUID = IniFileAccess.ReadKeySSectionData(L"PowerSetOnOpenedGUID", L"");
+	m_sPowerSetOnClosingGUID = IniFileAccess.ReadKeySSectionData(L"PowerSetOnClosingGUID", L"");
+
 	//
 	// BonDriver セクション
 	//
@@ -1586,6 +1664,9 @@ void CBonTuner::ReadIniFile(void)
 	// WaitTsStream時ストリームデータバッファが貯まっていない場合に最低限待機する時間(msec)
 	// チューナのCPU負荷が高いときは100msec程度を指定すると効果がある場合もある
 	m_nWaitTsSleep = IniFileAccess.ReadKeyISectionData(L"WaitTsSleep", 100);
+
+	// ヌルパケットを削除するかどうか
+	m_bDeleteNullPackets = IniFileAccess.ReadKeyBSectionData(L"DeleteNullPackets", FALSE);
 
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
 	m_bAlwaysAnswerLocked = IniFileAccess.ReadKeyBSectionData(L"AlwaysAnswerLocked", FALSE);
@@ -2879,6 +2960,100 @@ void CBonTuner::ReadIniFile(void)
 	}
 }
 
+void CBonTuner::PowerSetOnOpened(void)
+{
+	if (m_sPowerSetOnOpenedGUID.empty())
+		return;
+
+	// Null DACLのセキュリティ記述子 (TODO: Null DACLでなく必要なアクセス範囲に限るのが望ましい)
+	SECURITY_DESCRIPTOR sdNull = {};
+	if (!::InitializeSecurityDescriptor(&sdNull, SECURITY_DESCRIPTOR_REVISION) ||
+			!::SetSecurityDescriptorDacl(&sdNull, TRUE, NULL, FALSE)) {
+		OutputDebug(L"Security descriptor creation failed.\n");
+		return;
+	}
+	SECURITY_ATTRIBUTES saNull = {};
+	saNull.nLength = sizeof(saNull);
+	saNull.lpSecurityDescriptor = &sdNull;
+
+	// このAPIはVista以降
+	DWORD (WINAPI *funcPowerSetActiveScheme)(HKEY, const GUID *) = NULL;
+	HMODULE hModule = ::LoadLibraryW(L"powrprof.dll");
+	if (hModule)
+		funcPowerSetActiveScheme = (DWORD (WINAPI *)(HKEY, const GUID *))::GetProcAddress(hModule, "PowerSetActiveScheme");
+
+	if (!funcPowerSetActiveScheme) {
+		OutputDebug(L"PowerSetActiveScheme API not found.\n");
+		if (hModule)
+			::FreeLibrary(hModule);
+		return;
+	}
+
+	m_hPowerSetLock = ::CreateMutexW(&saNull, FALSE, POWER_SET_LOCK_NAME);
+	if (m_hPowerSetLock && ::WaitForSingleObject(m_hPowerSetLock, POWER_SET_WAIT_MSEC) == WAIT_OBJECT_0) {
+		BOOL bRet = FALSE;
+		// このオブジェクトは最後に閉じたかどうか知るための単なるフラグ
+		m_hPowerSetFlag = ::CreateMutexW(&saNull, FALSE, POWER_SET_FLAG_NAME);
+		if (m_hPowerSetFlag) {
+			// オブジェクトを生成したか既に生成済み
+			GUID guid;
+			bRet = ::UuidFromStringW((RPC_WSTR)m_sPowerSetOnOpenedGUID.c_str(), &guid) == RPC_S_OK &&
+				funcPowerSetActiveScheme(NULL, &guid) == 0;
+		}
+		::ReleaseMutex(m_hPowerSetLock);
+		OutputDebug(L"PowerSetActiveScheme(%s) %s.\n", m_sPowerSetOnOpenedGUID.c_str(), bRet ? L"success" : L"failed");
+	}
+	else {
+		OutputDebug(L"Cannot acquire %s.\n", POWER_SET_LOCK_NAME);
+	}
+
+	::FreeLibrary(hModule);
+}
+
+void CBonTuner::PowerSetOnClosing(void)
+{
+	if (!m_hPowerSetLock)
+		return;
+
+	// このAPIはVista以降
+	DWORD (WINAPI *funcPowerSetActiveScheme)(HKEY, const GUID *) = NULL;
+	HMODULE hModule = ::LoadLibraryW(L"powrprof.dll");
+	if (hModule)
+		funcPowerSetActiveScheme = (DWORD (WINAPI *)(HKEY, const GUID *))::GetProcAddress(hModule, "PowerSetActiveScheme");
+
+	if (m_hPowerSetFlag) {
+		if (::WaitForSingleObject(m_hPowerSetLock, POWER_SET_WAIT_MSEC) == WAIT_OBJECT_0) {
+			BOOL bRet = FALSE;
+			BOOL bLog = FALSE;
+			SAFE_CLOSE_HANDLE(m_hPowerSetFlag);
+			m_hPowerSetFlag = ::OpenMutexW(SYNCHRONIZE, FALSE, POWER_SET_FLAG_NAME);
+			if (!m_hPowerSetFlag) {
+				// オブジェクトを破棄した
+				if (!m_sPowerSetOnClosingGUID.empty()) {
+					GUID guid;
+					bRet = ::UuidFromStringW((RPC_WSTR)m_sPowerSetOnClosingGUID.c_str(), &guid) == RPC_S_OK &&
+						funcPowerSetActiveScheme &&
+						funcPowerSetActiveScheme(NULL, &guid) == 0;
+					bLog = TRUE;
+				}
+			}
+			SAFE_CLOSE_HANDLE(m_hPowerSetFlag);
+			::ReleaseMutex(m_hPowerSetLock);
+			if (bLog)
+				OutputDebug(L"PowerSetActiveScheme(%s) %s.\n", m_sPowerSetOnClosingGUID.c_str(), bRet ? L"success" : L"failed");
+		}
+		else {
+			OutputDebug(L"Cannot acquire %s.\n", POWER_SET_LOCK_NAME);
+			SAFE_CLOSE_HANDLE(m_hPowerSetFlag);
+		}
+	}
+
+	if (hModule)
+		::FreeLibrary(hModule);
+
+	SAFE_CLOSE_HANDLE(m_hPowerSetLock);
+}
+
 void CBonTuner::GetSignalState(int* pnStrength, int* pnQuality, int* pnLock)
 {
 	if (pnStrength) *pnStrength = 0;
@@ -3484,6 +3659,24 @@ HRESULT CBonTuner::InitializeGraphBuilder(void)
 			hr = E_FAIL;
 		}
 		else {
+			if (m_bRegisterGraphInROT) {
+				std::wstring name = common::WStringPrintf(L"FilterGraph %p pid %08x", pIGraphBuilder.p, ::GetCurrentProcessId());
+				IRunningObjectTable * pROT;
+				if (SUCCEEDED(::GetRunningObjectTable(0, &pROT))) {
+					IMoniker * pMoniker;
+					if (SUCCEEDED(::CreateItemMoniker(L"!", name.c_str(), &pMoniker))) {
+						if (FAILED(pROT->Register(ROTFLAGS_REGISTRATIONKEEPSALIVE, pIGraphBuilder, pMoniker, &m_dwROTRegister)))
+							m_dwROTRegister = 0;
+						pMoniker->Release();
+					}
+					pROT->Release();
+				}
+				if (m_dwROTRegister == 0)
+					OutputDebug(L"ROT registration failed.\n");
+				else
+					OutputDebug(L"ROT registration success. entry=%u (%s).\n", m_dwROTRegister, name.c_str());
+			}
+
 			// 成功なのでこのまま終了
 			m_pIGraphBuilder = pIGraphBuilder;
 			m_pIMediaControl = pIMediaControl;
@@ -3515,6 +3708,15 @@ void CBonTuner::CleanupGraph(void)
 
 	UnloadNetworkProvider();
 	UnloadTuningSpace();
+
+	if (m_dwROTRegister != 0) {
+		IRunningObjectTable * pROT;
+		if (SUCCEEDED(::GetRunningObjectTable(0, &pROT))) {
+			pROT->Revoke(m_dwROTRegister);
+			pROT->Release();
+		}
+		m_dwROTRegister = 0;
+	}
 
 	m_pIMediaControl.Release();
 	m_pIGraphBuilder.Release();

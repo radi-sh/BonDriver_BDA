@@ -9,24 +9,20 @@ CTSMFParser::CTSMFParser(void)
 	TSID(0xffff),
 	ONID(0xffff),
 	IsRelative(FALSE),
-	PacketSize(0),
-	prevBuf(NULL),
-	prevBufSize(0),
-	prevBufPos(0)
+	IsClearCalled(FALSE),
+	PacketSize(0)
 {
+	::InitializeCriticalSection(&csClear);
 }
 
 CTSMFParser::~CTSMFParser(void)
 {
+	::DeleteCriticalSection(&csClear);
 }
 
 void CTSMFParser::SetTSID(WORD onid, WORD tsid, BOOL relative)
 {
-	Clear();
-	ONID = onid;
-	TSID = tsid;
-	IsRelative = relative;
-	slot_counter = -1;
+	Clear(onid, tsid, relative);
 }
 
 void CTSMFParser::Disable(void)
@@ -34,96 +30,92 @@ void CTSMFParser::Disable(void)
 	Clear();
 }
 
-void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen)
+void CTSMFParser::ParseTsBuffer(BYTE * buf, size_t len, BYTE ** newBuf, size_t * newBufLen, BOOL deleteNullPackets)
 {
 	if (!buf || len <= 0)
 		return;
 
-	// 前回の残りデータと新規データを結合して新しいReadバッファを作成
-	size_t readBufSize = (prevBufSize - prevBufPos) + len;
-	size_t readBufPos = 0;
-	BYTE * readBuf = new BYTE[readBufSize];
-	if (prevBuf) {
-		// 前回の残りデータをコピー
-		memcpy(readBuf, prevBuf + prevBufPos, prevBufSize - prevBufPos);
-		// 前回の残りデータを破棄
-		SAFE_DELETE_ARRAY(prevBuf);
-	}
-	// 新規データをコピー
-	memcpy(readBuf + (prevBufSize - prevBufPos), buf, len);
+	::EnterCriticalSection(&csClear);
+	WORD onid = ONID;
+	WORD tsid = TSID;
+	BOOL relative = IsRelative;
+	BOOL clearCalled = IsClearCalled;
+	IsClearCalled = FALSE;
+	::LeaveCriticalSection(&csClear);
 
-	// Write用テンポラリバッファを作成
-	size_t tempBufPos = 0;
-	BYTE * tempBuf = new BYTE[readBufSize];
+	if (clearCalled) {
+		// TSMF多重フレームの同期情報をクリア
+		slot_counter = -1;
+
+		// TSパケット同期情報をクリア
+		PacketSize = 0;
+
+		// 未処理TSパケットバッファをクリア
+		readBuf.clear();
+	}
+
+	// 前回の残りデータと新規データを結合して新しいReadバッファを作成
+	readBuf.insert(readBuf.end(), buf, buf + len);
+	size_t readBufPos = 0;
+
+	// Write用テンポラリバッファをクリア
+	tempBuf.clear();
 
 	// Readバッファを処理
-	while (readBufSize - readBufPos > PacketSize) {
+	while (readBuf.size() - readBufPos > PacketSize) {
 		if (PacketSize == 0) {
 			// TSパケットの同期
 			size_t truncate = 0;	// 切捨てサイズ
-			SyncPacket(readBuf + readBufPos, readBufSize - readBufPos, &truncate, &PacketSize);
+			SyncPacket(readBuf.data() + readBufPos, readBuf.size() - readBufPos, &truncate, &PacketSize);
 			// TSパケット先頭までのデータを切り捨てる
 			readBufPos += truncate;
-			if (PacketSize == 0)
+			if (truncate == 0)
 				// TSバッファのデータサイズが小さすぎて同期できない
 				break;
 
 			continue;
 		}
 		// 同期できている
-		if (ParseOnePacket(readBuf + readBufPos, readBufSize - readBufPos)) {
-			// 必要なTSMFフレームをテンポラリバッファへ追加
-			memcpy(tempBuf + tempBufPos, readBuf + readBufPos, 188);
-			tempBufPos += 188;
+		if (ParseOnePacket(readBuf.data() + readBufPos, readBuf.size() - readBufPos, onid, tsid, relative)) {
+			WORD pid = ((readBuf[readBufPos + 1] << 8) | readBuf[readBufPos + 2]) & 0x1fff;
+			if (!deleteNullPackets || pid != 0x1fff)
+				// 必要なTSMFフレームをテンポラリバッファへ追加
+				tempBuf.insert(tempBuf.end(), readBuf.begin() + readBufPos, readBuf.begin() + readBufPos + 188);
 		}
 		// 次のRead位置へ
 		readBufPos += PacketSize;
 	}
 
 	// Write用テンポラリバッファが空でなければResult用バッファを作成
-	if (tempBufPos > 0) {
-		BYTE * resultBuf = new BYTE[tempBufPos];
-		memcpy(resultBuf, tempBuf, tempBufPos);
-		*newBuf = resultBuf;
-		*newBufLen = tempBufPos;
+	if (!tempBuf.empty()) {
+		::EnterCriticalSection(&csClear);
+		clearCalled = IsClearCalled;
+		::LeaveCriticalSection(&csClear);
+
+		// 途中でクリアされたら捨てる
+		if (!clearCalled) {
+			BYTE * resultBuf = new BYTE[tempBuf.size()];
+			memcpy(resultBuf, tempBuf.data(), tempBuf.size());
+			*newBuf = resultBuf;
+			*newBufLen = tempBuf.size();
+		}
 	}
-	// Write用テンポラリバッファを破棄
-	SAFE_DELETE_ARRAY(tempBuf);
 
 	// 半端なTSデータが残っている場合は次回処理用に保存
-	if (readBuf && readBufSize - readBufPos > 0) {
-		// 残りのTSデータを保存
-		prevBuf = readBuf;
-		prevBufSize = readBufSize;
-		prevBufPos = readBufPos;
-	}
-	else {
-		// 全て使用済みのバッファは破棄
-		SAFE_DELETE_ARRAY(readBuf);
-		prevBufSize = 0;
-		prevBufPos = 0;
-	}
+	readBuf.erase(readBuf.begin(), readBuf.begin() + readBufPos);
 
 	return;
 }
 
-void CTSMFParser::Clear(void)
+void CTSMFParser::Clear(WORD onid, WORD tsid, BOOL relative)
 {
-	// ストリーム識別子を消去
-	ONID = 0xffff;
-	TSID = 0xffff;
-	IsRelative = FALSE;
-
-	// TSMF多重フレームの同期情報をクリア
-	slot_counter = -1;
-
-	// TSパケット同期情報をクリア
-	PacketSize = 0;
-
-	// 未処理TSパケットバッファをクリア
-	SAFE_DELETE_ARRAY(prevBuf);
-	prevBufSize = 0;
-	prevBufPos = 0;
+	// ストリーム識別子を消去または変更
+	::EnterCriticalSection(&csClear);
+	ONID = onid;
+	TSID = tsid;
+	IsRelative = relative;
+	IsClearCalled = TRUE;
+	::LeaveCriticalSection(&csClear);
 }
 
 BOOL CTSMFParser::ParseTSMFHeader(const BYTE * buf, size_t len)
@@ -198,19 +190,16 @@ BOOL CTSMFParser::ParseTSMFHeader(const BYTE * buf, size_t len)
 	return TRUE;
 }
 
-BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len)
+BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len, WORD onid, WORD tsid, BOOL relative)
 {
 	if (buf[0] != TS_PACKET_SYNC_BYTE) {
 		// TSパケットの同期外れ
 		PacketSize = 0;
-		SAFE_DELETE_ARRAY(prevBuf);
-		prevBufSize = 0;
-		prevBufPos = 0;
 		slot_counter = -1;
 		return FALSE;
 	}
 
-	if (TSID == 0xffff)
+	if (tsid == 0xffff)
 		// TSID指定が0xffffならば全てのスロットを返す
 		return TRUE;
 
@@ -227,14 +216,14 @@ BOOL CTSMFParser::ParseOnePacket(const BYTE * buf, size_t len)
 	slot_counter++;
 
 	int ts_number = 0;
-	if (IsRelative) {
+	if (relative) {
 		// 相対TS番号を直接指定
-		ts_number = (int)TSID + 1;
+		ts_number = (int)tsid + 1;
 	}
 	else {
 		// ONIDとTSIDで指定
 		for (int i = 0; i < 15; i++) {
-			if (TSMFData.stream_info[i].stream_id == TSID && (ONID == 0xffff || TSMFData.stream_info[i].original_network_id == ONID)) {
+			if (TSMFData.stream_info[i].stream_id == tsid && (onid == 0xffff || TSMFData.stream_info[i].original_network_id == onid)) {
 				ts_number = i + 1;
 				break;
 			}

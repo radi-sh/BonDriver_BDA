@@ -117,6 +117,10 @@ protected:
 	// ini ファイル読込
 	void ReadIniFile(void);
 
+	// 電源プラン変更用
+	void PowerSetOnOpened(void);
+	void PowerSetOnClosing(void);
+
 	// 信号状態を取得
 	void GetSignalState(int* pnStrength, int* pnQuality, int* pnLock);
 
@@ -574,6 +578,9 @@ protected:
 	// WaitTsStreamで最低限待機する時間
 	unsigned int m_nWaitTsSleep;
 
+	// ヌルパケットを削除するかどうか
+	BOOL m_bDeleteNullPackets;
+
 	// SetChannel()でチャンネルロックに失敗した場合でもFALSEを返さないようにするかどうか
 	BOOL m_bAlwaysAnswerLocked;
 
@@ -842,6 +849,16 @@ protected:
 	// チューナデバイス排他処理用
 	HANDLE m_hSemaphore;
 
+	// 電源プラン変更用のミューテックスオブジェクト名
+	// 他ツールと協調する場合に備えて、一般的な名前"PowerSet～"にランダムGUIDを付加して命名
+	static constexpr WCHAR POWER_SET_FLAG_NAME[] = L"Global\\PowerSetFlag-D112FE9C-2CC3-4AEE-83E3-458C65CF592C";
+	static constexpr WCHAR POWER_SET_LOCK_NAME[] = L"Global\\PowerSetLock-D112FE9C-2CC3-4AEE-83E3-458C65CF592C";
+	static constexpr DWORD POWER_SET_WAIT_MSEC = 10000;
+
+	// 電源プラン変更用
+	HANDLE m_hPowerSetFlag;
+	HANDLE m_hPowerSetLock;
+
 	// Graph
 	CComPtr<IGraphBuilder> m_pIGraphBuilder;	// Filter Graph Manager の IGraphBuilder interface
 	CComPtr<IMediaControl> m_pIMediaControl;	// Filter Graph Manager の IMediaControl interface
@@ -853,6 +870,9 @@ protected:
 	CComPtr<ITsWriter> m_pITsWriter;			// CTsWriter の ITsWriter interface
 	CComPtr<IBaseFilter> m_pDemux;				// MPEG2 Demultiplexer の IBaseFilter interface
 	CComPtr<IBaseFilter> m_pTif;				// MPEG2 Transport Information Filter の IBaseFilter interface
+
+	// RunningObjectTableの登録ID
+	DWORD m_dwROTRegister;
 
 	// チューナ信号状態取得用インターフェース
 	CComPtr<IBDA_SignalStatistics> m_pIBDA_SignalStatisticsTunerNode;
@@ -1038,6 +1058,13 @@ protected:
 	};
 	enumDefaultNetwork m_nDefaultNetwork;
 
+	// フィルタグラフをRunningObjectTableに登録するかどうか
+	BOOL m_bRegisterGraphInROT;
+
+	// 電源プラン変更のGUID
+	std::wstring m_sPowerSetOnOpenedGUID;
+	std::wstring m_sPowerSetOnClosingGUID;
+
 	// Tuner is opened
 	BOOL m_bOpened;
 
@@ -1067,6 +1094,15 @@ protected:
 
 	// TSMF処理が必要
 	BOOL m_bIsEnabledTSMF;
+
+	// ヌルパケット削除処理をリセット
+	LONG m_lResetFilter;
+
+	// TSパケットサイズ(ヌルパケット削除用)
+	size_t m_PacketSize;
+
+	// 前回処理したTSパケットバッファおよび作業用(ヌルパケット削除用)
+	std::vector<BYTE> m_FilterBuf;
 
 	// 最後にLockChannelを行った時のチューニングパラメータ
 	TuningParam m_LastTuningParam;
